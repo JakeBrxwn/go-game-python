@@ -1,0 +1,408 @@
+import pytest
+from base import GoBase
+from go import Go
+import csv
+
+###
+# Helper functions for test functions
+###
+
+def apply_moves(game: Go, moves: list[tuple[int, int]]) -> None:
+    """
+    Helper function to apply a sequence of moves to a Go game.
+
+    Args:
+        game (GoFake): The Go game instance
+        moves (list of tuple[int, int]): A list of moves to apply
+
+    """
+    for move in moves:
+        game.apply_move(move)
+
+def parse_moves(moves_str) -> tuple[int, int]:
+    """
+    Helper function that splits semicolon-connected string into list of tuples
+    Args: moves_str [str] : no whitespace, semicolon-connected string
+    of tuples
+    Returns: tuple[int, int] : tuple of moves
+    """
+    return [tuple(map(int, t.split(','))) for t in moves_str.split(';') if t]
+
+def set_up_test(g: Go, test_name: str) -> None:
+    """
+    Helper function that gets string represention of moves needed to set up
+    the position for desired test
+    Args: test_name [str] : the test name that corresponds to row in test 
+    positions text file
+    """
+    with open("tests/test_positions.txt", mode = 'r') as file:
+        reader = csv.DictReader(file, delimiter = '|')
+        moves = []
+        for row in reader:
+            if row['TEST_NAME'] == test_name:
+                moves = parse_moves(row['MOVES'])
+                break   
+        initial_board = [[None for _ in range(g.side)] for _ in range(g.side)]
+        turn = 1
+        for move in moves:
+            row, col = move
+            initial_board[row][col] = turn
+            turn += 1
+            if turn > g.num_players:
+                turn = turn % g.num_players
+        g.load_game(turn, initial_board)
+
+
+###
+# Constructor and properties tests
+###
+
+### Property Helper functions
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (9, 3), (9, 4), 
+    (13, 2), (13, 3), (13, 4), 
+    (19, 2), (19, 3), (19, 4)
+])
+def test_side(side: int, num_players: int) -> None:
+    """
+    Check side initialization
+    """
+    g = Go(side, num_players)
+    assert g.side == side
+
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (9, 3), (9, 4), 
+    (13, 2), (13, 3), (13, 4), 
+    (19, 2), (19, 3), (19, 4)
+])
+def test_num_players(side: int, num_players: int) -> None:
+    """
+    Check num_players initialization
+    """
+    g = Go(side, num_players)
+    assert g.num_players == num_players
+
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (13, 2), (19, 2)
+])
+def test_turn(side: int, num_players: int) -> None:
+    """
+    Check turn initialization
+    """
+    g = Go(side, num_players)
+    assert g.turn == 1
+
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (13, 2), (19, 2)
+])
+def test_piece_at(side: int, num_players: int) -> None:
+    """
+    Check no pieces placed at start
+    """
+    g = Go(side, num_players)
+    for row in range(side):
+        for col in range(side):
+            assert g.piece_at((row, col)) is None
+
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (13, 2), (19, 2)
+])
+def test_legal_move(side: int, num_players: int) -> None:
+    """
+    Check all moves are legal at start
+    """
+    g = Go(side, num_players)
+    for row in range(side):
+        for col in range(side):
+            assert g.legal_move((row, col)) == True
+
+@pytest.mark.parametrize("side, num_players", [
+    (9, 2), (13, 2), (19, 2)
+])
+def test_available_moves(side: int, num_players: int) -> None:
+    """
+    Check all moves are available at start
+    """
+    g = Go(side, num_players)
+    assert len(g.available_moves) == side * side
+
+###
+# Tests on placement, capturing, passing, ko/superko, scoring
+###
+
+def test_19x19_illegal_move_with_load_game() -> None:
+    """Check can't place piece on top of another one using load_game"""
+    g = Go(19, 2)  # Initialize the Go game with a 19x19 board and 2 players.
+
+    set_up_test(g, "test_19x19_illegal_move_with_load_game")
+
+    assert g.legal_move((0, 0)) == False
+
+def test_19x19_pass() -> None:
+    """Check pass and turn update"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_pass")
+    g.pass_turn()
+    assert g.turn == 1
+
+def test_19x19_pass_twice() -> None:
+    """Check passing twice ends game"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_pass_twice")
+    g.pass_turn()
+    g.pass_turn()
+    assert g.done == True
+
+def test_19x19_capture() -> None:
+    """Check single capture"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_capture")
+    g.apply_move((0, 1))
+    assert g.piece_at((0, 0)) is None
+
+def test_19x19_captures() -> None:
+    """Check multiple captures"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_captures")
+    g.apply_move((0, 2))
+    assert g.piece_at((0, 0)) is None and g.piece_at((0, 1)) is None
+
+def test_19x19_ten_captures() -> None:
+    """Checks execution of capturing ten pieces"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_ten_captures")
+    g.apply_move((0,10))
+    for i in range(10):
+        assert g.piece_at((0, i)) is None
+
+def test_19x19_ko() -> None:
+    """
+    Check enforcement of ko
+    Note we cannot use set_up_test/load_game here as the game needs memory
+    """
+    g = Go(19, 2)
+    moves = [(1, 0), (2, 0), (0, 1), (3, 1), (1, 2), (2, 2), (2, 1), (1, 1)]
+    apply_moves(g, moves)
+    assert g.legal_move((2, 1)) == False
+
+def test_19x19_super_ko() -> None:
+    """
+    Check enforcement of superko
+    Note we cannot use set_up_test/load_game here as the game needs memory
+    """
+    g = Go(19, 2, True)
+    moves = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2), (2, 1),
+             (2, 3), (1, 3), (1, 1)]
+    apply_moves(g, moves)
+    assert g.legal_move((1, 2)) == False
+
+def test_19x19_scores() -> None:
+    """Check scores without territory"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_scores")
+    assert g.scores()[1] == 3 and g.scores()[2] == 3
+
+def test_19x19_scores_with_territory() -> None:
+    """Check scores with territory"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_scores_with_territory")
+    assert g.scores()[1] == 4 and g.scores()[2] == 2
+
+def test_19x19_multiple_territories_two_player() -> None:
+    """Check scoring of multiple territories"""
+    g=Go(19,2)
+    set_up_test(g, "test_19x19_multiple_territories_two_player")
+    assert g.scores()[1] == 7 and g.scores()[2] == 7
+
+def test_19x19_multiple_territories_three_player() -> None:
+    """Check scoring of multiple terrirtories"""
+    g = Go(19,3)
+    set_up_test(g, "test_19x19_multiple_territories_three_player")
+    assert g.scores()[1] == 5 and g.scores()[2] == 4 and g.scores()[3] == 4
+
+def test_19x19_outcome() -> None:
+    """Check outcome for three player"""
+    g = Go(19, 2)
+    set_up_test(g, "test_19x19_outcome")
+    g.pass_turn()
+    g.pass_turn()
+    assert g.outcome == [1]
+
+def test_19x19_three_player() -> None:
+    """
+    Check piece placement for three player
+    Note we cannot use load game as test function needs to know which moves
+    were played
+    """
+    g = Go(19, 3)
+    moves = [(0, 0), (1, 1), (2,2)]
+    apply_moves(g, moves)
+    for move in moves:
+        assert g.piece_at(move) is not None
+
+def test_19x19_three_player_pass() -> None:
+    """Check that three passes results in game over"""
+    g = Go(19, 3)
+    set_up_test(g, "test_19x19_three_player_pass")
+    g.pass_turn()
+    g.pass_turn()
+    g.pass_turn()
+    assert g.done == True
+
+###
+# Tests on grid property
+###
+
+def test_grid_1() -> None:
+    """Check that grid for an empty game is exported correctly"""
+    go = Go(19, 2)
+    grid = go.grid
+    for row in range(go.side):
+        for col in range(go.side):
+            assert grid[row][col] is None
+
+
+def test_grid_2() -> None:
+    """
+    Check that grid returns a deep copy of the board's grid,
+    and that modifying grid's return value doesn't modify
+    the game's board
+    """
+    go = Go(19, 2)
+    grid = go.grid
+    grid[5][5] = 1
+    assert go.piece_at((5, 5)) is None, (
+        "grid() returned a shallow copy of the game's board. "
+        "Modifying the return value of grid() should not "
+        "affect the game's board."
+    )
+
+def test_grid_3() -> None:
+    """
+    Check that grid returns a correct copy of the board after making
+    a few moves (none of the moves will result in a capture)
+    """
+    go = Go(19, 2)
+    set_up_test(go, "test_grid_3")
+    grid = go.grid
+    for row in range(go.side):
+        for col in range(go.side):
+            assert grid[row][col] == go.piece_at((row, col))
+
+###
+# Tests on simulate_move
+###
+
+def test_simulate_move_1() -> None:
+    """
+    Test that simulating a move creates a new game
+    """
+    go = Go(19, 2)
+    new_go = go.simulate_move((5, 5))
+
+    # Check that the original Go object has not been modified
+    assert go.piece_at((5, 5)) is None
+    assert go.turn == 1
+
+    # Check that the move was applied in the new Go object
+    assert new_go.piece_at((5, 5)) == 1
+    assert new_go.turn == 2
+
+def test_simulate_move_2() -> None:
+    """
+    After making a few moves, check that simulating a move
+    correctly creates a new game.
+    Note that we cannot use load_game here since the function requires knowing
+    the move list
+    """
+    initial_moves = [
+        (3, 3),
+        (6, 16),
+        (1, 1),
+        (13, 0),
+        (16, 1),
+        (18, 15),
+        (13, 14),
+        (2, 10),
+        (1, 17),
+        (3, 13),
+        (11, 2),
+        (2, 8),
+        (13, 11),
+        (11, 0),
+        (4, 17),
+        (3, 6),
+        (16, 2),
+        (5, 2),
+        (14, 8),
+        (13, 2),
+    ]
+
+    go = Go(19, 2)
+    for move in initial_moves:
+        go.apply_move(move)
+    new_go = go.simulate_move((5, 5))
+
+    # Check that the original GoFake object has not been modified
+    assert go.piece_at((5, 5)) is None
+    for move in initial_moves:
+        assert go.piece_at(move) is not None
+    assert go.turn == 1
+
+    # Check that the move was applied in the new GoFake object
+    assert new_go.piece_at((5, 5)) == 1
+    for move in initial_moves:
+        assert new_go.piece_at(move) is not None
+    assert new_go.turn == 2
+
+
+def test_simulate_move_3() -> None:
+    """
+    Apply simulate move to result in a piece capture. Verify that the piece has
+    not been captured in the original board, and only in the simulated board
+    """
+    go = Go(19, 2)
+    set_up_test(go, "test_simulate_move_3")
+
+    assert go.piece_at((0,0)) == 2
+
+    new_go = go.simulate_move((1, 0))
+
+    # Check that the original Go object has not been modified
+    assert go.piece_at((0, 0)) == 2
+    assert go.piece_at((1, 0)) is None
+    assert go.turn == 1
+
+    # Check that the move was applied in the new Go object
+    assert new_go.piece_at((0, 0)) is None
+    assert new_go.piece_at((1, 0)) == 1
+    assert new_go.turn == 2
+
+
+def test_simulate_move_4() -> None:
+    """
+    Check that simulating a pass works correctly.
+    """
+    go = Go(19, 2)
+    new_go = go.simulate_move(None)
+
+    # Check that the original Go object has not been modified
+    assert go.turn == 1
+
+    # Check that the pass was applied in the new Go object
+    assert new_go.turn == 2
+
+
+def test_simulate_move_5() -> None:
+    """
+    Check that simulating two consecutive passes works correctly.
+    """
+    go = Go(19, 2)
+    new_go = go.simulate_move(None).simulate_move(None)
+
+    # Check that the original Go object has not been modified
+    assert go.turn == 1
+    assert not go.done
+
+    # Check that the passes were applied in the new Go object
+    assert new_go.done

@@ -1,0 +1,15 @@
+TEST_NAME|MOVES
+test_19x19_illegal_move_with_load_game|0,0
+test_19x19_pass|0,0
+test_19x19_pass_twice|0,0
+test_19x19_capture|0,0;1,0;1,1
+test_19x19_captures|0,0;1,0;0,1;1,1;3,0
+test_19x19_ten_captures|1,0;0,0;1,1;0,1;1,2;0,2;1,3;0,3;1,4;0,4;1,5;0,5;1,6;0,6;1,7;0,7;1,8;0,8;1,9;0,9
+test_19x19_scores|0,0;0,2;2,0;0,4;4,0;0,6
+test_19x19_scores_with_territory|0,0;0,1;1,1;0,2;2,0
+test_19x19_multiple_territories_two_player|0,1;18,17;1,0;17,18;3,1;3,0;3,2;4,2;5,2;5,1;5,0;4,0
+test_19x19_multiple_territories_three_player|0,1;17,0;0,17;1,0;18,1;1,18;0,4;1,5;3,4;1,3
+test_19x19_outcome|0,0;0,1;1,1;0,2;2,0
+test_19x19_three_player_pass|0,0
+test_grid_3|3,3;6,16;1,1;13,0;16,1;18,15;13,14;2,10;1,17;3,13;11,2;2,8;13,11;11,0;4,17;3,6;16,2;5,2;14,8;12,2
+test_simulate_move_3|0,1;0,0
