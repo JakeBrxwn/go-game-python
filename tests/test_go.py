@@ -475,6 +475,12 @@ def test_scores_open_board() -> None:
     apply_moves(go, [(5, 5), (5, 8), (5, 6)])
     assert go.scores() == {1: 2, 2: 1}
 
+def test_lone_stone_owns_the_board() -> None:
+    """Check that one stone scores every empty point, since it alone borders them"""
+    go = Go(9, 2)
+    go.apply_move((4, 4))
+    assert go.scores() == {1: 81, 2: 0}
+
 def test_outcome_empty_until_done() -> None:
     """Check that a game in progress has no winners"""
     go = Go(19, 2)
@@ -982,6 +988,18 @@ def test_rectangular_corner_is_on_the_board(rows: int, cols: int, row: int,
                                             col: int) -> None:
     """Check that each axis of a board that is not square uses its own limit"""
     assert Board(rows, cols).get(row, col) is None
+
+def test_rectangular_copy_keeps_its_shape() -> None:
+    """Check that a copy of a board that is not square keeps each axis"""
+    assert Board(2, 3).copy().freeze() == (2, 3, (None,) * 6)
+
+def test_rectangular_set_grid_wants_its_own_shape() -> None:
+    """Check that set_grid on a board that is not square checks each axis"""
+    board = Board(2, 3)
+    board.set_grid([[1, None, 2], [None, None, None]])
+    assert board.get(0, 2) == 2
+    with pytest.raises(ValueError):
+        board.set_grid([[None] * 2] * 2)
 
 def test_smallest_board_has_no_legal_move() -> None:
     """Check that a stone on a 1x1 board would have no liberty"""
