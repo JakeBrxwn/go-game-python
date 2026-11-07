@@ -1069,7 +1069,7 @@ def test_superko_remembers_the_whole_game() -> None:
     (True, 2)
 ])
 def test_regression_game_size_of_another_type(side: int, players: int) -> None:
-    """Check that a game that could never end is refused when it is made"""
+    """Check that the side and the player count have to be plain whole numbers"""
     with pytest.raises(ValueError):
         Go(side, players)
 
@@ -1146,3 +1146,9 @@ def test_position_of_another_length(pos: tuple[int, int]) -> None:
     for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
         with pytest.raises(ValueError):
             call(pos)
+
+def test_board_grid_is_the_board_itself() -> None:
+    """Check that grid gives the internal rows, as documented, not a copy"""
+    board = Board(2, 2)
+    board.grid[0][0] = 1
+    assert board.get(0, 0) == 1
