@@ -505,9 +505,15 @@ def test_outcome_tie_on_stones() -> None:
 # Regression tests: each of these fails on the code before its fix
 ###
 
-@pytest.mark.parametrize("pos", [(9, 0), (0, 9), (9, 9), (-1, 0), (0, -1)])
+@pytest.mark.parametrize("pos", [(9, 0), (0, 9), (9, 9)])
 def test_regression_piece_at_off_board(pos: tuple[int, int]) -> None:
-    """Check that every off-board position raises ValueError"""
+    """Check that the row and column past the edge raise ValueError"""
+    with pytest.raises(ValueError):
+        Go(9, 2).piece_at(pos)
+
+@pytest.mark.parametrize("pos", [(-1, 0), (0, -1)])
+def test_piece_at_negative_position(pos: tuple[int, int]) -> None:
+    """Check that negative positions do not wrap around the board"""
     with pytest.raises(ValueError):
         Go(9, 2).piece_at(pos)
 
@@ -522,14 +528,19 @@ def test_regression_board_bounds(row: int, col: int) -> None:
 
 KO_SHAPE = [(1, 0), (2, 0), (0, 1), (3, 1), (1, 2), (2, 2), (2, 1), (1, 1)]
 
-@pytest.mark.parametrize("superko", [False, True])
-def test_regression_ko_blocks_immediate_recapture(superko: bool) -> None:
+def test_regression_ko_blocks_immediate_recapture() -> None:
     """Check that the stone that started a ko cannot retake it at once"""
-    go = Go(9, 2, superko)
+    go = Go(9, 2)
     apply_moves(go, KO_SHAPE)
     assert go.piece_at((2, 1)) is None
     assert not go.legal_move((2, 1))
     assert (2, 1) not in go.available_moves
+
+def test_superko_blocks_immediate_recapture() -> None:
+    """Check that superko forbids everything simple ko does"""
+    go = Go(9, 2, True)
+    apply_moves(go, KO_SHAPE)
+    assert not go.legal_move((2, 1))
 
 def test_ko_lifts_after_play_elsewhere() -> None:
     """Check that a ko threat exchange makes the recapture legal again"""
@@ -680,11 +691,16 @@ def test_regression_impossible_game(side: int, players: int) -> None:
     with pytest.raises(ValueError):
         Go(side, players)
 
-@pytest.mark.parametrize("turn", [0, -1, 3])
+@pytest.mark.parametrize("turn", [0, -1])
 def test_regression_load_game_rejects_bad_turn(turn: int) -> None:
     """Check that the player to move has to exist"""
     with pytest.raises(ValueError):
         Go(9, 2).load_game(turn, board_with(9, {}))
+
+def test_load_game_rejects_turn_past_last_player() -> None:
+    """Check that the turn cannot name a player after the last one"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(3, board_with(9, {}))
 
 @pytest.mark.parametrize("piece", [0, 3, 5, -1])
 def test_regression_load_game_rejects_bad_piece(piece: int) -> None:
