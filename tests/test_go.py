@@ -1024,7 +1024,7 @@ def test_superko_remembers_the_whole_game() -> None:
         go.apply_move(rng.choice(moves))
         seen.setdefault(go.frozengrid, number)
 
-    assert oldest_ban > 48
+    assert oldest_ban == 89
 
 @pytest.mark.parametrize("side, players", [
     (9, 2.5), (9, 1.5), (9, float("inf")), (9, 2.0), (9, True), (2.0, 2),

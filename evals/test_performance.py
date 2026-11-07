@@ -51,14 +51,17 @@ def game_seconds(superko: bool) -> float:
     Args:
         superko: Whether the game uses superko
 
-    Returns: The time taken in seconds
+    Returns: The median of three runs in seconds
     """
-    rng = random.Random(3)
-    go = Go(19, 2, superko)
-    start = time.perf_counter()
-    for _ in range(300):
-        go.apply_move(rng.choice(go.available_moves))
-    return time.perf_counter() - start
+    samples = []
+    for _ in range(3):
+        rng = random.Random(3)
+        go = Go(19, 2, superko)
+        start = time.perf_counter()
+        for _ in range(300):
+            go.apply_move(rng.choice(go.available_moves))
+        samples.append(time.perf_counter() - start)
+    return statistics.median(samples)
 
 def test_available_moves_budget() -> None:
     """Check the cost of listing moves, and what superko adds to it"""
