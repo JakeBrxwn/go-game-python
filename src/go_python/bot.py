@@ -123,7 +123,7 @@ def bots_only(bots: dict[str, Random | Smart], games: int, size: int) -> int:
 
 @click.command(name="Go-Bots")
 @click.option('-n', '--num-games', type=click.INT, default=20)
-@click.option('-s', '--size', type=click.INT, default=6)
+@click.option('-s', '--size', type=click.IntRange(min=1), default=6)
 @click.option('-1', '--player1',
               type=click.Choice(['random', 'smart'], case_sensitive=False),
               default='random')
