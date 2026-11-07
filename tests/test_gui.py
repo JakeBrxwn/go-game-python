@@ -20,6 +20,7 @@ def test_two_clicks_in_one_frame_play_one_stone(
     frames = iter([[], [click, click], [pygame.event.Event(pygame.QUIT)]])
 
     monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
+    monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
     monkeypatch.setattr(GoGUI, "_draw_window", remember_window)
     monkeypatch.setattr(pygame.event, "get", lambda: next(frames))
     monkeypatch.setattr(pygame.mouse, "get_pos",
