@@ -88,12 +88,10 @@ class GoGUI:
 
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("TreeFarm")
+        pygame.display.set_caption("Go Python")
         self.font = pygame.font.Font(None, size=FONT_SIZE)
         self.surface = pygame.display.set_mode((width, height))
         self.clock = pygame.time.Clock()
-        pygame.mixer.music.load("src\glorious_morning.mp3")
-        pygame.mixer.music.play(-1)
 
         self.event_loop()
 
@@ -300,8 +298,6 @@ class GoGUI:
                     if self._current_tile is not None:
                         self.board.apply_move(self._current_tile)
                         self._scores = self.board.scores()
-                        if self.board.done:
-                            pygame.mixer.music.fadeout(5)
 
                     elif is_within_radius(pygame.mouse.get_pos(),
                                           self._pass_position,

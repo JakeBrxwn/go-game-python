@@ -165,7 +165,3 @@ cython_debug/
 .nfs*
 *~
 *.sublime-*
-
-# CS 142-specific
-*.gz
-tests.json
