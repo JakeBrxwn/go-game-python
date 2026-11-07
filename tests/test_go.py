@@ -674,6 +674,12 @@ def test_simulate_move_keeps_history_apart() -> None:
     go.simulate_move((2, 2)).simulate_move((3, 3))
     assert go._prior_boards == history
 
+@pytest.mark.parametrize("side, players", [(0, 2), (-1, 2), (9, 0), (9, -1)])
+def test_regression_impossible_game(side: int, players: int) -> None:
+    """Check that a game needs a board and a player"""
+    with pytest.raises(ValueError):
+        Go(side, players)
+
 def test_three_player_game_ends_after_three_passes() -> None:
     """Check that two passes are not enough with three players"""
     go = Go(9, 3)

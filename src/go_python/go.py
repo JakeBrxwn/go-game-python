@@ -36,7 +36,13 @@ class Go:
             If False, the "simple ko" rule is in effect: a move
             cannot result in the immediately prior state of the
             board.
+
+        Raises:
+            ValueError: If there is no board or no player.
         """
+        if side < 1 or players < 1:
+            raise ValueError("A game needs a board and a player")
+
         self._side = side
         self._players = players
         self._superko = superko
