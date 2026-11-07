@@ -227,18 +227,20 @@ class Go:
             pos: the position of the piece that was just placed.
         """
         src_r, src_c = pos
+        captured: set[tuple[int, int]] = set()
 
+        # Found first, then removed, so one capture cannot save another group
         for neigh_r, neigh_c in self._valid_neighbors(src_r, src_c):
             neigh_value = self._grid.get(neigh_r, neigh_c)
             if neigh_value not in (None, self._turn):
                 grouping, _ = self._find_contiguous(neigh_r, neigh_c)
-                while grouping:
-                    r, c = grouping.pop()
-                    self._grid.set(r, c, None)
+                captured |= grouping
+
+        for r, c in captured:
+            self._grid.set(r, c, None)
 
         grouping, _ = self._find_contiguous(src_r, src_c)
-        while grouping:
-            r, c = grouping.pop()
+        for r, c in grouping:
             self._grid.set(r, c, None)
 
     def piece_at(self, pos: tuple[int, int]) -> int | None:
@@ -282,8 +284,13 @@ class Go:
         if space is not None:
             return False
 
-        # Ko rule check
         new_game_state = self.simulate_move(pos)
+
+        # Suicide check: a capture of your own group takes the new stone too
+        if new_game_state.piece_at(pos) is None:
+            return False
+
+        # Ko rule check
         if new_game_state.frozengrid in self._prior_boards:
             return False
         return True

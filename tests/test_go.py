@@ -549,3 +549,58 @@ def test_superko_forbids_any_earlier_board_not_just_the_last() -> None:
     apply_moves(superko, moves)
     assert simple.legal_move((1, 2))
     assert not superko.legal_move((1, 2))
+
+def board_with(side: int, stones: dict[tuple[int, int], int]) \
+-> list[list[int | None]]:
+    """
+    Helper function that builds a grid for load_game.
+
+    Args:
+        side: The size of the board
+        stones: Maps each occupied position to its player
+
+    Returns: The grid as a list of lists
+    """
+    grid: list[list[int | None]] = [[None] * side for _ in range(side)]
+    for (row, col), player in stones.items():
+        grid[row][col] = player
+    return grid
+
+def test_single_stone_suicide_is_illegal() -> None:
+    """Check that a stone cannot fill the last liberty of itself"""
+    go = Go(9, 2)
+    go.load_game(2, board_with(9, {(0, 1): 1, (1, 0): 1}))
+    assert not go.legal_move((0, 0))
+    assert (0, 0) not in go.available_moves
+
+def test_regression_group_suicide_is_illegal() -> None:
+    """Check that a move cannot remove its own group"""
+    go = Go(9, 2)
+    go.load_game(1, board_with(9, {
+        (0, 0): 1, (1, 0): 2, (1, 1): 2, (0, 2): 2,
+    }))
+    assert not go.legal_move((0, 1))
+    assert (0, 1) not in go.available_moves
+
+def test_capture_that_looks_like_suicide_is_legal() -> None:
+    """Check that captures come off before the mover's liberties are counted"""
+    go = Go(9, 2)
+    go.load_game(1, board_with(9, {
+        (0, 1): 2, (1, 0): 2, (1, 1): 1, (0, 2): 1, (2, 0): 1,
+    }))
+    assert go.legal_move((0, 0))
+    go.apply_move((0, 0))
+    assert go.piece_at((0, 0)) == 1
+    assert go.piece_at((0, 1)) is None
+    assert go.piece_at((1, 0)) is None
+
+def test_regression_neighbouring_captures_are_simultaneous() -> None:
+    """Check that one capture does not free a touching enemy group"""
+    go = Go(9, 3)
+    go.load_game(1, board_with(9, {
+        (0, 0): 2, (0, 1): 2, (1, 1): 3, (0, 2): 1, (1, 2): 1, (2, 1): 1,
+    }))
+    go.apply_move((1, 0))
+    assert go.piece_at((1, 1)) is None
+    assert go.piece_at((0, 0)) is None
+    assert go.piece_at((0, 1)) is None
