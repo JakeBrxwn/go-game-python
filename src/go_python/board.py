@@ -59,7 +59,8 @@ class Board:
         Sets the value of the piece in a position on the board.
 
         Raises:
-            ValueError: If the position is outside the bounds of the board.
+            ValueError: If the row or column is not an int, or the position
+            is outside the bounds of the board.
         """
         self._check_bounds(row, col)
         self._grid[row][col] = piece
@@ -69,7 +70,8 @@ class Board:
         Obtains the value of the piece at a given position on the board.
 
         Raises:
-            ValueError: If the position is outside the bounds of the board.
+            ValueError: If the row or column is not an int, or the position
+            is outside the bounds of the board.
         """
         self._check_bounds(row, col)
         return self._grid[row][col]
