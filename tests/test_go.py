@@ -1012,7 +1012,8 @@ def test_one_player_game_ends_on_one_pass() -> None:
     go.pass_turn()
     assert go.done
 
-@pytest.mark.parametrize("pos", [(0.5, 0), (0, 0.5), (1.0, 0), (True, 0)])
+@pytest.mark.parametrize("pos", [(0.5, 0), (0, 0.5), (1.0, 0), (0, 1.0),
+                                 (True, 0), (0, True)])
 def test_regression_position_of_another_type(pos: tuple[int, int]) -> None:
     """Check that a position has to be plain numbers, in every entry point"""
     go = Go(9, 2)
