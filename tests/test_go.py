@@ -1,7 +1,11 @@
-import pytest
-from go_python.base import GoBase
-from go_python.go import Go
 import csv
+from pathlib import Path
+
+import pytest
+
+from go_python.go import Go
+
+POSITIONS_FILE = Path(__file__).with_name("test_positions.txt")
 
 ###
 # Helper functions for test functions
@@ -12,7 +16,7 @@ def apply_moves(game: Go, moves: list[tuple[int, int]]) -> None:
     Helper function to apply a sequence of moves to a Go game.
 
     Args:
-        game (GoFake): The Go game instance
+        game (Go): The Go game instance
         moves (list of tuple[int, int]): A list of moves to apply
 
     """
@@ -35,7 +39,7 @@ def set_up_test(g: Go, test_name: str) -> None:
     Args: test_name [str] : the test name that corresponds to row in test 
     positions text file
     """
-    with open("tests/test_positions.txt", mode = 'r') as file:
+    with open(POSITIONS_FILE, mode = 'r') as file:
         reader = csv.DictReader(file, delimiter = '|')
         moves = []
         for row in reader:
@@ -343,13 +347,13 @@ def test_simulate_move_2() -> None:
         go.apply_move(move)
     new_go = go.simulate_move((5, 5))
 
-    # Check that the original GoFake object has not been modified
+    # Check that the original Go object has not been modified
     assert go.piece_at((5, 5)) is None
     for move in initial_moves:
         assert go.piece_at(move) is not None
     assert go.turn == 1
 
-    # Check that the move was applied in the new GoFake object
+    # Check that the move was applied in the new Go object
     assert new_go.piece_at((5, 5)) == 1
     for move in initial_moves:
         assert new_go.piece_at(move) is not None
@@ -406,3 +410,92 @@ def test_simulate_move_5() -> None:
 
     # Check that the passes were applied in the new Go object
     assert new_go.done
+
+###
+# Tests on bounds, passing, scoring and outcomes
+###
+
+@pytest.mark.parametrize("row, col", [
+    (-1, -1), (-1, 5), (-1, 19), (5, -1), (5, 19), (19, -1), (19, 5), (19, 19)
+])
+def test_legal_move_invalid_location(row: int, col: int) -> None:
+    """Check that a position off the board raises an exception"""
+    go = Go(19, 2)
+    with pytest.raises(ValueError):
+        go.legal_move((row, col))
+
+def test_available_moves_excludes_occupied() -> None:
+    """Check that available_moves drops played points and nothing else"""
+    moves = [(3, 3), (6, 16), (1, 1), (13, 0), (16, 1)]
+    go = Go(19, 2)
+    apply_moves(go, moves)
+    available = go.available_moves
+    assert len(available) == 19 * 19 - len(moves)
+    for move in moves:
+        assert move not in available
+
+def test_pass_on_second_players_turn() -> None:
+    """Check that a pass by player 2 returns the turn to player 1"""
+    go = Go(19, 2)
+    apply_moves(go, [(5, 5), (6, 6), (7, 7)])
+    go.pass_turn()
+    assert go.turn == 1
+
+def test_passes_with_stones_on_board_end_game() -> None:
+    """Check that two passes end a game that already has stones on it"""
+    go = Go(19, 2)
+    apply_moves(go, [(5, 5), (6, 6), (7, 7)])
+    go.pass_turn()
+    go.pass_turn()
+    assert go.done
+
+def test_move_between_passes_keeps_game_going() -> None:
+    """Check that passes only count when no move separates them"""
+    go = Go(19, 2)
+    apply_moves(go, [(5, 5), (6, 6), (7, 7)])
+    go.pass_turn()
+    go.apply_move((8, 8))
+    go.pass_turn()
+    assert not go.done
+
+def test_scores_empty_board() -> None:
+    """Check that an empty board scores nothing for anyone"""
+    assert Go(19, 2).scores() == {1: 0, 2: 0}
+
+def test_scores_open_board() -> None:
+    """Check that open space bordered by both players scores for neither"""
+    go = Go(19, 2)
+    apply_moves(go, [(5, 5), (5, 8), (5, 6)])
+    assert go.scores() == {1: 2, 2: 1}
+
+def test_outcome_empty_until_done() -> None:
+    """Check that a game in progress has no winners"""
+    go = Go(19, 2)
+    go.apply_move((5, 5))
+    assert go.outcome == []
+
+def test_outcome_empty_board_ties() -> None:
+    """Check that two passes on an empty board tie"""
+    go = Go(19, 2)
+    go.pass_turn()
+    go.pass_turn()
+    assert go.outcome == [1, 2]
+
+def test_outcome_second_player_wins() -> None:
+    """Check that player 2 can win on stones"""
+    go = Go(19, 2)
+    go.apply_move((5, 6))
+    go.apply_move((5, 8))
+    go.pass_turn()
+    go.apply_move((5, 9))
+    go.pass_turn()
+    go.pass_turn()
+    assert go.outcome == [2]
+
+def test_outcome_tie_on_stones() -> None:
+    """Check that equal stones tie"""
+    go = Go(19, 2)
+    apply_moves(go, [(5, 6), (5, 8), (6, 6), (6, 8)])
+    go.pass_turn()
+    go.pass_turn()
+    assert go.outcome == [1, 2]
