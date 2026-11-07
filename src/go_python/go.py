@@ -442,17 +442,16 @@ class Go:
 
         Returns: None
         """
-        if not (self._is_player(turn) and isinstance(grid, Sequence) and
-                len(grid) == self._side and
-                all(isinstance(row, Sequence) and len(row) == self._side
-                    for row in grid) and
-                all(piece is None or self._is_player(piece)
-                    for row in grid for piece in row)):
+        board = Board(self._side, self._side)
+        board.set_grid(grid)
 
+        if not self._is_player(turn) or any(
+                piece is not None and not self._is_player(piece)
+                for row in board.grid for piece in row):
             raise ValueError("The turn or the grid does not fit this game")
 
         self._turn = turn
-        self._grid.set_grid(grid)
+        self._grid = board
         self._prior_boards = frozenset()
         self._passes = 0
         self._done = False

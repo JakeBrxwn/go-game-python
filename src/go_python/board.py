@@ -107,8 +107,9 @@ class Board:
         Raises:
             ValueError: If the grid is not the size of the board.
         """
-        if len(grid) != self._rows or any(len(row) != self._cols
-                                          for row in grid):
+        if not (isinstance(grid, Sequence) and len(grid) == self._rows and
+                all(isinstance(row, Sequence) and len(row) == self._cols
+                    for row in grid)):
             raise ValueError("The grid is not the size of the board")
 
         self._grid = [list(row) for row in grid]
