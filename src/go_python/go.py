@@ -140,16 +140,10 @@ class Go:
         if not self._done:
             return []
 
-        winner = []
-        winning_score = 0
-        for player, player_score in self.scores().items():
-            if player_score > winning_score:
-                winning_score = player_score
-                winner = [player]
-            elif player_score == winning_score:
-                winner.append(player)
-
-        return winner
+        scores = self.scores()
+        winning_score = max(scores.values())
+        return [player for player, score in scores.items()
+                if score == winning_score]
 
     #
     # METHODS
@@ -347,8 +341,9 @@ class Go:
             pos: Position on the board
 
         Raises:
-            ValueError: If the specified position is outside
+            ValueError: If pos is not a position, is outside
             the bounds of the board, or is not a legal move.
+            Once the game is over, no move is legal.
 
         Returns: None
         """
@@ -411,7 +406,7 @@ class Go:
                 value = self._grid.get(r, c)
                 if value is None and (r, c) not in visited_empty:
                     empty_group, border_values = self._find_contiguous(r, c)
-                    visited_empty = visited_empty.union(empty_group)
+                    visited_empty |= empty_group
                     if len(border_values) == 1:
                         scores[cast(int, border_values.pop())] += len(empty_group)
                 elif value is not None:
@@ -474,7 +469,7 @@ class Go:
             pos: Position on the board, or None for a pass
 
         Raises:
-            ValueError: If the specified position is outside
+            ValueError: If pos is not a position, is outside
             the bounds of the board or is not a legal move,
             or if the game is already over.
 
