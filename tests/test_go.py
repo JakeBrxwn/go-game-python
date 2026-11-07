@@ -420,7 +420,8 @@ def test_simulate_move_5() -> None:
 ###
 
 @pytest.mark.parametrize("row, col", [
-    (-1, -1), (-1, 5), (-1, 19), (5, -1), (5, 19), (19, -1), (19, 5), (19, 19)
+    (-1, -1), (-1, 5), (-1, 19), (5, -1), (5, 19), (19, -1), (19, 5), (19, 19),
+    (21, 0), (0, 21)
 ])
 def test_legal_move_invalid_location(row: int, col: int) -> None:
     """Check that a position off the board raises an exception"""
@@ -720,10 +721,13 @@ def test_regression_load_game_rejects_ragged_rows() -> None:
     with pytest.raises(ValueError):
         Go(9, 2).load_game(1, grid)
 
-def test_load_game_rejects_wrong_row_count() -> None:
-    """Check that the grid has to be as tall as the board"""
+@pytest.mark.parametrize("grid", [
+    [[None] * 9] * 8, [[None] * 9] * 10, [[None] * 10] * 9
+])
+def test_load_game_rejects_wrong_size(grid: BoardGridType) -> None:
+    """Check that the grid has to be exactly the size of the board"""
     with pytest.raises(ValueError):
-        Go(9, 2).load_game(1, board_with(9, {})[:8])
+        Go(9, 2).load_game(1, grid)
 
 def test_regression_load_game_copies_the_grid() -> None:
     """Check that later changes to the caller's grid do not reach the game"""
@@ -738,8 +742,9 @@ def test_regression_load_game_restarts_a_finished_game() -> None:
     go = Go(9, 2)
     go.pass_turn()
     go.pass_turn()
-    go.load_game(1, board_with(9, {}))
+    go.load_game(2, board_with(9, {}))
     assert not go.done
+    assert go.turn == 2
     assert go.legal_move((4, 4))
 
 def test_regression_load_game_forgets_passes() -> None:
@@ -1110,3 +1115,34 @@ def test_freeze_layout() -> None:
     board = Board(2, 3)
     board.set(0, 1, 1)
     assert board.freeze() == (2, 3, (None, 1, None, None, None, None))
+
+def test_regression_superko_remembers_the_loaded_board() -> None:
+    """Check that the board a game was loaded with is banned like any other"""
+    go = Go(5, 2, True)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_2))
+    go.apply_move((1, 2))
+    assert not go.legal_move((1, 1))
+
+def test_four_way_tie() -> None:
+    """Check that every player tied for the lead is in the outcome"""
+    go = Go(3, 4)
+    for _ in range(4):
+        go.pass_turn()
+    assert go.outcome == [1, 2, 3, 4]
+
+def test_regression_simulate_move_after_the_game() -> None:
+    """Check that a finished game cannot be simulated forward"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    for pos in ((4, 4), None):
+        with pytest.raises(ValueError):
+            go.simulate_move(pos)
+
+@pytest.mark.parametrize("pos", [(), (1,), (1, 2, 3)])
+def test_position_of_another_length(pos: tuple[int, int]) -> None:
+    """Check that a position has exactly a row and a column"""
+    go = Go(9, 2)
+    for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
+        with pytest.raises(ValueError):
+            call(pos)
