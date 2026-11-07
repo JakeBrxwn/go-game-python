@@ -59,7 +59,7 @@ def set_up_test(g: Go, test_name: str) -> None:
             initial_board[r][c] = turn
             turn += 1
             if turn > g.num_players:
-                turn = turn % g.num_players
+                turn = 1
         g.load_game(turn, initial_board)
 
 
@@ -93,7 +93,9 @@ def test_num_players(side: int, num_players: int) -> None:
     assert g.num_players == num_players
 
 @pytest.mark.parametrize("side, num_players", [
-    (9, 2), (13, 2), (19, 2)
+    (9, 2), (9, 3), (9, 4),
+    (13, 2), (13, 3), (13, 4),
+    (19, 2), (19, 3), (19, 4)
 ])
 def test_turn(side: int, num_players: int) -> None:
     """
@@ -1135,6 +1137,12 @@ def test_freeze_layout() -> None:
     board = Board(2, 3)
     board.set(0, 1, 1)
     assert board.freeze() == (2, 3, (None, 1, None, None, None, None))
+
+def test_frozengrid_is_the_frozen_board() -> None:
+    """Check that a game freezes its board the same way, size first"""
+    go = Go(2, 2)
+    go.apply_move((0, 1))
+    assert go.frozengrid == (2, 2, (None, 1, None, None))
 
 def test_regression_superko_remembers_the_loaded_board() -> None:
     """Check that the board a game was loaded with is banned like any other"""
