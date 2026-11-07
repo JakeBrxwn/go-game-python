@@ -1273,3 +1273,34 @@ def test_superko_remembers_every_board_of_a_long_game() -> None:
         go.apply_move(rng.choice(moves))
     assert len(left) == 1076
     assert go._prior_boards == left
+
+@pytest.mark.parametrize("superko", [False, True])
+def test_superko_bans_a_board_from_over_a_thousand_moves_back(
+        superko: bool) -> None:
+    """
+    Build ten kos apart from each other, then retake one ko per move in Gray
+    code order, so every board is new. After 1,022 retakes, retaking the
+    tenth ko would bring back the board from just after the first retake.
+    Superko must still refuse it; simple ko allows it. The walk stops short
+    of 1,023 retakes, whose board is the one before the last ko was built.
+    """
+    corners = [(5 * (i // 4), 5 * (i % 4)) for i in range(10)]
+    go = Go(19, 2, superko)
+    for r, c in corners:
+        apply_moves(go, [(r + dr, c + dc) for dr, dc in KO_SHAPE])
+
+    def retake(ko: int, player: int) -> tuple[int, int]:
+        """Passes if the other player is to move, then gives the ko point"""
+        if go.turn != player:
+            go.pass_turn()
+        r, c = corners[ko]
+        return (r + 2, c + 1) if player == 1 else (r + 1, c + 1)
+
+    for i in range(1, 1023):
+        gray = i ^ i >> 1
+        flipped = gray ^ (i - 1) ^ (i - 1) >> 1
+        go.apply_move(retake(flipped.bit_length() - 1,
+                             1 if gray & flipped else 2))
+
+    point = retake(9, 2)
+    assert go.legal_move(point) != superko
