@@ -1,9 +1,10 @@
 import csv
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from go_python.board import Board
+from go_python.board import Board, BoardGridType
 from go_python.go import Go
 
 POSITIONS_FILE = Path(__file__).with_name("test_positions.txt")
@@ -789,3 +790,207 @@ def test_regression_load_game_accepts_tuple_rows_it_can_play_on() -> None:
     go.load_game(1, tuple(tuple(row) for row in board_with(3, {})))
     go.apply_move((0, 0))
     assert go.piece_at((0, 0)) == 1
+
+###
+# Tests with more than two players, across passes and on refused moves
+###
+
+KO_FOR_PLAYERS_1_2 = [".12..", "12.2.", ".12..", ".....", "....."]
+KO_FOR_PLAYERS_1_3 = [".13..", "13.3.", ".13..", ".....", "....."]
+
+def parse_board(rows: list[str]) -> BoardGridType:
+    """
+    Helper function that builds a grid for load_game from a drawing.
+
+    Args:
+        rows: One string per row, with "." for an empty point
+
+    Returns: The grid as a list of lists
+    """
+    return [[None if piece == "." else int(piece) for piece in row]
+            for row in rows]
+
+def play(game: Go, actions: list[tuple[int, int] | None]) -> None:
+    """
+    Helper function to apply a sequence of moves and passes to a Go game.
+
+    Args:
+        game: The Go game instance
+        actions: The moves to apply, with None for a pass
+    """
+    for action in actions:
+        if action is None:
+            game.pass_turn()
+        else:
+            game.apply_move(action)
+
+@pytest.mark.parametrize("players", [3, 4])
+def test_simple_ko_with_more_players(players: int) -> None:
+    """Check that ko binds every player count"""
+    go = Go(5, players)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_2))
+    go.apply_move((1, 2))
+    assert not go.legal_move((1, 1))
+    assert (1, 1) not in go.available_moves
+    with pytest.raises(ValueError):
+        go.apply_move((1, 1))
+
+@pytest.mark.parametrize("players, actions", [
+    (3, [(0, 0), (0, 1), (1, 0), None, (1, 1), None]),
+    (4, [(0, 0), (0, 1), (1, 0), None, None, (0, 0), (1, 1), (0, 1)]),
+])
+def test_superko_with_more_players(players: int,
+                                   actions: list[tuple[int, int] | None]) -> None:
+    """Check that superko binds every player count"""
+    simple, superko = Go(2, players), Go(2, players, True)
+    play(simple, actions)
+    play(superko, actions)
+    assert simple.legal_move((0, 0))
+    assert not superko.legal_move((0, 0))
+
+@pytest.mark.parametrize("players", [3, 4])
+def test_single_stone_suicide_with_more_players(players: int) -> None:
+    """Check that a stone cannot die alone among two other players"""
+    go = Go(5, players)
+    go.load_game(1, parse_board([".2...", "3....", ".....", ".....", "....."]))
+    assert not go.legal_move((0, 0))
+
+@pytest.mark.parametrize("players", [3, 4])
+def test_group_suicide_with_more_players(players: int) -> None:
+    """Check that a group cannot die among two other players"""
+    go = Go(5, players)
+    go.load_game(1, parse_board(["1.2..", "23...", ".....", ".....", "....."]))
+    assert not go.legal_move((0, 1))
+
+def test_region_touching_two_of_three_players_scores_for_neither() -> None:
+    """Check that shared space belongs to nobody"""
+    go = Go(3, 3)
+    go.load_game(1, parse_board(["1.2", "1.2", "1.2"]))
+    assert go.scores() == {1: 3, 2: 3, 3: 0}
+
+def test_territory_counts_with_four_players() -> None:
+    """Check that space touching one player belongs to that player"""
+    go = Go(3, 4)
+    go.load_game(1, parse_board(["4..", "4..", "4.."]))
+    assert go.scores() == {1: 0, 2: 0, 3: 0, 4: 9}
+
+def test_load_game_accepts_every_player() -> None:
+    """Check that the last player can hold stones and the turn"""
+    go = Go(3, 4)
+    go.load_game(4, parse_board(["123", "4..", "..."]))
+    assert go.turn == 4
+    assert go.piece_at((1, 0)) == 4
+
+def test_superko_survives_a_pass() -> None:
+    """Check that a pass does not clear the history"""
+    go = Go(2, 2, True)
+    play(go, [(0, 0), (0, 1), (1, 0), (1, 1), None, (1, 0)])
+    assert not go.legal_move((0, 0))
+
+def test_ko_survives_a_pass_by_a_third_player() -> None:
+    """
+    Check that a pass leaves the ko ban in place. A pass does not change the
+    board, so the board before the capture is still the immediately prior one.
+    """
+    go = Go(5, 3)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_3))
+    go.apply_move((1, 2))
+    go.pass_turn()
+    assert not go.legal_move((1, 1))
+
+def test_simulate_move_rejects_ko() -> None:
+    """Check that a simulation inherits the ko ban"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    with pytest.raises(ValueError):
+        go.simulate_move((2, 1))
+
+def test_simulate_move_rejects_suicide() -> None:
+    """Check that a simulation refuses suicide"""
+    go = Go(9, 2)
+    go.load_game(2, board_with(9, {(0, 1): 1, (1, 0): 1}))
+    with pytest.raises(ValueError):
+        go.simulate_move((0, 0))
+
+def test_simple_ko_ban_survives_a_simulation() -> None:
+    """Check that simulating a move leaves the real ko ban in place"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    go.simulate_move((7, 7))
+    assert not go.legal_move((2, 1))
+
+def test_load_game_on_a_simulation_keeps_the_real_ban() -> None:
+    """Check that wiping a simulation's history leaves the real game alone"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    go.simulate_move(None).load_game(1, go.grid)
+    assert not go.legal_move((2, 1))
+
+@pytest.mark.parametrize("read", [
+    lambda go: go.legal_move((0, 0)),
+    lambda go: go.available_moves,
+    lambda go: go.scores(),
+    lambda go: go.simulate_move((0, 0)),
+], ids=["legal_move", "available_moves", "scores", "simulate_move"])
+def test_reads_keep_the_pass_count(read: Callable[[Go], object]) -> None:
+    """Check that looking at a game between two passes changes nothing"""
+    go = Go(9, 2)
+    go.pass_turn()
+    read(go)
+    go.pass_turn()
+    assert go.done
+
+def test_illegal_move_keeps_the_pass_count() -> None:
+    """Check that a refused move does not count as a move between passes"""
+    go = Go(9, 2)
+    go.apply_move((4, 4))
+    go.pass_turn()
+    with pytest.raises(ValueError):
+        go.apply_move((4, 4))
+    go.pass_turn()
+    assert go.done
+
+def test_rejected_pass_changes_nothing() -> None:
+    """Check that a pass after the end leaves the turn and the count alone"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    turn = go.turn
+    with pytest.raises(ValueError):
+        go.pass_turn()
+    assert go.turn == turn
+    assert go._passes == 2
+
+def test_rejected_load_keeps_a_finished_game_finished() -> None:
+    """Check that a refused load does not reopen the game"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    with pytest.raises(ValueError):
+        go.load_game(0, go.grid)
+    assert go.done
+
+def test_rejected_load_keeps_the_ko_ban() -> None:
+    """Check that a refused load does not wipe the history"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    with pytest.raises(ValueError):
+        go.load_game(0, go.grid)
+    assert not go.legal_move((2, 1))
+
+@pytest.mark.parametrize("rows, cols, row, col", [(3, 4, 0, 3), (4, 3, 3, 0)])
+def test_rectangular_corner_is_on_the_board(rows: int, cols: int, row: int,
+                                            col: int) -> None:
+    """Check that each axis of a board that is not square uses its own limit"""
+    assert Board(rows, cols).get(row, col) is None
+
+def test_smallest_board_has_no_legal_move() -> None:
+    """Check that a stone on a 1x1 board would have no liberty"""
+    assert Go(1, 2).available_moves == []
+
+def test_one_player_game_ends_on_one_pass() -> None:
+    """Check that the smallest player count works"""
+    go = Go(2, 1)
+    go.apply_move((0, 0))
+    go.pass_turn()
+    assert go.done
