@@ -426,8 +426,7 @@ class Go:
               so violations of the ko rule may not be detected
               after loading a game. A finished game becomes a
               game in progress. A group with no liberties is not
-              an error: it stays on the board and scores as alive
-              until a move next to it captures it.
+              an error: it stays on the board and scores as alive.
 
         Args:
             turn: The player number of the player that

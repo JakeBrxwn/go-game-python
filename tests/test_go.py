@@ -1063,3 +1063,46 @@ def test_regression_game_size_of_another_type(side: int, players: int) -> None:
     """Check that a game that could never end is refused when it is made"""
     with pytest.raises(ValueError):
         Go(side, players)
+
+def test_load_game_forgets_superko() -> None:
+    """Check that loading wipes the history under superko too"""
+    go = Go(9, 2, True)
+    apply_moves(go, KO_SHAPE)
+    go.load_game(go.turn, go.grid)
+    assert go.legal_move((2, 1))
+
+def test_load_game_keeps_superko() -> None:
+    """Check that a loaded game still plays by the rule it was made with"""
+    go = Go(2, 3, True)
+    go.load_game(1, parse_board(["..", ".."]))
+    play(go, [(0, 0), (0, 1), (1, 0), None, (1, 1), None])
+    assert not go.legal_move((0, 0))
+
+def test_loaded_group_without_liberties_stays_and_scores() -> None:
+    """Check that a move elsewhere leaves such a group alone"""
+    go = Go(3, 2)
+    go.load_game(1, parse_board(["21.", "1..", "..."]))
+    go.apply_move((2, 2))
+    assert go.piece_at((0, 0)) == 2
+    assert go.scores()[2] == 1
+
+def test_legal_move_off_the_board_after_the_game() -> None:
+    """Check that a finished game still refuses a position that cannot exist"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    with pytest.raises(ValueError):
+        go.legal_move((9, 9))
+
+def test_simulate_move_keeps_the_type() -> None:
+    """Check that a simulation is an object of the same type, as documented"""
+    class Variant(Go):
+        pass
+
+    assert type(Variant(9, 2).simulate_move((0, 0))) is Variant
+
+def test_freeze_layout() -> None:
+    """Check that freeze gives the size and then the rows in order"""
+    board = Board(2, 3)
+    board.set(0, 1, 1)
+    assert board.freeze() == (2, 3, (None, 1, None, None, None, None))
