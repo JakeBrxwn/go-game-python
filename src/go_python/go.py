@@ -40,13 +40,12 @@ class Go:
             board.
 
         Raises:
-            ValueError: If side or players is not a whole number of at
-            least one.
+            ValueError: If side or players is not an int of at least one.
         """
         if type(side) is not int or type(players) is not int or \
            side < 1 or players < 1:
-            raise ValueError("The side and the player count must be whole "
-                             "numbers of at least one")
+            raise ValueError("The side and the player count must each be an "
+                             "int of at least one")
 
         self._side = side
         self._players = players
@@ -290,8 +289,8 @@ class Go:
         return the number of the player (players are numbered
         from 1). Otherwise, return None.
         """
-        if not isinstance(pos, tuple):
-            raise ValueError(f"{pos} is not a position")
+        if not isinstance(pos, tuple) or len(pos) != 2:
+            raise ValueError(f"{pos!r} is not a position")
 
         r, c = pos
         return self._grid.get(r, c)
