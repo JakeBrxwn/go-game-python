@@ -17,7 +17,7 @@ class Go:
     _superko: bool
     _grid: Board
     _turn: int
-    _prior_boards: set[FrozenBoardGridType]
+    _prior_boards: frozenset[FrozenBoardGridType]
     _passes: int
     _done: bool
 
@@ -50,7 +50,7 @@ class Go:
         self._superko = superko
         self._grid = Board(side, side)
         self._turn = 1
-        self._prior_boards = set()
+        self._prior_boards = frozenset()
         self._passes = 0
         self._done = False
 
@@ -274,7 +274,7 @@ class Go:
     def _copy(self) -> Go:
         """
         Returns an independent copy of the game. The copy shares _prior_boards,
-        which is safe because that set is replaced and never changed in place.
+        which is safe because that set is immutable.
         """
         new_go = copy(self)
         new_go._grid = self._grid.copy()
@@ -363,7 +363,7 @@ class Go:
         if self._superko:
             self._prior_boards = self._prior_boards | {prior_board}
         else:
-            self._prior_boards = {prior_board}
+            self._prior_boards = frozenset({prior_board})
 
         # Update Turn
         self._increment_turn()
@@ -452,7 +452,7 @@ class Go:
 
         self._turn = turn
         self._grid.set_grid(grid)
-        self._prior_boards = set()
+        self._prior_boards = frozenset()
         self._passes = 0
         self._done = False
 
