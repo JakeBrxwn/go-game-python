@@ -1,4 +1,5 @@
 import csv
+import random
 from collections.abc import Callable
 from pathlib import Path
 
@@ -51,8 +52,8 @@ def set_up_test(g: Go, test_name: str) -> None:
         initial_board = [[None for _ in range(g.side)] for _ in range(g.side)]
         turn = 1
         for move in moves:
-            row, col = move
-            initial_board[row][col] = turn
+            r, c = move
+            initial_board[r][c] = turn
             turn += 1
             if turn > g.num_players:
                 turn = turn % g.num_players
@@ -1009,3 +1010,30 @@ def test_regression_load_game_rejects_grid_of_another_shape(
     """Check that a grid that is not rows is refused rather than crashing"""
     with pytest.raises(ValueError):
         Go(3, 2).load_game(1, grid)
+
+def test_superko_remembers_the_whole_game() -> None:
+    """
+    Check every answer in one game against a history kept here. This seed bans
+    a board from 89 moves earlier, so a shorter memory of the game fails it.
+    """
+    rng = random.Random(323)
+    go = Go(4, 2, True)
+    seen = {go.frozengrid: 0}
+    oldest_ban = 0
+
+    for number in range(1, 400):
+        no_history = Go(4, 2)
+        no_history.load_game(go.turn, go.grid)
+        for move in no_history.available_moves:
+            board = no_history.simulate_move(move).frozengrid
+            assert go.legal_move(move) == (board not in seen)
+            if board in seen:
+                oldest_ban = max(oldest_ban, number - seen[board])
+
+        moves = go.available_moves
+        if not moves:
+            break
+        go.apply_move(rng.choice(moves))
+        seen.setdefault(go.frozengrid, number)
+
+    assert oldest_ban > 48
