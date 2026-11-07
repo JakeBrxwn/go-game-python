@@ -163,6 +163,18 @@ class Go:
         if self._turn > self._players:
             self._turn = 1
 
+    def _is_player(self, value: object) -> bool:
+        """
+        Checks that a value is the number of a player in this game. Equal
+        values of other types do not count, so 1.0 and True are refused.
+
+        Args:
+            value: The value to check.
+
+        Returns: True if the value is a player number.
+        """
+        return type(value) is int and 1 <= value <= self._players
+
     def _valid_neighbors(self, r: int, c: int) \
     -> list[tuple[int, int]]:
         """
@@ -431,13 +443,12 @@ class Go:
 
         Returns: None
         """
-        players = range(1, self._players + 1)
-        if (turn not in players or len(grid) != self._side or
+        if (not self._is_player(turn) or len(grid) != self._side or
             any(len(row) != self._side for row in grid) or
-            any(piece is not None and piece not in players
+            any(piece is not None and not self._is_player(piece)
                 for row in grid for piece in row)):
 
-            raise ValueError
+            raise ValueError("The turn or the grid does not fit this game")
 
         self._turn = turn
         self._grid.set_grid(grid)

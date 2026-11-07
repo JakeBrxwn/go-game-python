@@ -770,3 +770,22 @@ def test_grid_is_a_copy_after_a_capture() -> None:
     assert grid[0][0] is None
     grid[0][0] = 1
     assert go.piece_at((0, 0)) is None
+
+@pytest.mark.parametrize("turn", [1.0, 2.0, True])
+def test_regression_load_game_rejects_turn_of_another_type(turn: int) -> None:
+    """Check that a value merely equal to a player number is refused"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(turn, board_with(9, {}))
+
+@pytest.mark.parametrize("piece", [1.0, 2.0, True])
+def test_regression_load_game_rejects_piece_of_another_type(piece: int) -> None:
+    """Check that a stone has to be a plain player number"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(1, board_with(9, {(4, 4): piece}))
+
+def test_regression_load_game_accepts_tuple_rows_it_can_play_on() -> None:
+    """Check that tuple rows become a board that can take a move"""
+    go = Go(3, 2)
+    go.load_game(1, tuple(tuple(row) for row in board_with(3, {})))
+    go.apply_move((0, 0))
+    assert go.piece_at((0, 0)) == 1

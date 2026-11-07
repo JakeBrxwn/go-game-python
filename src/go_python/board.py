@@ -88,4 +88,4 @@ class Board:
         """
         Sets the internal representation of the board state to a copy of grid.
         """
-        self._grid = [row[:] for row in grid]
+        self._grid = [list(row) for row in grid]
