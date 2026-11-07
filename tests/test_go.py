@@ -519,3 +519,33 @@ def test_regression_board_bounds(row: int, col: int) -> None:
         board.get(row, col)
     with pytest.raises(ValueError):
         board.set(row, col, 1)
+
+KO_SHAPE = [(1, 0), (2, 0), (0, 1), (3, 1), (1, 2), (2, 2), (2, 1), (1, 1)]
+
+@pytest.mark.parametrize("superko", [False, True])
+def test_regression_ko_blocks_immediate_recapture(superko: bool) -> None:
+    """Check that the stone that started a ko cannot retake it at once"""
+    go = Go(9, 2, superko)
+    apply_moves(go, KO_SHAPE)
+    assert go.piece_at((2, 1)) is None
+    assert not go.legal_move((2, 1))
+    assert (2, 1) not in go.available_moves
+
+def test_ko_lifts_after_play_elsewhere() -> None:
+    """Check that a ko threat exchange makes the recapture legal again"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    apply_moves(go, [(7, 7), (7, 8)])
+    assert go.legal_move((2, 1))
+    go.apply_move((2, 1))
+    assert go.piece_at((1, 1)) is None
+
+def test_superko_forbids_any_earlier_board_not_just_the_last() -> None:
+    """Check that superko blocks what simple ko allows"""
+    moves = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2), (2, 1),
+             (2, 3), (1, 3), (1, 1)]
+    simple, superko = Go(19, 2), Go(19, 2, True)
+    apply_moves(simple, moves)
+    apply_moves(superko, moves)
+    assert simple.legal_move((1, 2))
+    assert not superko.legal_move((1, 2))

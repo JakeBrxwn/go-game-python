@@ -313,6 +313,7 @@ class Go:
         """
 
         r, c = pos
+        prior_board = self.frozengrid
 
         # Reset passes
         self._passes = [False for _ in range(self._players)]
@@ -321,11 +322,11 @@ class Go:
 
         self._capture_pieces(pos)
 
-        # Remember board state (according to either ko or superko)
+        # Remember the board this move replaced, since ko forbids returning to it
         if self._superko:
-            self._prior_boards.add(self.frozengrid)
+            self._prior_boards.add(prior_board)
         else:
-            self._prior_boards = {self.frozengrid}
+            self._prior_boards = {prior_board}
 
         # Update Turn
         self._increment_turn()
