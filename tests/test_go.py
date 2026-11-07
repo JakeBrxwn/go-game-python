@@ -1018,7 +1018,7 @@ def test_regression_position_of_another_type(pos: tuple[int, int]) -> None:
     """Check that a position has to be plain numbers, in every entry point"""
     go = Go(9, 2)
     for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="is not a point on the board"):
             call(pos)
 
 @pytest.mark.parametrize("pos", [5, {1, 2}, [1, 2]])
@@ -1153,7 +1153,7 @@ def test_position_of_another_length(pos: tuple[int, int]) -> None:
     """Check that a position has exactly a row and a column"""
     go = Go(9, 2)
     for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="is not a position"):
             call(pos)
 
 def test_board_grid_is_the_board_itself() -> None:
