@@ -33,18 +33,28 @@ class Board:
         for _ in range(rows):
             self._grid.append([None]*cols)
 
+    def _check_bounds(self, row: int, col: int) -> None:
+        """
+        Checks that a position is on the board.
+
+        Raises:
+            ValueError: If the position is outside the bounds of the board.
+        """
+        if not (0 <= row < self._rows and 0 <= col < self._cols):
+            raise ValueError(f"({row}, {col}) is off the board")
+
     def set(self, row: int, col: int, piece: int|None) -> None:
         """
         Sets the value of the piece in a position on the board.
         """
-        assert 0 <= row <= self._rows and 0 <= col <= self._cols
+        self._check_bounds(row, col)
         self._grid[row][col] = piece
 
     def get(self, row: int, col: int) -> int|None:
         """
         Obtains the value of the piece at a given position on the board.
         """
-        assert 0 <= row <= self._rows and 0 <= col <= self._cols
+        self._check_bounds(row, col)
         return self._grid[row][col]
 
     def freeze(self) -> tuple[int, int, tuple[int|None]]:

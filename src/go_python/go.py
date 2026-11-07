@@ -265,10 +265,7 @@ class Go:
         from 1). Otherwise, return None.
         """
         r, c = pos
-        try:
-            return self._grid.get(r, c)
-        except AssertionError as e:
-            raise ValueError from e
+        return self._grid.get(r, c)
 
     def legal_move(self, pos: tuple[int, int]) -> bool:
         """
@@ -287,11 +284,6 @@ class Go:
         """
 
         r, c = pos
-
-        # In bounds check
-        if 0 > r or r >= self._side or 0 > c or c >= self._side:
-            raise ValueError
-
         space = self._grid.get(r, c)
 
         # Valid square check
@@ -329,10 +321,6 @@ class Go:
         """
 
         r, c = pos
-
-        # Value error check
-        if 0 > r or r >= self._side or 0 > c or c >= self._side:
-            raise ValueError
 
         # Reset passes
         self._passes = [False for _ in range(self._players)]

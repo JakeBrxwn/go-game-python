@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from go_python.board import Board
 from go_python.go import Go
 
 POSITIONS_FILE = Path(__file__).with_name("test_positions.txt")
@@ -499,3 +500,22 @@ def test_outcome_tie_on_stones() -> None:
     go.pass_turn()
     go.pass_turn()
     assert go.outcome == [1, 2]
+
+###
+# Regression tests: each of these fails on the code before its fix
+###
+
+@pytest.mark.parametrize("pos", [(9, 0), (0, 9), (9, 9), (-1, 0), (0, -1)])
+def test_regression_piece_at_off_board(pos: tuple[int, int]) -> None:
+    """Check that every off-board position raises ValueError"""
+    with pytest.raises(ValueError):
+        Go(9, 2).piece_at(pos)
+
+@pytest.mark.parametrize("row, col", [(3, 0), (0, 4), (3, 4), (-1, 0), (0, -1)])
+def test_regression_board_bounds(row: int, col: int) -> None:
+    """Check that a board that is not square checks each axis on its own"""
+    board = Board(3, 4)
+    with pytest.raises(ValueError):
+        board.get(row, col)
+    with pytest.raises(ValueError):
+        board.set(row, col, 1)
