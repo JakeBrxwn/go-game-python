@@ -45,7 +45,8 @@ class Go:
         """
         if type(side) is not int or type(players) is not int or \
            side < 1 or players < 1:
-            raise ValueError("A game needs a board and a player")
+            raise ValueError("The side and the player count must be whole "
+                             "numbers of at least one")
 
         self._side = side
         self._players = players

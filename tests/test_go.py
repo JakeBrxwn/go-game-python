@@ -49,6 +49,8 @@ def set_up_test(g: Go, test_name: str) -> None:
             if row['TEST_NAME'] == test_name:
                 moves = parse_moves(row['MOVES'])
                 break
+        else:
+            raise KeyError(f"No position named {test_name}")
         initial_board: BoardGridType = [[None for _ in range(g.side)]
                                         for _ in range(g.side)]
         turn = 1
@@ -523,7 +525,7 @@ def test_piece_at_negative_position(pos: tuple[int, int]) -> None:
 
 @pytest.mark.parametrize("row, col", [(3, 0), (0, 4), (3, 4), (-1, 0), (0, -1)])
 def test_regression_board_bounds(row: int, col: int) -> None:
-    """Check that a board that is not square checks each axis on its own"""
+    """Check that a board that is not square checks each axis at both ends"""
     board = Board(3, 4)
     with pytest.raises(ValueError):
         board.get(row, col)

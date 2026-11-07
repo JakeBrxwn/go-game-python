@@ -1,6 +1,7 @@
 """
 Replays seeded random games against sgfmill, an independent Go implementation.
-Any disagreement on a board, a legal move or a score fails the eval.
+Any disagreement on a board or a legal move fails the eval, and so does a
+different final score margin.
 """
 import random
 from collections import Counter
