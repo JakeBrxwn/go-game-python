@@ -949,44 +949,6 @@ def test_reads_keep_the_pass_count(read: Callable[[Go], object]) -> None:
     go.pass_turn()
     assert go.done
 
-def test_illegal_move_keeps_the_pass_count() -> None:
-    """Check that a refused move does not count as a move between passes"""
-    go = Go(9, 2)
-    go.apply_move((4, 4))
-    go.pass_turn()
-    with pytest.raises(ValueError):
-        go.apply_move((4, 4))
-    go.pass_turn()
-    assert go.done
-
-def test_rejected_pass_changes_nothing() -> None:
-    """Check that a pass after the end leaves the turn and the count alone"""
-    go = Go(9, 2)
-    go.pass_turn()
-    go.pass_turn()
-    turn = go.turn
-    with pytest.raises(ValueError):
-        go.pass_turn()
-    assert go.turn == turn
-    assert go._passes == 2
-
-def test_rejected_load_keeps_a_finished_game_finished() -> None:
-    """Check that a refused load does not reopen the game"""
-    go = Go(9, 2)
-    go.pass_turn()
-    go.pass_turn()
-    with pytest.raises(ValueError):
-        go.load_game(0, go.grid)
-    assert go.done
-
-def test_rejected_load_keeps_the_ko_ban() -> None:
-    """Check that a refused load does not wipe the history"""
-    go = Go(9, 2)
-    apply_moves(go, KO_SHAPE)
-    with pytest.raises(ValueError):
-        go.load_game(0, go.grid)
-    assert not go.legal_move((2, 1))
-
 @pytest.mark.parametrize("rows, cols, row, col", [(3, 4, 0, 3), (4, 3, 3, 0)])
 def test_rectangular_corner_is_on_the_board(rows: int, cols: int, row: int,
                                             col: int) -> None:
@@ -1152,3 +1114,88 @@ def test_board_grid_is_the_board_itself() -> None:
     board = Board(2, 2)
     board.grid[0][0] = 1
     assert board.get(0, 0) == 1
+
+###
+# Every refused call leaves the whole game as it was
+###
+
+OTHER_GRID = parse_board(["2....", ".....", ".....", ".....", "....."])
+BAD_PIECE_GRID = parse_board(["2....", ".....", ".....", ".....", "....7"])
+
+def game_state(go: Go) -> tuple[object, ...]:
+    """
+    Helper function that captures everything a refused call must leave alone.
+
+    Args:
+        go: The Go game instance
+
+    Returns: The grid, turn, end flag, pass count, history and legal moves
+    """
+    return (go.grid, go.turn, go.done, go._passes, go._prior_boards,
+            go.available_moves)
+
+def game_in_a_ko(superko: bool) -> Go:
+    """
+    Helper function that builds a three player game where player 3 may not
+    retake a ko at (1, 1) or play the suicide at (0, 0), with a pass pending.
+
+    Args:
+        superko: Whether the game uses superko
+
+    Returns: The game
+    """
+    go = Go(5, 3, superko)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_3))
+    go.apply_move((1, 2))
+    go.pass_turn()
+    return go
+
+def finished_game(superko: bool) -> Go:
+    """
+    Helper function that builds a three player game that has ended.
+
+    Args:
+        superko: Whether the game uses superko
+
+    Returns: The game
+    """
+    go = Go(5, 3, superko)
+    go.apply_move((2, 2))
+    for _ in range(3):
+        go.pass_turn()
+    return go
+
+REFUSALS = [
+    pytest.param(game_in_a_ko, lambda go: go.apply_move((1, 1)), id="ko"),
+    pytest.param(game_in_a_ko, lambda go: go.apply_move((0, 0)), id="suicide"),
+    pytest.param(game_in_a_ko, lambda go: go.apply_move((1, 0)), id="occupied"),
+    pytest.param(game_in_a_ko, lambda go: go.apply_move((5, 0)), id="off board"),
+    pytest.param(game_in_a_ko, lambda go: go.simulate_move((1, 1)),
+                 id="simulated ko"),
+    pytest.param(finished_game, lambda go: go.apply_move((0, 0)),
+                 id="move after the end"),
+    pytest.param(finished_game, lambda go: go.pass_turn(),
+                 id="pass after the end"),
+    pytest.param(finished_game, lambda go: go.simulate_move(None),
+                 id="simulated pass after the end"),
+] + [
+    pytest.param(make_game, refusal, id=f"{label} on {make_game.__name__}")
+    for make_game in (game_in_a_ko, finished_game)
+    for label, refusal in (
+        ("load with a bad turn", lambda go: go.load_game(0, OTHER_GRID)),
+        ("load with a bad piece", lambda go: go.load_game(2, BAD_PIECE_GRID)),
+        ("load with a short grid", lambda go: go.load_game(2, OTHER_GRID[:4])),
+    )
+]
+
+@pytest.mark.parametrize("superko", [False, True])
+@pytest.mark.parametrize("make_game, refusal", REFUSALS)
+def test_refused_call_changes_nothing(make_game: Callable[[bool], Go],
+                                      refusal: Callable[[Go], object],
+                                      superko: bool) -> None:
+    """Check that a refused call raises ValueError and leaves every part alone"""
+    go = make_game(superko)
+    before = game_state(go)
+    with pytest.raises(ValueError):
+        refusal(go)
+    assert game_state(go) == before
