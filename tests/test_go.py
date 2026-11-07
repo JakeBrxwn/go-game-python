@@ -937,6 +937,32 @@ def test_load_game_on_a_simulation_keeps_the_real_ban() -> None:
     go.simulate_move(None).load_game(1, go.grid)
     assert not go.legal_move((2, 1))
 
+def test_simulated_move_clears_pending_passes() -> None:
+    """Check that a move in a simulation resets the passes before it"""
+    go = Go(9, 2)
+    go.pass_turn()
+    simulation = go.simulate_move((4, 4))
+    simulation.pass_turn()
+    assert not simulation.done
+
+@pytest.mark.parametrize("superko", [False, True])
+def test_simulated_capture_starts_a_ko(superko: bool) -> None:
+    """Check that a capture in a simulation bans the recapture there"""
+    go = Go(9, 2, superko)
+    apply_moves(go, KO_SHAPE[:-1])
+    simulation = go.simulate_move((1, 1))
+    assert simulation.piece_at((2, 1)) is None
+    assert not simulation.legal_move((2, 1))
+
+@pytest.mark.parametrize("superko", [False, True])
+def test_simulated_pass_keeps_the_ko(superko: bool) -> None:
+    """Check that a pass in a simulation leaves the ko ban in place"""
+    go = Go(5, 3, superko)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_3))
+    go.apply_move((1, 2))
+    simulation = go.simulate_move(None)
+    assert not simulation.legal_move((1, 1))
+
 @pytest.mark.parametrize("read", [
     lambda go: go.legal_move((0, 0)),
     lambda go: go.available_moves,
