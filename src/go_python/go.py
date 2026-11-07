@@ -40,7 +40,7 @@ class Go:
         self._side = side
         self._players = players
         self._superko = superko
-        self._grid = Board(side, side, players)
+        self._grid = Board(side, side)
         self._turn = 1
         self._prior_boards = set()
         self._passes = [False for _ in range(players)]
@@ -140,13 +140,6 @@ class Go:
                 winner.append(player)
 
         return winner
-    
-    @property
-    def number_pieces(self) -> dict[int, int]:
-        """
-        Returns the scores of each player by the amount of pieces on the board.
-        """
-        return self._grid.points
 
     #
     # METHODS
@@ -242,7 +235,6 @@ class Go:
                 while grouping:
                     r, c = grouping.pop()
                     self._grid.set(r, c, None)
-                    self._grid.points[neigh_value] -= 1
 
         grouping, _ = self._find_contiguous(src_r, src_c)
         while grouping:
@@ -326,7 +318,6 @@ class Go:
         self._passes = [False for _ in range(self._players)]
 
         self._grid.set(r, c, self._turn)
-        self._grid.points[self._turn] += 1
 
         self._capture_pieces(pos)
 

@@ -25,11 +25,10 @@ class Board:
     _cols: int
     _grid: BoardGridType
 
-    def __init__(self, rows: int, cols: int, players: int = 2):
+    def __init__(self, rows: int, cols: int):
         self._rows = rows
         self._cols = cols
         self._grid = []
-        self.points = {i: 0 for i in range(1, players + 1)}
         for _ in range(rows):
             self._grid.append([None]*cols)
 
