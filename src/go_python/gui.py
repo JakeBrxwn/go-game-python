@@ -297,6 +297,7 @@ class GoGUI:
 
                     if self._current_tile is not None:
                         self.board.apply_move(self._current_tile)
+                        self._current_tile = None
                         self._scores = self.board.scores()
 
                     elif is_within_radius(pygame.mouse.get_pos(),
