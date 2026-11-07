@@ -40,9 +40,11 @@ class Go:
             board.
 
         Raises:
-            ValueError: If there is no board or no player.
+            ValueError: If side or players is not a whole number of at
+            least one.
         """
-        if side < 1 or players < 1:
+        if type(side) is not int or type(players) is not int or \
+           side < 1 or players < 1:
             raise ValueError("A game needs a board and a player")
 
         self._side = side
@@ -286,13 +288,16 @@ class Go:
             pos: Position on the board
 
         Raises:
-            ValueError: If the specified position is outside
+            ValueError: If pos is not a position, or is outside
             the bounds of the board.
 
         Returns: If there is a piece at the specified location,
         return the number of the player (players are numbered
         from 1). Otherwise, return None.
         """
+        if not isinstance(pos, tuple):
+            raise ValueError(f"{pos} is not a position")
+
         r, c = pos
         return self._grid.get(r, c)
 
@@ -304,7 +309,7 @@ class Go:
             pos: Position on the board
 
         Raises:
-            ValueError: If the specified position is outside
+            ValueError: If pos is not a position, or is outside
             the bounds of the board.
 
         Returns: If the current player (as returned by the turn
@@ -313,8 +318,7 @@ class Go:
         over, no move is legal.
         """
 
-        r, c = pos
-        space = self._grid.get(r, c)
+        space = self.piece_at(pos)
 
         # Valid square check
         if self._done or space is not None:

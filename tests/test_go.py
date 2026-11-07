@@ -687,7 +687,9 @@ def test_simulate_move_keeps_history_apart() -> None:
     go.simulate_move((2, 2)).simulate_move((3, 3))
     assert go._prior_boards == history
 
-@pytest.mark.parametrize("side, players", [(0, 2), (-1, 2), (9, 0), (9, -1)])
+@pytest.mark.parametrize("side, players", [
+    (0, 2), (-1, 2), (9, 0), (9, -1), (0, 1), (0, 0)
+])
 def test_regression_impossible_game(side: int, players: int) -> None:
     """Check that a game needs a board and a player"""
     with pytest.raises(ValueError):
@@ -1000,9 +1002,24 @@ def test_one_player_game_ends_on_one_pass() -> None:
 def test_regression_position_of_another_type(pos: tuple[int, int]) -> None:
     """Check that a position has to be plain numbers, in every entry point"""
     go = Go(9, 2)
-    for call in (go.piece_at, go.legal_move, go.apply_move):
+    for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
         with pytest.raises(ValueError):
             call(pos)
+
+@pytest.mark.parametrize("pos", [5, {1, 2}, [1, 2]])
+def test_regression_position_that_is_not_a_tuple(pos: tuple[int, int]) -> None:
+    """Check that only a tuple is a position, in every entry point"""
+    go = Go(9, 2)
+    for call in (go.piece_at, go.legal_move, go.apply_move, go.simulate_move):
+        with pytest.raises(ValueError):
+            call(pos)
+
+def test_regression_none_is_not_a_position() -> None:
+    """Check that None only means a pass to simulate_move"""
+    go = Go(9, 2)
+    for call in (go.piece_at, go.legal_move, go.apply_move):
+        with pytest.raises(ValueError):
+            call(None)
 
 @pytest.mark.parametrize("grid", [None, [None, None, None], [1, 2, 3]])
 def test_regression_load_game_rejects_grid_of_another_shape(
@@ -1037,3 +1054,12 @@ def test_superko_remembers_the_whole_game() -> None:
         seen.setdefault(go.frozengrid, number)
 
     assert oldest_ban > 48
+
+@pytest.mark.parametrize("side, players", [
+    (9, 2.5), (9, 1.5), (9, float("inf")), (9, 2.0), (9, True), (2.0, 2),
+    (True, 2)
+])
+def test_regression_game_size_of_another_type(side: int, players: int) -> None:
+    """Check that a game that could never end is refused when it is made"""
+    with pytest.raises(ValueError):
+        Go(side, players)
