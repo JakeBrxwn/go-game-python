@@ -1,8 +1,9 @@
 """
 Replays seeded random games against sgfmill, an independent Go implementation.
-The eval fails on any different board or final score margin, and on any
-different legality answer at the points it checks: every point on sweep moves,
-and the points near the last move in between.
+sgfmill picks every move. The eval fails on any different board or final
+score margin, on a game that ends at a different move, and on any different
+legality answer at the points it checks: every point on sweep moves, and in
+between, the points near everything the last move changed.
 """
 import random
 from collections import Counter
@@ -71,13 +72,15 @@ def oracle_legal(board: boards.Board, pos: tuple[int, int], colour: str,
 
 def neighbourhood(pos: tuple[int, int], side: int) -> list[tuple[int, int]]:
     """
-    Finds the points near a move, which is where its effects on legality are.
+    Finds the points near a point a move changed, which is where most of the
+    move's effects on legality are. An effect can travel further along a long
+    group, and the next full sweep checks that.
 
     Args:
-        pos: The last move
+        pos: A point the last move changed
         side: The size of the board
 
-    Returns: The points within two steps of the move
+    Returns: The points within two steps of the point
     """
     row, col = pos
     return [(r, c) for r in range(max(row - 2, 0), min(row + 3, side))
@@ -118,13 +121,18 @@ def play_game(side: int, seed: int, superko: bool) -> Counter[str]:
             stats["ko points"] += 1
 
         rng.shuffle(points)
-        move = next((pos for pos in points if go.legal_move(pos)), None)
+        move = next((pos for pos in points
+                     if oracle_legal(board, pos, colour, ko_point, history)), None)
         if move is None:
+            assert go.available_moves == [], (side, seed, move_number)
             break
 
+        before = grid_of(board)
         go.apply_move(move)
         ko_point = board.play(*move, colour)
-        near_last_move = neighbourhood(move, side)
+        after = grid_of(board)
+        near_last_move = sorted({near for r, c in points if before[r][c] != after[r][c]
+                                 for near in neighbourhood((r, c), side)})
         if history is not None:
             history.add(frozen(board))
         assert go.grid == grid_of(board), (side, seed, move_number)
