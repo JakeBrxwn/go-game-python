@@ -1,6 +1,6 @@
 """
-Checks what must stay true in any game, for every player count, using a
-liberty count written here rather than the engine's own.
+Checks what must stay true in any game of two to four players, using a liberty
+count and a history written here rather than the engine's own.
 """
 import random
 

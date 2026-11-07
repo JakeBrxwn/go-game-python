@@ -1,7 +1,7 @@
 """
 Holds the engine to its speed targets. The worst case is a 19x19 board under
-superko, which took 468.6 ms and 110.08 s before the engine stopped copying the
-game for every legality check.
+superko, which took 468.6 ms and 110.08 s before the engine stopped deep-copying
+the game for every legality check.
 """
 import random
 import statistics

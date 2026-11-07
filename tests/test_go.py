@@ -37,7 +37,7 @@ def parse_moves(moves_str: str) -> list[tuple[int, ...]]:
 
 def set_up_test(g: Go, test_name: str) -> None:
     """
-    Helper function that gets string represention of moves needed to set up
+    Helper function that gets string representation of moves needed to set up
     the position for desired test
     Args: test_name [str] : the test name that corresponds to row in test
     positions text file
@@ -222,7 +222,7 @@ def test_19x19_multiple_territories_two_player() -> None:
     assert g.scores()[1] == 7 and g.scores()[2] == 7
 
 def test_19x19_multiple_territories_three_player() -> None:
-    """Check scoring of multiple terrirtories"""
+    """Check scoring of multiple territories"""
     g = Go(19,3)
     set_up_test(g, "test_19x19_multiple_territories_three_player")
     assert g.scores()[1] == 5 and g.scores()[2] == 4 and g.scores()[3] == 4
