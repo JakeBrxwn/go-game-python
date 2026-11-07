@@ -909,6 +909,7 @@ def test_load_game_accepts_every_player() -> None:
     go.load_game(4, parse_board(["123", "4..", "..."]))
     assert go.turn == 4
     assert go.piece_at((1, 0)) == 4
+    assert not go.done
 
 def test_superko_survives_a_pass() -> None:
     """Check that a pass does not clear the history"""
@@ -1110,12 +1111,19 @@ def test_load_game_keeps_superko() -> None:
     assert not go.legal_move((0, 0))
 
 def test_loaded_group_without_liberties_stays_and_scores() -> None:
-    """Check that a move elsewhere leaves such a group alone"""
+    """Check that a move diagonal to such a group leaves it alone"""
     go = Go(3, 2)
-    go.load_game(1, parse_board(["21.", "1..", "..."]))
-    go.apply_move((2, 2))
-    assert go.piece_at((0, 0)) == 2
-    assert go.scores()[2] == 1
+    go.load_game(1, parse_board([".1.", "121", ".1."]))
+    go.apply_move((0, 0))
+    assert go.piece_at((1, 1)) == 2
+    assert go.scores() == {1: 8, 2: 1}
+
+def test_loaded_group_without_liberties_keeps_its_owner_playing() -> None:
+    """Check that its owner may still play anywhere that is not suicide"""
+    go = Go(3, 2)
+    go.load_game(2, parse_board(["21.", "1..", "..."]))
+    assert go.available_moves == [(0, 2), (1, 1), (1, 2), (2, 0), (2, 1),
+                                  (2, 2)]
 
 def test_legal_move_off_the_board_after_the_game() -> None:
     """Check that a finished game still refuses a position that cannot exist"""
@@ -1325,13 +1333,19 @@ def test_superko_bans_a_board_from_over_a_thousand_moves_back(
     assert go.legal_move(point) != superko
 
 @pytest.mark.parametrize("superko", [False, True])
-def test_simple_ko_allows_a_board_from_three_moves_back(superko: bool) -> None:
+@pytest.mark.parametrize("rows, actions, point", [
+    (["21.", ".22", "122"], [(1, 0), (0, 0)], (2, 0)),
+    (["22.", "112", "11."], [(0, 2), (0, 0), None], (0, 1)),
+], ids=["middle-stone-captures", "middle-stone-captures-nothing"])
+def test_simple_ko_allows_a_board_from_three_moves_back(
+        rows: list[str], actions: list[tuple[int, int] | None],
+        point: tuple[int, int], superko: bool) -> None:
     """
-    Check that simple ko bans only the board before the last move. Player 1
-    takes a stone, player 2 takes two back, and player 1's next stone brings
-    back the board from before all three. Superko must refuse it.
+    Check that simple ko bans only the board before the last move, whether or
+    not the move between captured anything. The third stone brings back the
+    board from before the first. Superko must refuse it.
     """
     go = Go(3, 2, superko)
-    go.load_game(1, parse_board(["21.", ".22", "122"]))
-    apply_moves(go, [(1, 0), (0, 0)])
-    assert go.legal_move((2, 0)) != superko
+    go.load_game(1, parse_board(rows))
+    play(go, actions)
+    assert go.legal_move(point) != superko
