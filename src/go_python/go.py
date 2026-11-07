@@ -5,9 +5,8 @@ from collections.abc import Sequence
 from copy import copy
 from typing import cast
 
-from go_python.board import Board, BoardGridType, ListMovesType
-
-FrozenBoardGridType = tuple[int, int, tuple[int|None, ...]]
+from go_python.board import (Board, BoardGridType, FrozenBoardGridType,
+                              ListMovesType)
 
 class Go:
     """

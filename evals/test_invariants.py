@@ -6,7 +6,8 @@ import random
 
 import pytest
 
-from go_python.go import FrozenBoardGridType, Go
+from go_python.board import FrozenBoardGridType
+from go_python.go import Go
 
 GAMES_WITH_REPEATS = 300
 MIN_BANS = 40

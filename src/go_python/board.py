@@ -15,6 +15,9 @@ BoardGridType = list[list[int | None]]
 # Type for representing lists of moves on the board.
 ListMovesType = list[tuple[int, int]]
 
+# Type for a board that can be hashed: rows, columns, then every point in order.
+FrozenBoardGridType = tuple[int, int, tuple[int | None, ...]]
+
 class Board:
     """
     A class for representing a game board for an arbitrary game played on a
@@ -78,7 +81,7 @@ class Board:
         board._grid = [row[:] for row in self._grid]
         return board
 
-    def freeze(self) -> tuple[int, int, tuple[int|None, ...]]:
+    def freeze(self) -> FrozenBoardGridType:
         """
         Returns a "frozen" (immutable) copy of the gameboard that can be hashed
         by Python.
