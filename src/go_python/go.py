@@ -1,10 +1,10 @@
 """
 Go class
 """
-from copy import deepcopy
+from copy import copy
 from go_python.board import Board, BoardGridType, ListMovesType
 
-FrozenBoardGridType = tuple[int, int, tuple[int|None]]
+FrozenBoardGridType = tuple[int, int, tuple[int|None, ...]]
 
 class Go:
     """
@@ -73,7 +73,7 @@ class Go:
         meaning there is no piece in that location. Players are
         numbered from 1.
         """
-        return deepcopy(self._grid.grid)
+        return self._grid.copy().grid
 
     @property
     def frozengrid(self) -> FrozenBoardGridType:
@@ -243,6 +243,26 @@ class Go:
         for r, c in grouping:
             self._grid.set(r, c, None)
 
+    def _place_stone(self, pos: tuple[int, int]) -> None:
+        """
+        Puts a stone of the current player on the board and resolves captures.
+
+        Args:
+            pos: the position of the new stone.
+        """
+        r, c = pos
+        self._grid.set(r, c, self._turn)
+        self._capture_pieces(pos)
+
+    def _copy(self) -> "Go":
+        """
+        Returns an independent copy of the game. The copy shares _prior_boards,
+        which is safe because that set is replaced and never changed in place.
+        """
+        new_go = copy(self)
+        new_go._grid = self._grid.copy()
+        return new_go
+
     def piece_at(self, pos: tuple[int, int]) -> int | None:
         """
         Returns the piece at a given location
@@ -284,16 +304,15 @@ class Go:
         if space is not None:
             return False
 
-        new_game_state = self.simulate_move(pos)
+        trial = self._copy()
+        trial._place_stone(pos)
 
         # Suicide check: a capture of your own group takes the new stone too
-        if new_game_state.piece_at(pos) is None:
+        if trial.piece_at(pos) is None:
             return False
 
         # Ko rule check
-        if new_game_state.frozengrid in self._prior_boards:
-            return False
-        return True
+        return trial.frozengrid not in self._prior_boards
 
     def apply_move(self, pos: tuple[int, int]) -> None:
         """
@@ -319,19 +338,16 @@ class Go:
         Returns: None
         """
 
-        r, c = pos
         prior_board = self.frozengrid
 
         # Reset passes
         self._passes = [False for _ in range(self._players)]
 
-        self._grid.set(r, c, self._turn)
-
-        self._capture_pieces(pos)
+        self._place_stone(pos)
 
         # Remember the board this move replaced, since ko forbids returning to it
         if self._superko:
-            self._prior_boards.add(prior_board)
+            self._prior_boards = self._prior_boards | {prior_board}
         else:
             self._prior_boards = {prior_board}
 
@@ -439,12 +455,9 @@ class Go:
         the method was called on, reflecting the state
         of the game after applying the provided move.
         """
-        new_go = deepcopy(self)
+        new_go = self._copy()
         if pos is not None:
-            try:
-                new_go.apply_move(pos)
-            except ValueError as e:
-                raise ValueError from e
+            new_go.apply_move(pos)
         else:
             new_go.pass_turn()
         return new_go

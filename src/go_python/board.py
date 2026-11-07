@@ -1,6 +1,7 @@
 """
 A class for representing a game board.
 """
+from itertools import chain
 
 # Type for representing the state of the game board (the "grid")
 # as a list of lists. Each entry will either be an integer (meaning
@@ -56,7 +57,15 @@ class Board:
         self._check_bounds(row, col)
         return self._grid[row][col]
 
-    def freeze(self) -> tuple[int, int, tuple[int|None]]:
+    def copy(self) -> "Board":
+        """
+        Returns an independent copy of the board.
+        """
+        board = Board(self._rows, self._cols)
+        board.set_grid(self._grid)
+        return board
+
+    def freeze(self) -> tuple[int, int, tuple[int|None, ...]]:
         """
         Returns a "frozen" (immutable) copy of the gameboard that can hashed
         by Python.
@@ -66,8 +75,7 @@ class Board:
         representation of the game board. The number of rows and columns can
         be used to reverse the flattening of the game board.
         """
-        return (self._rows, self._cols, tuple(piece for row in self._grid
-                                              for piece in row))
+        return (self._rows, self._cols, tuple(chain.from_iterable(self._grid)))
 
     @property
     def grid(self) -> BoardGridType:
@@ -78,6 +86,6 @@ class Board:
 
     def set_grid(self, grid: BoardGridType) -> None:
         """
-        Sets the internal representation of the board state.
+        Sets the internal representation of the board state to a copy of grid.
         """
-        self._grid = grid
+        self._grid = [row[:] for row in grid]
