@@ -563,15 +563,24 @@ def test_ko_lifts_after_play_elsewhere() -> None:
     go.apply_move((2, 1))
     assert go.piece_at((1, 1)) is None
 
+# After these moves, simple ko allows (1, 2) but superko bans it
+SUPERKO_ONLY_BAN = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2),
+                    (2, 1), (2, 3), (1, 3), (1, 1)]
+
 def test_superko_forbids_any_earlier_board_not_just_the_last() -> None:
     """Check that superko blocks what simple ko allows"""
-    moves = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2), (2, 1),
-             (2, 3), (1, 3), (1, 1)]
     simple, superko = Go(19, 2), Go(19, 2, True)
-    apply_moves(simple, moves)
-    apply_moves(superko, moves)
+    apply_moves(simple, SUPERKO_ONLY_BAN)
+    apply_moves(superko, SUPERKO_ONLY_BAN)
     assert simple.legal_move((1, 2))
     assert not superko.legal_move((1, 2))
+
+def test_simulated_move_keeps_superko() -> None:
+    """Check that the game simulate_move returns still plays by superko"""
+    go = Go(19, 2, True)
+    apply_moves(go, SUPERKO_ONLY_BAN[:-1])
+    simulation = go.simulate_move(SUPERKO_ONLY_BAN[-1])
+    assert not simulation.legal_move((1, 2))
 
 def board_with(side: int, stones: dict[tuple[int, int], int]) \
 -> list[list[int | None]]:
@@ -589,9 +598,10 @@ def board_with(side: int, stones: dict[tuple[int, int], int]) \
         grid[row][col] = player
     return grid
 
-def test_single_stone_suicide_is_illegal() -> None:
+@pytest.mark.parametrize("superko", [False, True])
+def test_single_stone_suicide_is_illegal(superko: bool) -> None:
     """Check that a stone cannot fill the last liberty of itself"""
-    go = Go(9, 2)
+    go = Go(9, 2, superko)
     go.load_game(2, board_with(9, {(0, 1): 1, (1, 0): 1}))
     assert not go.legal_move((0, 0))
     assert (0, 0) not in go.available_moves
@@ -1001,9 +1011,10 @@ def test_rectangular_set_grid_wants_its_own_shape() -> None:
     with pytest.raises(ValueError):
         board.set_grid([[None] * 2] * 2)
 
-def test_smallest_board_has_no_legal_move() -> None:
+@pytest.mark.parametrize("superko", [False, True])
+def test_smallest_board_has_no_legal_move(superko: bool) -> None:
     """Check that a stone on a 1x1 board would have no liberty"""
-    assert Go(1, 2).available_moves == []
+    assert Go(1, 2, superko).available_moves == []
 
 def test_one_player_game_ends_on_one_pass() -> None:
     """Check that the smallest player count works"""
@@ -1304,3 +1315,15 @@ def test_superko_bans_a_board_from_over_a_thousand_moves_back(
 
     point = retake(9, 2)
     assert go.legal_move(point) != superko
+
+@pytest.mark.parametrize("superko", [False, True])
+def test_simple_ko_allows_a_board_from_three_moves_back(superko: bool) -> None:
+    """
+    Check that simple ko bans only the board before the last move. Player 1
+    takes a stone, player 2 takes two back, and player 1's next stone brings
+    back the board from before all three. Superko must refuse it.
+    """
+    go = Go(3, 2, superko)
+    go.load_game(1, parse_board(["21.", ".22", "122"]))
+    apply_moves(go, [(1, 0), (0, 0)])
+    assert go.legal_move((2, 0)) != superko
