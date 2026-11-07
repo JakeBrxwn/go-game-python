@@ -14,6 +14,6 @@ def test_board_with_no_side_is_refused(size: str) -> None:
     assert "--size" in result.output
 
 def test_bots_finish_a_game() -> None:
-    """Check that two bots play a small game to the end"""
+    """Check that two bots play a small game without crashing"""
     result = CliRunner().invoke(cmd, ["-s", "6", "-n", "1"])
     assert result.exit_code == 0, result.output

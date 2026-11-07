@@ -1183,8 +1183,10 @@ REFUSALS = [
     for make_game in (game_in_a_ko, finished_game)
     for label, refusal in (
         ("load with a bad turn", lambda go: go.load_game(0, OTHER_GRID)),
-        ("load with a bad piece", lambda go: go.load_game(2, BAD_PIECE_GRID)),
-        ("load with a short grid", lambda go: go.load_game(2, OTHER_GRID[:4])),
+        ("load with a bad piece", lambda go: go.load_game(1, BAD_PIECE_GRID)),
+        ("load with a short grid", lambda go: go.load_game(1, OTHER_GRID[:4])),
+        ("load with a ragged grid",
+         lambda go: go.load_game(1, OTHER_GRID[:4] + [[None] * 6])),
     )
 ]
 
@@ -1200,7 +1202,9 @@ def test_refused_call_changes_nothing(make_game: Callable[[bool], Go],
         refusal(go)
     assert game_state(go) == before
 
-@pytest.mark.parametrize("grid", [[[1]], [[None] * 3] * 3, [[None] * 2, [None]]])
+@pytest.mark.parametrize("grid", [
+    [[1]], [[None] * 3] * 3, [[None] * 2, [None]], [[None] * 2] * 3
+])
 def test_regression_set_grid_rejects_another_size(grid: BoardGridType) -> None:
     """Check that a board keeps the size it was made with"""
     board = Board(2, 2)
