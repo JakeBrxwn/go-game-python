@@ -37,6 +37,10 @@ class Board:
         """
         Checks that a position is on the board.
 
+        Args:
+            row: The row of the position.
+            col: The column of the position.
+
         Raises:
             ValueError: If the position is outside the bounds of the board.
         """
@@ -67,7 +71,7 @@ class Board:
 
     def freeze(self) -> tuple[int, int, tuple[int|None, ...]]:
         """
-        Returns a "frozen" (immutable) copy of the gameboard that can hashed
+        Returns a "frozen" (immutable) copy of the gameboard that can be hashed
         by Python.
 
         The frozen copy is a tuple containing the number of rows, then the

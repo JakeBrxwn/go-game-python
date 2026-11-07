@@ -108,8 +108,7 @@ class Go:
         Returns the list of positions where the current player
         (as returned by the turn method) could place a piece.
 
-        If the game is over, this property will not return
-        any meaningful value.
+        If the game is over, the list is empty.
         """
         legal_moves: ListMovesType = [(r, c) for r in range(self._side)
                                       for c in range(self._side)
@@ -184,8 +183,7 @@ class Go:
             r: The row number of the position to be assessed.
             c: The column number of the position to be assessed.
 
-        Returns: a list of tuples, with each tuple containing the position of
-        a valid neighbor and the value of that neighbor.
+        Returns: a list of the positions of the valid neighbors.
         """
         cardinal_directions = ((0, 1), (1, 0), (0, -1) , (-1, 0))
         return [(r + dr, c + dc) for dr, dc in cardinal_directions
@@ -202,10 +200,10 @@ class Go:
 
         Args:
             src_r: The row coordinate of the source piece.
-            src_c The column coordinate of the source piece.
+            src_c: The column coordinate of the source piece.
 
-        Returns a set of containing the positions of the group of same-value
-        contingous pieces and a set of all piece values along the edges.
+        Returns: a set containing the positions of the group of same-value
+        contiguous pieces and a set of all piece values along the edges.
         """
         src_value = self._grid.get(src_r, src_c)
         halt_flag = src_value is not None
@@ -236,7 +234,7 @@ class Go:
 
     def _capture_pieces(self, pos: tuple[int, int]) -> None:
         """
-        Performs the neccessary capture checks for a placed pieces in the
+        Performs the necessary capture checks for a placed piece in the
         necessary order, first checking the surrounding pieces of a different
         player and then checking if there was a self capture.
 
@@ -423,7 +421,9 @@ class Go:
         Note: This will wipe the history of prior board states,
               so violations of the ko rule may not be detected
               after loading a game. A finished game becomes a
-              game in progress.
+              game in progress. A group with no liberties is not
+              an error: it stays on the board and scores as alive
+              until a move next to it captures it.
 
         Args:
             turn: The player number of the player that

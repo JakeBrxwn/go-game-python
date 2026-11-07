@@ -226,7 +226,7 @@ def test_19x19_multiple_territories_three_player() -> None:
     assert g.scores()[1] == 5 and g.scores()[2] == 4 and g.scores()[3] == 4
 
 def test_19x19_outcome() -> None:
-    """Check outcome for three player"""
+    """Check outcome of a finished two player game"""
     g = Go(19, 2)
     set_up_test(g, "test_19x19_outcome")
     g.pass_turn()
@@ -502,7 +502,7 @@ def test_outcome_tie_on_stones() -> None:
     assert go.outcome == [1, 2]
 
 ###
-# Regression tests: each of these fails on the code before its fix
+# Rule tests. Every test_regression_* here fails on the code before its fix
 ###
 
 @pytest.mark.parametrize("pos", [(9, 0), (0, 9), (9, 9)])
