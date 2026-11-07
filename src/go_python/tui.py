@@ -8,7 +8,7 @@ from typing import Optional
 import click
 from colorama import Fore, Style
 
-from go_python.base import GoBase, BoardGridType
+from go_python.board import BoardGridType
 from go_python.go import Go
 from go_python.bot import Smart
 
@@ -18,7 +18,7 @@ colors: dict[int, tuple[str, str]] = {1 : (Fore.RED, 'Red'),
         6 : (Fore.YELLOW, 'Yellow'), 7 : (Fore.CYAN, 'Cyan'),
         8 : (Fore.MAGENTA, 'Magenta')}
 
-def get_move(go_game: GoBase) -> Optional[tuple[int, int]]:
+def get_move(go_game: Go) -> Optional[tuple[int, int]]:
     """
     Gets a valid move from the player whose turn it is
     by prompting that player for a row and colunmn.
@@ -97,7 +97,7 @@ def print_board(grid: BoardGridType) -> None:
                 connecting += '│ '
             print(connecting)
 
-def play_go(go_game: GoBase) -> None:
+def play_go(go_game: Go) -> None:
     """
     Continuously asks the current player to make a move and updates
     the state of the board until the game ends.

@@ -1,7 +1,16 @@
 """
 A class for representing a game board.
 """
-from go_python.base import BoardGridType
+
+# Type for representing the state of the game board (the "grid")
+# as a list of lists. Each entry will either be an integer (meaning
+# there is a piece at that location for that player) or None,
+# meaning there is no piece in that location. Players are
+# numbered from 1.
+BoardGridType = list[list[int | None]]
+
+# Type for representing lists of moves on the board.
+ListMovesType = list[tuple[int, int]]
 
 class Board:
     """

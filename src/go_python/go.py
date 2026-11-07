@@ -2,15 +2,17 @@
 Go class
 """
 from copy import deepcopy
-from go_python.base import GoBase, BoardGridType, ListMovesType
-from go_python.board import Board
+from go_python.board import Board, BoardGridType, ListMovesType
 
 FrozenBoardGridType = tuple[int, int, tuple[int|None]]
 
-class Go(GoBase):
+class Go:
     """
     A class-based implementation of Go.
     """
+    _side: int
+    _players: int
+    _superko: bool
     _grid: "Board"
     _turn: int
     _prior_boards: set[FrozenBoardGridType]
@@ -23,8 +25,21 @@ class Go(GoBase):
         players: int,
         superko: bool = False,
     ):
-        super().__init__(side, players, superko)
+        """
+        Constructor
 
+        Args:
+            side: Number of squares on each side of the board
+            players: Number of players
+            superko: If True, the "super ko" rule is in effect:
+            a move cannot result in any past state of the board.
+            If False, the "simple ko" rule is in effect: a move
+            cannot result in the immediately prior state of the
+            board.
+        """
+        self._side = side
+        self._players = players
+        self._superko = superko
         self._grid = Board(side, side, players)
         self._turn = 1
         self._prior_boards = set()
@@ -34,6 +49,20 @@ class Go(GoBase):
     #
     # Properties
     #
+
+    @property
+    def side(self) -> int:
+        """
+        Returns the size of the board (the number of squares per side)
+        """
+        return self._side
+
+    @property
+    def num_players(self) -> int:
+        """
+        Returns the number of players
+        """
+        return self._players
 
     @property
     def grid(self) -> BoardGridType:
@@ -400,7 +429,7 @@ class Go(GoBase):
         self._grid.set_grid(grid)
         self._prior_boards = set()
 
-    def simulate_move(self, pos: tuple[int, int] | None) -> "GoBase":
+    def simulate_move(self, pos: tuple[int, int] | None) -> "Go":
         """
         Simulates the effect of making a move,
         **without** altering the state of the game (instead,
