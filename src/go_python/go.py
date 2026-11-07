@@ -1,6 +1,7 @@
 """
 Go class
 """
+from collections.abc import Sequence
 from copy import copy
 from typing import cast
 
@@ -418,7 +419,8 @@ class Go:
 
         return scores
 
-    def load_game(self, turn: int, grid: BoardGridType) -> None:
+    def load_game(self, turn: int,
+                  grid: Sequence[Sequence[int | None]]) -> None:
         """
         Loads a new board into the game.
 
@@ -432,7 +434,7 @@ class Go:
             turn: The player number of the player that
             would make the next move ("whose turn is it?")
             Players are numbered from 1.
-            grid: The state of the board as a list of lists
+            grid: The state of the board as a sequence of rows
             (same as returned by the grid property)
 
         Raises:

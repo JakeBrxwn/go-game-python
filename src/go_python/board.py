@@ -1,6 +1,7 @@
 """
 A class for representing a game board.
 """
+from collections.abc import Sequence
 from copy import copy
 from itertools import chain
 
@@ -96,7 +97,7 @@ class Board:
         """
         return self._grid
 
-    def set_grid(self, grid: BoardGridType) -> None:
+    def set_grid(self, grid: Sequence[Sequence[int | None]]) -> None:
         """
         Sets the internal representation of the board state to a copy of grid.
         """

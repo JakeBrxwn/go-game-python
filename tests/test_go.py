@@ -49,7 +49,8 @@ def set_up_test(g: Go, test_name: str) -> None:
             if row['TEST_NAME'] == test_name:
                 moves = parse_moves(row['MOVES'])
                 break
-        initial_board = [[None for _ in range(g.side)] for _ in range(g.side)]
+        initial_board: BoardGridType = [[None for _ in range(g.side)]
+                                        for _ in range(g.side)]
         turn = 1
         for move in moves:
             r, c = move
@@ -1019,7 +1020,7 @@ def test_regression_none_is_not_a_position() -> None:
     go = Go(9, 2)
     for call in (go.piece_at, go.legal_move, go.apply_move):
         with pytest.raises(ValueError):
-            call(None)
+            call(None)  # type: ignore[arg-type]
 
 @pytest.mark.parametrize("grid", [None, [None, None, None], [1, 2, 3]])
 def test_regression_load_game_rejects_grid_of_another_shape(

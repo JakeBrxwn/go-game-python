@@ -33,9 +33,13 @@ testpaths = ["tests"]
 timeout = 120
 
 [tool.mypy]
-files = ["src"]
+files = ["src", "tests", "evals"]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "sgfmill.*"
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 88
