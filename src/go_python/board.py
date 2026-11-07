@@ -44,7 +44,8 @@ class Board:
         Raises:
             ValueError: If the position is outside the bounds of the board.
         """
-        if not (0 <= row < self._rows and 0 <= col < self._cols):
+        if not (type(row) is int and type(col) is int and
+                0 <= row < self._rows and 0 <= col < self._cols):
             raise ValueError(f"({row}, {col}) is off the board")
 
     def set(self, row: int, col: int, piece: int|None) -> None:

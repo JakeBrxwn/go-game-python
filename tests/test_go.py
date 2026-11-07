@@ -994,3 +994,18 @@ def test_one_player_game_ends_on_one_pass() -> None:
     go.apply_move((0, 0))
     go.pass_turn()
     assert go.done
+
+@pytest.mark.parametrize("pos", [(0.5, 0), (0, 0.5), (1.0, 0), (True, 0)])
+def test_regression_position_of_another_type(pos: tuple[int, int]) -> None:
+    """Check that a position has to be plain numbers, in every entry point"""
+    go = Go(9, 2)
+    for call in (go.piece_at, go.legal_move, go.apply_move):
+        with pytest.raises(ValueError):
+            call(pos)
+
+@pytest.mark.parametrize("grid", [None, [None, None, None], [1, 2, 3]])
+def test_regression_load_game_rejects_grid_of_another_shape(
+        grid: BoardGridType) -> None:
+    """Check that a grid that is not rows is refused rather than crashing"""
+    with pytest.raises(ValueError):
+        Go(3, 2).load_game(1, grid)
