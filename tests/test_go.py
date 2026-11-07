@@ -1199,3 +1199,11 @@ def test_refused_call_changes_nothing(make_game: Callable[[bool], Go],
     with pytest.raises(ValueError):
         refusal(go)
     assert game_state(go) == before
+
+@pytest.mark.parametrize("grid", [[[1]], [[None] * 3] * 3, [[None] * 2, [None]]])
+def test_regression_set_grid_rejects_another_size(grid: BoardGridType) -> None:
+    """Check that a board keeps the size it was made with"""
+    board = Board(2, 2)
+    with pytest.raises(ValueError):
+        board.set_grid(grid)
+    assert board.grid == [[None, None], [None, None]]

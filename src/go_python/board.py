@@ -75,7 +75,7 @@ class Board:
         Returns an independent copy of the board.
         """
         board = copy(self)
-        board.set_grid(self._grid)
+        board._grid = [row[:] for row in self._grid]
         return board
 
     def freeze(self) -> tuple[int, int, tuple[int|None, ...]]:
@@ -100,5 +100,12 @@ class Board:
     def set_grid(self, grid: Sequence[Sequence[int | None]]) -> None:
         """
         Sets the internal representation of the board state to a copy of grid.
+
+        Raises:
+            ValueError: If the grid is not the size of the board.
         """
+        if len(grid) != self._rows or any(len(row) != self._cols
+                                          for row in grid):
+            raise ValueError("The grid is not the size of the board")
+
         self._grid = [list(row) for row in grid]
