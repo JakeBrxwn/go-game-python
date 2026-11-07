@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from go_python.board import Board, BoardGridType
+from go_python.board import Board, BoardGridType, FrozenBoardGridType
 from go_python.go import Go
 
 POSITIONS_FILE = Path(__file__).with_name("test_positions.txt")
@@ -1002,7 +1002,7 @@ def test_regression_load_game_rejects_grid_of_another_shape(
 def test_superko_remembers_the_whole_game() -> None:
     """
     Check every answer in one game against a history kept here. This seed bans
-    a board from 89 moves earlier, so a shorter memory of the game fails it.
+    a board from 89 moves earlier.
     """
     rng = random.Random(323)
     go = Go(4, 2, True)
@@ -1211,3 +1211,17 @@ def test_regression_set_grid_rejects_another_size(grid: BoardGridType) -> None:
     with pytest.raises(ValueError):
         board.set_grid(grid)
     assert board.grid == [[None, None], [None, None]]
+
+def test_superko_remembers_every_board_of_a_long_game() -> None:
+    """
+    Check that a game over a thousand moves long still remembers every board
+    it has left, so any memory shorter than the game fails
+    """
+    rng = random.Random(0)
+    go = Go(13, 4, True)
+    left: set[FrozenBoardGridType] = set()
+    while moves := go.available_moves:
+        left.add(go.frozengrid)
+        go.apply_move(rng.choice(moves))
+    assert len(left) == 1076
+    assert go._prior_boards == left
