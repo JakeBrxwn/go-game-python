@@ -680,6 +680,62 @@ def test_regression_impossible_game(side: int, players: int) -> None:
     with pytest.raises(ValueError):
         Go(side, players)
 
+@pytest.mark.parametrize("turn", [0, -1, 3])
+def test_regression_load_game_rejects_bad_turn(turn: int) -> None:
+    """Check that the player to move has to exist"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(turn, board_with(9, {}))
+
+@pytest.mark.parametrize("piece", [0, 3, 5, -1])
+def test_regression_load_game_rejects_bad_piece(piece: int) -> None:
+    """Check that every stone has to belong to a player"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(1, board_with(9, {(4, 4): piece}))
+
+def test_regression_load_game_rejects_ragged_rows() -> None:
+    """Check that every row has to be as long as the board"""
+    grid = board_with(9, {})
+    grid[8] = [None] * 3
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(1, grid)
+
+def test_load_game_rejects_wrong_row_count() -> None:
+    """Check that the grid has to be as tall as the board"""
+    with pytest.raises(ValueError):
+        Go(9, 2).load_game(1, board_with(9, {})[:8])
+
+def test_regression_load_game_copies_the_grid() -> None:
+    """Check that later changes to the caller's grid do not reach the game"""
+    go = Go(9, 2)
+    grid = board_with(9, {})
+    go.load_game(1, grid)
+    grid[4][4] = 2
+    assert go.piece_at((4, 4)) is None
+
+def test_regression_load_game_restarts_a_finished_game() -> None:
+    """Check that loading clears the end of the last game"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    go.load_game(1, board_with(9, {}))
+    assert not go.done
+    assert go.legal_move((4, 4))
+
+def test_regression_load_game_forgets_passes() -> None:
+    """Check that a pass before loading does not count afterwards"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.load_game(2, board_with(9, {}))
+    go.pass_turn()
+    assert not go.done
+
+def test_load_game_forgets_ko() -> None:
+    """Check that loading wipes the history, as its docstring says"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    go.load_game(go.turn, go.grid)
+    assert go.legal_move((2, 1))
+
 def test_three_player_game_ends_after_three_passes() -> None:
     """Check that two passes are not enough with three players"""
     go = Go(9, 3)

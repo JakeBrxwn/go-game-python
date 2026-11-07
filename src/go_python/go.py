@@ -411,7 +411,8 @@ class Go:
 
         Note: This will wipe the history of prior board states,
               so violations of the ko rule may not be detected
-              after loading a game.
+              after loading a game. A finished game becomes a
+              game in progress.
 
         Args:
             turn: The player number of the player that
@@ -431,14 +432,19 @@ class Go:
 
         Returns: None
         """
-        if (turn > self._players or len(grid) != self._side or
-            len(grid[0]) != self._side):
+        players = range(1, self._players + 1)
+        if (turn not in players or len(grid) != self._side or
+            any(len(row) != self._side for row in grid) or
+            any(piece is not None and piece not in players
+                for row in grid for piece in row)):
 
             raise ValueError
 
         self._turn = turn
         self._grid.set_grid(grid)
         self._prior_boards = set()
+        self._passes = 0
+        self._done = False
 
     def simulate_move(self, pos: tuple[int, int] | None) -> "Go":
         """
