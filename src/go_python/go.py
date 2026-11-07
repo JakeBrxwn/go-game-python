@@ -448,15 +448,13 @@ class Go:
 
         Returns: None
         """
-        try:
-            fits = (self._is_player(turn) and len(grid) == self._side and
-                    all(len(row) == self._side for row in grid) and
-                    all(piece is None or self._is_player(piece)
-                        for row in grid for piece in row))
-        except TypeError:
-            fits = False
+        if not (self._is_player(turn) and isinstance(grid, Sequence) and
+                len(grid) == self._side and
+                all(isinstance(row, Sequence) and len(row) == self._side
+                    for row in grid) and
+                all(piece is None or self._is_player(piece)
+                    for row in grid for piece in row)):
 
-        if not fits:
             raise ValueError("The turn or the grid does not fit this game")
 
         self._turn = turn

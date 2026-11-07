@@ -1022,7 +1022,10 @@ def test_regression_none_is_not_a_position() -> None:
         with pytest.raises(ValueError):
             call(None)  # type: ignore[arg-type]
 
-@pytest.mark.parametrize("grid", [None, [None, None, None], [1, 2, 3]])
+@pytest.mark.parametrize("grid", [
+    None, [None, None, None], [1, 2, 3], [{None, 1, 2}] * 3,
+    {(None, None, None), (1, None, None), (None, 1, None)}
+])
 def test_regression_load_game_rejects_grid_of_another_shape(
         grid: BoardGridType) -> None:
     """Check that a grid that is not rows is refused rather than crashing"""
