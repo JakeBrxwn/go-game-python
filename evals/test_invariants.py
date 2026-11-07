@@ -1,6 +1,7 @@
 """
-Checks what must stay true in any game of two to four players, using a capture
-rule, a liberty count and a history written here rather than the engine's own.
+Checks what must stay true in any game of two to four players, against a
+capture rule, an area score and a history written here rather than the
+engine's own.
 """
 import random
 
@@ -31,29 +32,31 @@ def neighbours(grid: GridType, row: int, col: int) -> list[tuple[int, int]]:
             if 0 <= r < side and 0 <= c < side]
 
 def group_of(grid: GridType, row: int, col: int) \
-        -> tuple[set[tuple[int, int]], bool]:
+        -> tuple[set[tuple[int, int]], set[int | None]]:
     """
-    Finds the group of stones at a point.
+    Finds the connected points of the same kind as a point: a group of stones,
+    or a region of empty points.
 
     Args:
         grid: The board as a list of lists
-        row: The row of a stone
-        col: The column of a stone
+        row: The row of the point
+        col: The column of the point
 
-    Returns: The points of the group, and whether it has a liberty
+    Returns: The points, and what borders them. A group has a liberty if None
+    borders it, and an empty region bordered by one player is that player's.
     """
     group = {(row, col)}
     stack = [(row, col)]
-    has_liberty = False
+    border: set[int | None] = set()
     while stack:
         r, c = stack.pop()
         for nr, nc in neighbours(grid, r, c):
-            if grid[nr][nc] is None:
-                has_liberty = True
-            elif grid[nr][nc] == grid[row][col] and (nr, nc) not in group:
+            if grid[nr][nc] != grid[row][col]:
+                border.add(grid[nr][nc])
+            elif (nr, nc) not in group:
                 group.add((nr, nc))
                 stack.append((nr, nc))
-    return group, has_liberty
+    return group, border
 
 def groups_have_liberties(grid: GridType) -> bool:
     """
@@ -69,11 +72,36 @@ def groups_have_liberties(grid: GridType) -> bool:
         for col in range(len(grid)):
             if grid[row][col] is None or (row, col) in seen:
                 continue
-            group, has_liberty = group_of(grid, row, col)
-            if not has_liberty:
+            group, border = group_of(grid, row, col)
+            if None not in border:
                 return False
             seen |= group
     return True
+
+def area_scores(grid: GridType, players: int) -> dict[int, int]:
+    """
+    Scores a board by area: each player's stones, plus every empty region
+    that only that player's stones border.
+
+    Args:
+        grid: The board as a list of lists
+        players: The number of players
+
+    Returns: Each player's score
+    """
+    scores = dict.fromkeys(range(1, players + 1), 0)
+    seen: set[tuple[int, int]] = set()
+    for row in range(len(grid)):
+        for col in range(len(grid)):
+            piece = grid[row][col]
+            if piece is not None:
+                scores[piece] += 1
+            elif (row, col) not in seen:
+                region, border = group_of(grid, row, col)
+                seen |= region
+                if len(border) == 1:
+                    scores[border.pop()] += len(region)  # type: ignore[index]
+    return scores
 
 def board_after(grid: GridType, row: int, col: int,
                 player: int) -> GridType | None:
@@ -97,13 +125,13 @@ def board_after(grid: GridType, row: int, col: int,
     captured: set[tuple[int, int]] = set()
     for r, c in neighbours(after, row, col):
         if after[r][c] not in (None, player):
-            group, has_liberty = group_of(after, r, c)
-            if not has_liberty:
+            group, border = group_of(after, r, c)
+            if None not in border:
                 captured |= group
 
     for r, c in captured:
         after[r][c] = None
-    return after if group_of(after, row, col)[1] else None
+    return after if None in group_of(after, row, col)[1] else None
 
 def frozen(grid: GridType) -> tuple[tuple[int | None, ...], ...]:
     """
@@ -115,18 +143,6 @@ def frozen(grid: GridType) -> tuple[tuple[int | None, ...], ...]:
     Returns: The rows as tuples
     """
     return tuple(map(tuple, grid))
-
-def stones_of(grid: list[list[int | None]], player: int) -> int:
-    """
-    Counts one player's stones.
-
-    Args:
-        grid: The board as a list of lists
-        player: The player number
-
-    Returns: The number of stones on the board
-    """
-    return sum(row.count(player) for row in grid)
 
 @pytest.mark.parametrize("players", [2, 3, 4])
 @pytest.mark.parametrize("superko", [False, True])
@@ -147,6 +163,7 @@ def test_invariants_hold_every_move(players: int, superko: bool) -> None:
             before = go.grid
             simulated = go.simulate_move(available[0])
             assert go.grid == before and go.turn == turn
+            assert simulated.grid == board_after(before, *available[0], turn)
             assert simulated.turn == turn % players + 1
 
             move = rng.choice(available)
@@ -154,20 +171,18 @@ def test_invariants_hold_every_move(players: int, superko: bool) -> None:
             moves += 1
 
             grid = go.grid
-            scores = go.scores()
             assert grid == board_after(before, *move, turn), seed
             assert go.turn == turn % players + 1
             assert groups_have_liberties(grid), seed
-            assert sum(scores.values()) <= side * side, seed
-            for player, score in scores.items():
-                assert score >= stones_of(grid, player), seed
+            assert go.scores() == area_scores(grid, players), seed
 
         for _ in range(players):
             go.pass_turn()
 
-        scores = go.scores()
+        scores = area_scores(go.grid, players)
         assert go.done
         assert go.available_moves == []
+        assert go.scores() == scores
         assert go.outcome == [player for player, score in scores.items()
                               if score == max(scores.values())]
 
@@ -192,6 +207,7 @@ def test_repeats_are_refused(players: int, superko: bool) -> None:
         for _ in range(4 * side * side):
             grid = go.grid
             legal = []
+            playable = []
             for row in range(side):
                 for col in range(side):
                     after = board_after(grid, row, col, go.turn)
@@ -201,6 +217,17 @@ def test_repeats_are_refused(players: int, superko: bool) -> None:
                     bans += banned
                     if is_legal:
                         legal.append((row, col))
+                    if after is not None:
+                        playable.append((row, col))
+
+            # Loading wipes the history, the passes and the end of a game, so
+            # only captures and suicide decide what a loaded copy may play
+            loaded = go.simulate_move(None)
+            loaded.load_game(go.turn, grid)
+            assert loaded.available_moves == playable, seed
+            for _ in range(players - 1):
+                loaded.pass_turn()
+            assert not loaded.done, seed
 
             available = go.available_moves
             assert available == legal, seed
