@@ -1,6 +1,7 @@
 """
 A class for representing a game board.
 """
+from copy import copy
 from itertools import chain
 
 # Type for representing the state of the game board (the "grid")
@@ -66,7 +67,7 @@ class Board:
         """
         Returns an independent copy of the board.
         """
-        board = Board(self._rows, self._cols)
+        board = copy(self)
         board.set_grid(self._grid)
         return board
 
