@@ -604,3 +604,91 @@ def test_regression_neighbouring_captures_are_simultaneous() -> None:
     assert go.piece_at((1, 1)) is None
     assert go.piece_at((0, 0)) is None
     assert go.piece_at((0, 1)) is None
+
+def test_regression_apply_move_rejects_occupied_point() -> None:
+    """Check that a stone cannot replace a stone"""
+    go = Go(9, 2)
+    go.apply_move((4, 4))
+    with pytest.raises(ValueError):
+        go.apply_move((4, 4))
+    assert go.piece_at((4, 4)) == 1
+    assert go.turn == 2
+
+def test_regression_apply_move_rejects_ko_recapture() -> None:
+    """Check that apply_move enforces what legal_move reports"""
+    go = Go(9, 2)
+    apply_moves(go, KO_SHAPE)
+    before = go.grid
+    with pytest.raises(ValueError):
+        go.apply_move((2, 1))
+    assert go.grid == before
+
+def test_regression_apply_move_rejects_suicide() -> None:
+    """Check that a suicide leaves the board and the turn alone"""
+    go = Go(9, 2)
+    go.load_game(1, board_with(9, {
+        (0, 0): 1, (1, 0): 2, (1, 1): 2, (0, 2): 2,
+    }))
+    before = go.grid
+    with pytest.raises(ValueError):
+        go.apply_move((0, 1))
+    assert go.grid == before
+    assert go.turn == 1
+
+def test_regression_no_move_after_game_over() -> None:
+    """Check that a finished game takes no more moves"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    assert not go.legal_move((4, 4))
+    assert go.available_moves == []
+    with pytest.raises(ValueError):
+        go.apply_move((4, 4))
+    assert go.piece_at((4, 4)) is None
+
+def test_regression_no_pass_after_game_over() -> None:
+    """Check that a finished game takes no more passes"""
+    go = Go(9, 2)
+    go.pass_turn()
+    go.pass_turn()
+    with pytest.raises(ValueError):
+        go.pass_turn()
+
+def test_regression_simulate_move_rejects_illegal_move() -> None:
+    """Check that simulating follows the same rules as playing"""
+    go = Go(9, 2)
+    go.apply_move((4, 4))
+    with pytest.raises(ValueError):
+        go.simulate_move((4, 4))
+
+def test_simulate_move_off_board() -> None:
+    """Check that simulating a position off the board raises an exception"""
+    with pytest.raises(ValueError):
+        Go(9, 2).simulate_move((9, 9))
+
+def test_simulate_move_keeps_history_apart() -> None:
+    """Check that a simulated game cannot change the real game's history"""
+    go = Go(9, 2, True)
+    apply_moves(go, [(0, 0), (1, 1)])
+    history = set(go._prior_boards)
+    go.simulate_move((2, 2)).simulate_move((3, 3))
+    assert go._prior_boards == history
+
+def test_three_player_game_ends_after_three_passes() -> None:
+    """Check that two passes are not enough with three players"""
+    go = Go(9, 3)
+    go.pass_turn()
+    go.pass_turn()
+    assert not go.done
+    go.pass_turn()
+    assert go.done
+
+def test_grid_is_a_copy_after_a_capture() -> None:
+    """Check that grid reflects captures and stays independent"""
+    go = Go(9, 2)
+    go.load_game(1, board_with(9, {(0, 0): 2, (0, 1): 1}))
+    go.apply_move((1, 0))
+    grid = go.grid
+    assert grid[0][0] is None
+    grid[0][0] = 1
+    assert go.piece_at((0, 0)) is None

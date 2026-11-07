@@ -16,7 +16,7 @@ class Go:
     _grid: "Board"
     _turn: int
     _prior_boards: set[FrozenBoardGridType]
-    _passes: list[bool]
+    _passes: int
     _done: bool
 
     def __init__(
@@ -43,7 +43,7 @@ class Go:
         self._grid = Board(side, side)
         self._turn = 1
         self._prior_boards = set()
-        self._passes = [False for _ in range(players)]
+        self._passes = 0
         self._done = False
 
     #
@@ -294,14 +294,15 @@ class Go:
 
         Returns: If the current player (as returned by the turn
         method) could place a piece in the specified position,
-        return True. Otherwise, return False.
+        return True. Otherwise, return False. Once the game is
+        over, no move is legal.
         """
 
         r, c = pos
         space = self._grid.get(r, c)
 
         # Valid square check
-        if space is not None:
+        if self._done or space is not None:
             return False
 
         trial = self._copy()
@@ -319,12 +320,6 @@ class Go:
         Place a piece of the current player (as returned
         by the turn method) on the board.
 
-        The provided position is assumed to be a legal
-        move (as returned by available_moves, or checked
-        by legal_move). The behaviour of this method
-        when the position is on the board, but is not
-        a legal move, is undefined.
-
         After applying the move, the turn is updated to the
         next player.
 
@@ -333,15 +328,17 @@ class Go:
 
         Raises:
             ValueError: If the specified position is outside
-            the bounds of the board.
+            the bounds of the board, or is not a legal move.
 
         Returns: None
         """
+        if not self.legal_move(pos):
+            raise ValueError(f"{pos} is not a legal move")
 
         prior_board = self.frozengrid
 
         # Reset passes
-        self._passes = [False for _ in range(self._players)]
+        self._passes = 0
 
         self._place_stone(pos)
 
@@ -362,13 +359,18 @@ class Go:
         moves between the passes), the game will be
         over.
 
+        Raises:
+            ValueError: If the game is already over.
+
         Returns: Nothing
         """
+        if self._done:
+            raise ValueError("The game is over")
 
-        self._passes[self._turn - 1] = True
+        self._passes += 1
 
         # Checks if all players have passed
-        if False not in self._passes:
+        if self._passes == self._players:
             self._done = True
 
         self._increment_turn()
@@ -439,17 +441,13 @@ class Go:
         returns a new object with the result of applying
         the provided move).
 
-        The provided position is not required to be a legal
-        move, as this method could be used to check whether
-        making a move results in a board that violates the
-        ko rule.
-
         Args:
             pos: Position on the board, or None for a pass
 
         Raises:
-            ValueError: If any of the specified position
-            is outside the bounds of the board.
+            ValueError: If the specified position is outside
+            the bounds of the board or is not a legal move,
+            or if the game is already over.
 
         Returns: An object of the same type as the object
         the method was called on, reflecting the state
