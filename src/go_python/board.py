@@ -1,7 +1,7 @@
 """
 A class for representing a game board.
 """
-from base import BoardGridType
+from go_python.base import BoardGridType
 
 class Board:
     """

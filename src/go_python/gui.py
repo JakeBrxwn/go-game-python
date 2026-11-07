@@ -8,7 +8,7 @@ import pygame
 import pygame.gfxdraw
 import click
 
-from go import Go
+from go_python.go import Go
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 

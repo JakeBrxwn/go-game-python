@@ -8,9 +8,9 @@ from typing import Optional
 import click
 from colorama import Fore, Style
 
-from base import GoBase, BoardGridType
-from go import Go
-from bot import Smart
+from go_python.base import GoBase, BoardGridType
+from go_python.go import Go
+from go_python.bot import Smart
 
 colors: dict[int, tuple[str, str]] = {1 : (Fore.RED, 'Red'),
         2 : (Fore.BLUE, 'Blue'), 3 : (Fore.GREEN, 'Green'),

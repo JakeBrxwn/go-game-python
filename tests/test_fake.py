@@ -1,7 +1,7 @@
 import pytest
 
-from base import GoBase
-from fakes import GoFake
+from go_python.base import GoBase
+from go_python.fakes import GoFake
 
 
 def test_inheritance() -> None:

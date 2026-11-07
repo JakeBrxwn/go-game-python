@@ -4,8 +4,8 @@ Bot players for a go board. Currently built around GoFake.
 import random
 import click
 from typing import Optional
-from base import GoBase
-from go import Go
+from go_python.base import GoBase
+from go_python.go import Go
 
 class Random:
     """

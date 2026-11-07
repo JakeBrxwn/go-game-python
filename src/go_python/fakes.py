@@ -5,7 +5,7 @@ We provide a GoStub implementation, and you must
 implement a GoFake implementation.
 """
 from copy import deepcopy
-from base import GoBase, BoardGridType, ListMovesType
+from go_python.base import GoBase, BoardGridType, ListMovesType
 
 class GoStub(GoBase):
     """

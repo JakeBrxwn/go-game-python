@@ -1,6 +1,6 @@
 import pytest
-from base import GoBase
-from go import Go
+from go_python.base import GoBase
+from go_python.go import Go
 import csv
 
 ###

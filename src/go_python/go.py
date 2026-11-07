@@ -2,8 +2,8 @@
 Go class
 """
 from copy import deepcopy
-from base import GoBase, BoardGridType, ListMovesType
-from board import Board
+from go_python.base import GoBase, BoardGridType, ListMovesType
+from go_python.board import Board
 
 FrozenBoardGridType = tuple[int, int, tuple[int|None]]
 
