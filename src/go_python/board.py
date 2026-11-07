@@ -57,7 +57,7 @@ class Board:
         self._check_bounds(row, col)
         return self._grid[row][col]
 
-    def copy(self) -> "Board":
+    def copy(self) -> Board:
         """
         Returns an independent copy of the board.
         """

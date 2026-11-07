@@ -57,8 +57,8 @@ class GoGUI:
     ### Precalculated rending positions
     # Go board positions
     _grid_dims: tuple[float, float, float, float]
-    _line_positions: tuple[tuple[tuple[float, float], tuple[float, float]]]
-    _intersections: tuple[tuple[tuple[float, float]]]
+    _line_positions: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
+    _intersections: tuple[tuple[tuple[float, float], ...], ...]
     # UI positions
     _score_board: dict[int, tuple[float, float]]
     _pass_position: tuple[float, float]
@@ -67,7 +67,7 @@ class GoGUI:
     ### Go attributes
     size: int
     players: int
-    board: "Go"
+    board: Go
     _current_tile: tuple[int, int]|None
     _scores: dict[int, int]
 
@@ -95,7 +95,7 @@ class GoGUI:
 
         self.event_loop()
 
-    def _precal_gui(self):
+    def _precal_gui(self) -> None:
         """
         Calculate the positions and dimensions of all of the GUI elements
         dynamically from the height and width.
@@ -315,7 +315,8 @@ class GoGUI:
               default = True, help = "Starts a simple ko game.")
 @click.option('--super-ko', is_flag = True, show_default = True,
               default = False, help = "Starts a super ko game.")
-def startGUI(num_players: int, size: int, simple_ko, super_ko):
+def startGUI(num_players: int, size: int, simple_ko: bool,
+             super_ko: bool) -> None:
     if simple_ko and not super_ko:
         GoGUI(num_players, size, False)
     elif not simple_ko and super_ko:

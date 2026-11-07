@@ -3,7 +3,6 @@ Bot players for a go board.
 """
 import random
 import click
-from typing import Optional
 from go_python.go import Go
 
 class Random:
@@ -25,7 +24,7 @@ class Random:
         self._name = name
         self.wins = wins
 
-    def move(self, go_game: Go, turn: int) -> Optional[tuple[int, int]]:
+    def move(self, go_game: Go, turn: int) -> tuple[int, int] | None:
         """
         Tells the bot where to place.
 
@@ -56,7 +55,7 @@ class Smart:
         self._name = name
         self.wins = wins
 
-    def move(self, go_game: Go, turn: int) -> Optional[tuple[int, int]]:
+    def move(self, go_game: Go, turn: int) -> tuple[int, int] | None:
         """
         Tells the bot where to place based on what accumulates the most points.
 
@@ -99,10 +98,8 @@ def bots_only(bots: dict[str, Random | Smart], games: int, size: int) -> int:
             else:
                 go.pass_turn()
 
-            if cur_player == bots['Bot1']:
-                cur_player = bots['Bot2']
-            else:
-                cur_player = bots['Bot1']
+            cur_player = (bots['Bot2'] if cur_player == bots['Bot1']
+                          else bots['Bot1'])
             game_moves += 1
 
         if game_moves >= 256:

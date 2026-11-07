@@ -2,11 +2,9 @@
 TUI for Go
 """
 import sys
-import time
-from typing import Optional
 
 import click
-from colorama import Fore, Style
+from colorama import Fore
 
 from go_python.board import BoardGridType
 from go_python.go import Go
@@ -18,7 +16,7 @@ colors: dict[int, tuple[str, str]] = {1 : (Fore.RED, 'Red'),
         6 : (Fore.YELLOW, 'Yellow'), 7 : (Fore.CYAN, 'Cyan'),
         8 : (Fore.MAGENTA, 'Magenta')}
 
-def get_move(go_game: Go) -> Optional[tuple[int, int]]:
+def get_move(go_game: Go) -> tuple[int, int] | None:
     """
     Gets a valid move from the player whose turn it is
     by prompting that player for a row and colunmn.
@@ -30,7 +28,8 @@ def get_move(go_game: Go) -> Optional[tuple[int, int]]:
         or None if they passed the turn
     """
     while True:
-        text = "It is {}'s turn. Please enter a move [press Enter key to pass or type 'hint' for a hint]:\n> "
+        text = ("It is {}'s turn. Please enter a move "
+                "[press Enter key to pass or type 'hint' for a hint]:\n> ")
         response = input(text.format(colors[go_game.turn][1].lower()))
         if response == "hint":
             smart = Smart("smart-bot")

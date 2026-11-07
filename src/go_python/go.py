@@ -2,6 +2,8 @@
 Go class
 """
 from copy import copy
+from typing import cast
+
 from go_python.board import Board, BoardGridType, ListMovesType
 
 FrozenBoardGridType = tuple[int, int, tuple[int|None, ...]]
@@ -13,7 +15,7 @@ class Go:
     _side: int
     _players: int
     _superko: bool
-    _grid: "Board"
+    _grid: Board
     _turn: int
     _prior_boards: set[FrozenBoardGridType]
     _passes: int
@@ -194,10 +196,7 @@ class Go:
         contingous pieces and a set of all piece values along the edges.
         """
         src_value = self._grid.get(src_r, src_c)
-        if src_value is None:
-            halt_flag = False
-        else:
-            halt_flag = True
+        halt_flag = src_value is not None
 
         visited: set[tuple[int, int]] = {(src_r, src_c)}
         stack: list[tuple[int, int]] = [(src_r, src_c)]
@@ -260,7 +259,7 @@ class Go:
         self._grid.set(r, c, self._turn)
         self._capture_pieces(pos)
 
-    def _copy(self) -> "Go":
+    def _copy(self) -> Go:
         """
         Returns an independent copy of the game. The copy shares _prior_boards,
         which is safe because that set is replaced and never changed in place.
@@ -390,7 +389,7 @@ class Go:
         """
 
         scores = {i: 0 for i in range(1, self._players + 1)}
-        visited_empty = set()
+        visited_empty: set[tuple[int, int]] = set()
 
         for r in range(self._side):
             for c in range(self._side):
@@ -399,7 +398,7 @@ class Go:
                     empty_group, border_values = self._find_contiguous(r, c)
                     visited_empty = visited_empty.union(empty_group)
                     if len(border_values) == 1:
-                        scores[border_values.pop()] += len(empty_group)
+                        scores[cast(int, border_values.pop())] += len(empty_group)
                 elif value is not None:
                     scores[value] += 1
 
@@ -446,7 +445,7 @@ class Go:
         self._passes = 0
         self._done = False
 
-    def simulate_move(self, pos: tuple[int, int] | None) -> "Go":
+    def simulate_move(self, pos: tuple[int, int] | None) -> Go:
         """
         Simulates the effect of making a move,
         **without** altering the state of the game (instead,

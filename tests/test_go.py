@@ -24,12 +24,12 @@ def apply_moves(game: Go, moves: list[tuple[int, int]]) -> None:
     for move in moves:
         game.apply_move(move)
 
-def parse_moves(moves_str) -> tuple[int, int]:
+def parse_moves(moves_str: str) -> list[tuple[int, ...]]:
     """
     Helper function that splits semicolon-connected string into list of tuples
     Args: moves_str [str] : no whitespace, semicolon-connected string
     of tuples
-    Returns: tuple[int, int] : tuple of moves
+    Returns: list[tuple[int, ...]] : list of moves
     """
     return [tuple(map(int, t.split(','))) for t in moves_str.split(';') if t]
 
@@ -37,16 +37,16 @@ def set_up_test(g: Go, test_name: str) -> None:
     """
     Helper function that gets string represention of moves needed to set up
     the position for desired test
-    Args: test_name [str] : the test name that corresponds to row in test 
+    Args: test_name [str] : the test name that corresponds to row in test
     positions text file
     """
-    with open(POSITIONS_FILE, mode = 'r') as file:
+    with open(POSITIONS_FILE) as file:
         reader = csv.DictReader(file, delimiter = '|')
         moves = []
         for row in reader:
             if row['TEST_NAME'] == test_name:
                 moves = parse_moves(row['MOVES'])
-                break   
+                break
         initial_board = [[None for _ in range(g.side)] for _ in range(g.side)]
         turn = 1
         for move in moves:
@@ -64,8 +64,8 @@ def set_up_test(g: Go, test_name: str) -> None:
 
 ### Property Helper functions
 @pytest.mark.parametrize("side, num_players", [
-    (9, 2), (9, 3), (9, 4), 
-    (13, 2), (13, 3), (13, 4), 
+    (9, 2), (9, 3), (9, 4),
+    (13, 2), (13, 3), (13, 4),
     (19, 2), (19, 3), (19, 4)
 ])
 def test_side(side: int, num_players: int) -> None:
@@ -76,8 +76,8 @@ def test_side(side: int, num_players: int) -> None:
     assert g.side == side
 
 @pytest.mark.parametrize("side, num_players", [
-    (9, 2), (9, 3), (9, 4), 
-    (13, 2), (13, 3), (13, 4), 
+    (9, 2), (9, 3), (9, 4),
+    (13, 2), (13, 3), (13, 4),
     (19, 2), (19, 3), (19, 4)
 ])
 def test_num_players(side: int, num_players: int) -> None:
@@ -119,7 +119,7 @@ def test_legal_move(side: int, num_players: int) -> None:
     g = Go(side, num_players)
     for row in range(side):
         for col in range(side):
-            assert g.legal_move((row, col)) == True
+            assert g.legal_move((row, col))
 
 @pytest.mark.parametrize("side, num_players", [
     (9, 2), (13, 2), (19, 2)
@@ -141,7 +141,7 @@ def test_19x19_illegal_move_with_load_game() -> None:
 
     set_up_test(g, "test_19x19_illegal_move_with_load_game")
 
-    assert g.legal_move((0, 0)) == False
+    assert not g.legal_move((0, 0))
 
 def test_19x19_pass() -> None:
     """Check pass and turn update"""
@@ -156,7 +156,7 @@ def test_19x19_pass_twice() -> None:
     set_up_test(g, "test_19x19_pass_twice")
     g.pass_turn()
     g.pass_turn()
-    assert g.done == True
+    assert g.done
 
 def test_19x19_capture() -> None:
     """Check single capture"""
@@ -188,7 +188,7 @@ def test_19x19_ko() -> None:
     g = Go(19, 2)
     moves = [(1, 0), (2, 0), (0, 1), (3, 1), (1, 2), (2, 2), (2, 1), (1, 1)]
     apply_moves(g, moves)
-    assert g.legal_move((2, 1)) == False
+    assert not g.legal_move((2, 1))
 
 def test_19x19_super_ko() -> None:
     """
@@ -199,7 +199,7 @@ def test_19x19_super_ko() -> None:
     moves = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2), (2, 1),
              (2, 3), (1, 3), (1, 1)]
     apply_moves(g, moves)
-    assert g.legal_move((1, 2)) == False
+    assert not g.legal_move((1, 2))
 
 def test_19x19_scores() -> None:
     """Check scores without territory"""
@@ -252,7 +252,7 @@ def test_19x19_three_player_pass() -> None:
     g.pass_turn()
     g.pass_turn()
     g.pass_turn()
-    assert g.done == True
+    assert g.done
 
 ###
 # Tests on grid property
