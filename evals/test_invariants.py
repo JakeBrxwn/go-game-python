@@ -6,7 +6,11 @@ import random
 
 import pytest
 
-from go_python.go import Go
+from go_python.go import FrozenBoardGridType, Go
+
+GAMES_WITH_REPEATS = 300
+MIN_BANS = 40
+PASS_CHANCE = 0.1
 
 def groups_have_liberties(grid: list[list[int | None]]) -> bool:
     """
@@ -98,3 +102,44 @@ def test_invariants_hold_every_move(players: int, superko: bool) -> None:
                               if score == max(scores.values())]
 
     print(f"\ninvariants, {players} players, superko={superko}: {moves} moves")
+
+@pytest.mark.parametrize("players", [2, 3, 4])
+@pytest.mark.parametrize("superko", [False, True])
+def test_repeats_are_refused(players: int, superko: bool) -> None:
+    """
+    Check every legality answer against a history kept here, with passes mixed
+    in, on boards small enough for positions to come back.
+    """
+    bans = 0
+    for seed in range(GAMES_WITH_REPEATS):
+        rng = random.Random(4000 + seed)
+        side = rng.choice((3, 4, 5))
+        go = Go(side, players, superko)
+        forbidden: set[FrozenBoardGridType] = set()
+        passes = 0
+
+        for _ in range(4 * side * side):
+            no_history = Go(side, players)
+            no_history.load_game(go.turn, go.grid)
+            for move in no_history.available_moves:
+                banned = no_history.simulate_move(move).frozengrid in forbidden
+                assert go.legal_move(move) != banned, seed
+                bans += banned
+
+            available = go.available_moves
+            if not available:
+                break
+
+            if passes < players - 1 and rng.random() < PASS_CHANCE:
+                go.pass_turn()
+                passes += 1
+                continue
+
+            before = go.frozengrid
+            go.apply_move(rng.choice(available))
+            passes = 0
+            assert go.frozengrid not in forbidden, seed
+            forbidden = forbidden | {before} if superko else {before}
+
+    print(f"\nrepeats, {players} players, superko={superko}: {bans} bans")
+    assert bans >= MIN_BANS
