@@ -1269,6 +1269,28 @@ def test_clicks_on_a_bots_turn_say_why_nothing_happens(
     window.frame()
     assert window.match.moves == 1 and window.note == ""
 
+@pytest.mark.parametrize("act", ["board", "Pass"])
+def test_regression_a_press_held_over_a_bots_move_does_nothing(
+        act: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a press on the board or on greyed Pass during a bot's turn is
+    explained at once, and its release after the bot has moved neither
+    plays nor passes: it used to move for the person before they saw the
+    bot's reply"""
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: (0, 0))
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
+    window = GoGUI(GameConfig(9, False, ("random", "human")))
+    pos = spot(window, (4, 4)) if act == "board" else \
+        button(window, "Pass").center
+    post(pygame.MOUSEBUTTONDOWN, pos=pos, button=1)
+    window.frame()
+    assert window.note == "Wait: Black is a bot and moves by itself."
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
+    window.frame()
+    assert window.match.moves == 1 and window.note == ""
+    post(pygame.MOUSEBUTTONUP, pos=pos, button=1)
+    window.frame()
+    assert window.match.moves == 1 and window.match.game.turn == 2
+
 def test_regression_superko_config_starts() -> None:
     """Check a superko match starts; --super-ko on its own used to raise"""
     window = GoGUI(GameConfig(9, True, ("human", "human")))

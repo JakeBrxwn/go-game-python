@@ -333,7 +333,8 @@ class GoGUI:
         press within DOUBLE_CLICK_MS and DOUBLE_CLICK_PX of the last one
         taken is the second half of a double-click: the first half may have
         changed what is under the mouse, so it is ignored, except on a
-        button that repeats.
+        button that repeats. A press that cannot move for a person is
+        answered at once instead.
 
         Args:
             pos: Where the mouse was pressed
@@ -347,6 +348,13 @@ class GoGUI:
             return
         self._pressed, self._pressed_ms = pos, now
         self._inputs += 1
+        if self.match.state is not MatchState.HUMAN_TURN and (
+                isinstance(target, tuple) or
+                (isinstance(target, Button) and target.style == "off")):
+            # With no person to move, the board and the greyed Pass say why
+            # at once; the release does nothing, even once a bot has moved
+            self._play(None)
+            target = None
         self._down = target
 
     def _target(self, pos: tuple[int, int]) -> Button | tuple[int, int] | None:
