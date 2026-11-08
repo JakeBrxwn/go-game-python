@@ -25,8 +25,8 @@ WIDTH, HEIGHT = 1200, 675
 FPS = 30
 # Pause before each bot move so a person can follow the game; tests set 0
 BOT_DELAY_MS = 600
-# A press this soon after the screen changed is the second half of a
-# double-click on the screen before, so it is ignored; tests set 0
+# A press this soon after the screen changed or a person moved is the
+# second half of a double-click, so it is ignored; tests set 0
 DOUBLE_CLICK_MS = 500
 
 # The board keeps its original look: off-white backdrop, wood, black lines
@@ -219,7 +219,7 @@ class GoGUI:
     _log: list[Drawn]
     _mouse: tuple[int, int]
     _down: Button | tuple[int, int] | None
-    _shown_ms: int
+    _acted_ms: int
     _inputs: int
     _asked: int
     _last: tuple[int, int] | None
@@ -250,7 +250,7 @@ class GoGUI:
         self.screen = Screen.MENU
         self._mouse = (-1, -1)
         self._down = None
-        self._shown_ms = 0
+        self._acted_ms = 0
         self._inputs = 0
         self._asked = -2
         self.note = ""
@@ -299,7 +299,7 @@ class GoGUI:
         elif event.type == pygame.WINDOWLEAVE:
             self._mouse = (-1, -1)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            soon = pygame.time.get_ticks() - self._shown_ms < DOUBLE_CLICK_MS
+            soon = pygame.time.get_ticks() - self._acted_ms < DOUBLE_CLICK_MS
             self._down = None if soon else self._target(event.pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self._inputs += 1
@@ -373,7 +373,7 @@ class GoGUI:
         """
         self.screen = screen
         self.note = ""
-        self._shown_ms = pygame.time.get_ticks()
+        self._acted_ms = pygame.time.get_ticks()
 
     def _quit(self) -> None:
         """
@@ -442,7 +442,9 @@ class GoGUI:
 
     def _play(self, pos: tuple[int, int] | None) -> None:
         """
-        Makes a person's move, or says why it cannot be made.
+        Makes a person's move, or says why it cannot be made. Presses in the
+        next DOUBLE_CLICK_MS after a move are ignored. A bot's move starts
+        no such pause, so a quick reply to it still counts.
 
         Args:
             pos: The point to play, or None to pass
@@ -459,6 +461,7 @@ class GoGUI:
         else:
             player = game.turn
             self.match.play(pos)
+            self._acted_ms = pygame.time.get_ticks()
             self._record(player, pos)
 
     def _record(self, player: int, pos: tuple[int, int] | None) -> None:

@@ -466,11 +466,11 @@ def test_only_the_left_button_plays() -> None:
     window.frame()
     assert window.match.moves == 0
 
-def double_click(window: GoGUI, label: str, frames: int,
+def double_click(window: GoGUI, pos: tuple[float, float], frames: int,
                  clock: list[int]) -> None:
-    """Double-clicks a button the way a person does: press and release,
-    then again 33 ms per frame later, the time at 30 frames a second"""
-    x, y = button(window, label).center
+    """Double-clicks the way a person does: press and release, then again
+    33 ms per frame later, the time at 30 frames a second"""
+    x, y = round(pos[0]), round(pos[1])
     clock[0] += 1000
     for _ in range(2):
         post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
@@ -490,18 +490,53 @@ def test_regression_a_double_click_never_reaches_the_next_screen(
     monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
     monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
     window = GoGUI()
-    double_click(window, "Watch bots", frames, clock)
+    double_click(window, button(window, "Watch bots").center, frames, clock)
     assert window.screen is Screen.SETUP and window.config == gui.WATCH
     clock[0] += 1000
     press(window, "Back")
-    double_click(window, "Play", frames, clock)
+    double_click(window, button(window, "Play").center, frames, clock)
     assert window.screen is Screen.SETUP and window.config == GameConfig()
-    double_click(window, "Start game", frames, clock)
+    double_click(window, button(window, "Start game").center, frames, clock)
     assert window.screen is Screen.PLAYING and window.match.moves == 0
     assert gui.LEAVE_ASK not in texts(window)
     leave(window)
-    double_click(window, "Play again", frames, clock)
+    double_click(window, button(window, "Play again").center, frames, clock)
     assert window.screen is Screen.PLAYING and window.match.moves == 0
+
+@pytest.mark.parametrize("frames", [0, 3])
+def test_regression_a_double_click_plays_once(
+        frames: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a double-click on the board places one stone with no message,
+    and one on Pass passes once, for White only: its second half used to
+    pass for Black too and end the match"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    double_click(window, spot(window, (4, 4)), frames, clock)
+    assert window.match.moves == 1 and window.note == ""
+    double_click(window, button(window, "Pass").center, frames, clock)
+    assert window.screen is Screen.PLAYING and window.match.moves == 2
+    assert window.match.game.turn == 1
+    assert texts(window).count("Passed") == 1
+    assert box_around(window, "Passed") == box_around(window, "White")
+
+def test_a_quick_reply_to_a_bot_counts(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a click 100 ms after a bot's move plays: only a person's own
+    move starts the double-click pause"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI(GameConfig(9, False, ("random", "human")))
+    clock[0] += 1000
+    window.frame()
+    assert window.match.moves == 1
+    clock[0] += 100
+    point = next((r, c) for r in range(9) for c in range(9)
+                 if window.match.game.piece_at((r, c)) is None)
+    click(window, spot(window, point))
+    assert window.match.game.piece_at(point) == 2
 
 def test_regression_a_drag_between_targets_does_nothing() -> None:
     """Check a press on one thing released on another acts on neither: a
