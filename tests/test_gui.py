@@ -514,6 +514,27 @@ def test_setup_explains_every_choice() -> None:
     assert {"Watch bots", "Every seat is a bot. Press Start watching, then "
             "sit back.", "Start watching"} <= set(texts(window))
 
+def test_setup_says_defaults_only_for_the_defaults() -> None:
+    """Check the setup introduction calls the settings the defaults only
+    when they are, names the last game's when Play reopens them, and
+    otherwise calls them yours: it used to say defaults for any game with
+    a person in it"""
+    ready = " ready: press Start game, or change anything first."
+    window = GoGUI()
+    press(window, "Play")
+    assert "The defaults are" + ready in texts(window)
+    press(window, "9 × 9")
+    assert "Your settings are" + ready in texts(window)
+    press(window, "Start game")
+    leave(window)
+    press(window, "Menu")
+    press(window, "Play")
+    assert "Your last game's settings are" + ready in assert_tidy(window)
+    press(window, "Back")
+    press(window, "Watch bots")
+    press(window, "Human")
+    assert "Your settings are" + ready in texts(window)
+
 def test_buttons_change_shade_under_the_mouse() -> None:
     """Check the hover shade shows on a dark and on a light button"""
     window = GoGUI()

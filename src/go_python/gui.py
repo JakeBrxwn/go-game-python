@@ -801,9 +801,11 @@ class GoGUI:
         """
         config = self.config
         if "human" in config.seats:
-            title, intro = "New game", ("The defaults are ready: press "
-                                        "Start game, or change anything "
-                                        "first.")
+            ready = ("The defaults are" if config == GameConfig() else
+                     "Your last game's settings are"
+                     if config == self._last_game else "Your settings are")
+            title, intro = "New game", (f"{ready} ready: press Start game, "
+                                        "or change anything first.")
         else:
             title, intro = "Watch bots", ("Every seat is a bot. Press Start "
                                           "watching, then sit back.")
