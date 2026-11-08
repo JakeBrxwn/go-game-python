@@ -3,6 +3,7 @@ Bot players for a game of Go. A bot picks a move and never changes the game.
 """
 import random
 
+from go_python.board import BoardGridType
 from go_python.go import Go
 
 def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
@@ -40,9 +41,106 @@ class Random:
                  if not is_own_eye(game, pos)]
         return random.choice(moves) if moves else None
 
+# A point on the board, as (row, column)
+Point = tuple[int, int]
+
+# A chain: connected stones of one player, and the empty points touching them
+Chain = tuple[set[Point], set[Point]]
+
+def _neighbors(pos: Point, side: int) -> list[Point]:
+    """
+    Lists the points next to a point.
+
+    Args:
+        pos: A point on the board.
+        side: The size of the board.
+
+    Returns: The points above, below, left and right of pos that are on the
+    board.
+    """
+    r, c = pos
+    return [(nr, nc) for nr, nc in ((r, c + 1), (r + 1, c), (r, c - 1),
+                                   (r - 1, c))
+            if 0 <= nr < side and 0 <= nc < side]
+
+def _chains(grid: BoardGridType) -> dict[Point, Chain]:
+    """
+    Groups the stones on the board into chains.
+
+    Args:
+        grid: The board, as the game's grid property returns it.
+
+    Returns: Every stone mapped to its chain. The stones of one chain share
+    one tuple.
+    """
+    side = len(grid)
+    chains: dict[Point, Chain] = {}
+    for start in ((r, c) for r in range(side) for c in range(side)):
+        player = grid[start[0]][start[1]]
+        if player is None or start in chains:
+            continue
+        chain: Chain = ({start}, set())
+        stack = [start]
+        while stack:
+            pos = stack.pop()
+            chains[pos] = chain
+            for r, c in _neighbors(pos, side):
+                if grid[r][c] is None:
+                    chain[1].add((r, c))
+                elif grid[r][c] == player and (r, c) not in chain[0]:
+                    chain[0].add((r, c))
+                    stack.append((r, c))
+    return chains
+
+def _value(game: Go, grid: BoardGridType, chains: dict[Point, Chain],
+           pos: Point) -> float | None:
+    """
+    Rates a move by what it does to the chains next to it. In order of
+    weight: stones it captures, own stones it saves from danger, pressure on
+    enemy chains (bigger chains with fewer liberties count more), and
+    distance from the edge. A random part breaks ties.
+
+    Args:
+        game: The game, with the player to move.
+        grid: The board, as the game's grid property returns it.
+        chains: The board's chains, from _chains.
+        pos: An empty point.
+
+    Returns: How good the move is, higher being better, or None if it leaves
+    its own chain with fewer than two liberties without capturing at least
+    two stones. That also turns down taking a ko, so two kos cannot loop.
+    """
+    side = len(grid)
+    near = _neighbors(pos, side)
+    libs = {n for n in near if grid[n[0]][n[1]] is None}
+    captured = saved = 0
+    pressure = 0.0
+    for n in {id(chains[n]): n for n in near if n in chains}.values():
+        stones, chain_libs = chains[n]
+        if grid[n[0]][n[1]] == game.turn:
+            libs |= chain_libs
+            # In danger: one liberty, or two where one is an eye it won't fill
+            if len(chain_libs) == 1 or len(chain_libs) == 2 and \
+               any(is_own_eye(game, lib) for lib in chain_libs):
+                saved += len(stones)
+        elif len(chain_libs) == 1:
+            captured += len(stones)
+            libs.add(n)
+        else:
+            pressure += len(stones) / len(chain_libs)
+    libs.discard(pos)
+    if len(libs) < 2 and captured < 2:
+        return None
+    r, c = pos
+    edge = min(r, c, side - 1 - r, side - 1 - c, 2)
+    return (1000 * captured + 100 * saved + 3 * pressure + edge
+            + random.random())
+
 class Smart:
     """
-    A bot that plays the move giving it the highest score right away.
+    A bot that rates every move by the chains next to it: it captures,
+    saves its own stones, presses on weak enemy chains and keeps off the
+    edge. It never puts its own chain in atari and never takes a ko.
     """
 
     def move(self, game: Go) -> tuple[int, int] | None:
@@ -52,12 +150,19 @@ class Smart:
         Args:
             game: The game to move in. It is not changed.
 
-        Returns: The position to play, or None to pass once only the bot's
-        own eyes are left.
+        Returns: The position to play, or None to pass once every move left
+        fills its own eye or puts its own stones in atari.
         """
-        moves = [pos for pos in game.available_moves
-                 if not is_own_eye(game, pos)]
-        if not moves:
-            return None
-        return max(moves,
-                   key=lambda pos: game.simulate_move(pos).scores()[game.turn])
+        grid = game.grid
+        chains = _chains(grid)
+        values = {}
+        for pos in ((r, c) for r in range(game.side)
+                    for c in range(game.side) if grid[r][c] is None):
+            value = _value(game, grid, chains, pos)
+            if value is not None:
+                values[pos] = value
+        # Ko is the only rule the ratings do not check
+        return next((pos for pos in sorted(values, key=values.__getitem__,
+                                           reverse=True)
+                     if not is_own_eye(game, pos) and game.legal_move(pos)),
+                    None)
