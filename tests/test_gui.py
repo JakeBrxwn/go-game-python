@@ -330,6 +330,22 @@ def test_play_starts_with_the_defaults_in_one_click() -> None:
     assert window.match.config == GameConfig()
     assert window.match.state is MatchState.HUMAN_TURN
 
+def test_play_reopens_setup_on_the_last_match() -> None:
+    """Check Play from the menu offers the settings of the last match
+    played in the window"""
+    window = GoGUI()
+    press(window, "Play")
+    press(window, "9 × 9")
+    press(window, "Superko")
+    press(window, "3 players")
+    press(window, "Start game")
+    used = window.match.config
+    leave(window)
+    press(window, "Menu")
+    press(window, "Play")
+    assert window.screen is Screen.SETUP
+    assert window.config == used != GameConfig()
+
 def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     """Check Watch bots seats only bots, who then play a whole match"""
     random.seed(3)

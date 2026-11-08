@@ -255,7 +255,8 @@ class GoGUI:
         self._asked = -2
         self.note = ""
         self.config = config or GameConfig()
-        # Never shown until a match starts; it saves a None check everywhere
+        # Never shown until a match starts; it saves a None check everywhere,
+        # and gives Play its first settings
         self.match = Match(self.config)
         self._last = None
         self._passed = frozenset()
@@ -517,8 +518,10 @@ class GoGUI:
         Returns the buttons of the current screen
         """
         if self.screen is Screen.MENU:
+            # Play offers the last match's settings: the defaults at first
             return [Button(pygame.Rect(604, 300, 200, 54), "Play",
-                           partial(self._setup, GameConfig()), "primary"),
+                           partial(self._setup, self.match.config),
+                           "primary"),
                     Button(pygame.Rect(604, 370, 200, 54), "Watch bots",
                            partial(self._setup, WATCH)),
                     Button(pygame.Rect(604, 440, 200, 54), "Quit",
