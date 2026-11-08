@@ -582,6 +582,33 @@ def test_the_board_plays_where_the_mouse_is_let_go() -> None:
     assert window.match.game.piece_at((4, 5)) == 1
     assert window.match.moves == 1 and window.note == ""
 
+def test_the_wood_rim_counts_as_the_nearest_edge_point() -> None:
+    """Check the mouse on the wood beyond the edge points previews and plays
+    the nearest edge point, and off the wood plays nothing"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    _, y = spot(window, (4, 0))
+    move(window, (BOARD.left - 6, y))
+    assert window.hover() == (4, 0)
+    click(window, (BOARD.left - 6, y))
+    click(window, (BOARD.right + 6, BOARD.bottom + 6))
+    click(window, (BOARD.left - gui.PAD - 4, y))
+    game = window.match.game
+    assert game.piece_at((4, 0)) == 1 and game.piece_at((8, 8)) == 2
+    assert window.match.moves == 2 and window.note == ""
+
+def test_a_click_on_the_finished_board_says_the_match_is_over() -> None:
+    """Check a click on the board after the match is answered in red, just
+    above the buttons it points to"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    leave(window)
+    click(window, spot(window, (4, 4)))
+    assert window.note == "The match is over: Play again or Menu."
+    assert window.note in assert_tidy(window)
+    message = next(d.rect for d in window.draw() if d.text == window.note)
+    assert count(message, gui.ERROR) > 50
+    assert 0 <= button(window, "Menu").top - message.bottom <= 16
+    assert window.match.game.piece_at((4, 4)) is None
+
 def test_one_press_makes_one_click() -> None:
     """Check a release with no press of its own, as when a press outside the
     window is released over Pass, does not pass again"""

@@ -327,15 +327,31 @@ class GoGUI:
         Args:
             pos: Where the mouse is
 
-        Returns: The button there; else, on the play screen, the board point
-        there; else None
+        Returns: The button there; else, during or after a match, the board
+        point there; else None
         """
         for button in self.buttons():
             if button.rect.collidepoint(pos):
                 return button
-        if self.screen is Screen.PLAYING:
-            return point_at(pos, BOARD, self.match.config.size)
+        if self.screen in (Screen.PLAYING, Screen.GAME_OVER):
+            return self._point(pos)
         return None
+
+    def _point(self, pos: tuple[int, int]) -> tuple[int, int] | None:
+        """
+        Finds the board point under the mouse in a match. The wood beyond the
+        edge points counts as the nearest edge point.
+
+        Args:
+            pos: Where the mouse is
+
+        Returns: The (row, column), or None off the wood
+        """
+        if not BOARD.inflate(2 * PAD, 2 * PAD).collidepoint(pos):
+            return None
+        x = min(max(pos[0], BOARD.left), BOARD.right - 1)
+        y = min(max(pos[1], BOARD.top), BOARD.bottom - 1)
+        return point_at((x, y), BOARD, self.match.config.size)
 
     def _bot_turn(self) -> None:
         """
@@ -352,7 +368,7 @@ class GoGUI:
         Returns the point a person would play by clicking where the mouse
         is: a legal point on their turn, otherwise None
         """
-        point = point_at(self._mouse, BOARD, self.match.config.size)
+        point = self._point(self._mouse)
         if self.screen is Screen.PLAYING and point is not None and \
            self.match.state is MatchState.HUMAN_TURN and \
            self.match.game.legal_move(point):
@@ -450,7 +466,9 @@ class GoGUI:
             pos: The point to play, or None to pass
         """
         game = self.match.game
-        if self.match.state is not MatchState.HUMAN_TURN:
+        if self.match.state is MatchState.FINISHED:
+            self.note = "The match is over: Play again or Menu."
+        elif self.match.state is not MatchState.HUMAN_TURN:
             self.note = (f"Wait: {PLAYER_NAMES[game.turn - 1]} is a bot "
                          "and moves by itself.")
         elif pos is not None and game.piece_at(pos) is not None:
@@ -814,7 +832,11 @@ class GoGUI:
                        "a row, the game ends and the most area wins.")
         else:
             caption = "Play again keeps the same board and players."
-        self._text(caption, 15, (SIDE, 585), MUTED, "bottomleft", SIDE_W)
+        color = MUTED
+        if self.screen is Screen.GAME_OVER and self.note:
+            # A click on the finished board is answered beside the buttons
+            caption, color = self.note, ERROR
+        self._text(caption, 15, (SIDE, 585), color, "bottomleft", SIDE_W)
 
     def _draw_status(self) -> None:
         """
