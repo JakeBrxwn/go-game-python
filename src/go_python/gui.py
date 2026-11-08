@@ -748,9 +748,8 @@ class GoGUI:
         self._text("Board size", 25, (456, 24))
         self._text("Lines on each side. 9 × 9 is quick; 19 × 19 "
                    "is the classic board.", 15, (456, 56), MUTED)
-        box = pygame.Rect(506, 80, 110, 44)
-        self._card(box, LINE, 2)
-        self._text(f"{config.size} × {config.size}", 21, box.center,
+        # The size between − and +, as plain text: it is not a button
+        self._text(f"{config.size} × {config.size}", 21, (561, 102),
                    anchor="center")
         # Only the size can be refused; every other control offers valid
         # choices only

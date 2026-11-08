@@ -400,6 +400,21 @@ def test_setup_shows_the_gameconfig_message_under_the_size() -> None:
     assert window.config.size == 6
     assert window.note.startswith("Size must be")
 
+def test_setup_shows_the_size_as_plain_text() -> None:
+    """Check the size between − and + is plain text on the backdrop, with
+    no box that would make it look like a button"""
+    window = GoGUI()
+    press(window, "Play")
+    press(window, "13 × 13")
+    press(window, "+")
+    drawn = window.draw()
+    size = next(d.rect for d in drawn if d.text == "14 × 14")
+    assert button(window, "−").right < size.left
+    assert size.right < button(window, "+").left
+    assert not [d for d in drawn if d.kind == "box" and
+                d.rect.colliderect(size)]
+    assert pixel((size.left - 4, size.centery)) == gui.BACKDROP
+
 def test_setup_previews_the_board_size() -> None:
     """Check the setup screen draws an empty board with the chosen number
     of lines, counted along a row of its pixels"""
