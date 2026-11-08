@@ -740,6 +740,20 @@ def test_the_sidebar_states_the_facts_of_the_match() -> None:
     assert box_around(window, "Human") == box_around(window, "Black")
     assert box_around(window, "Smart bot") == box_around(window, "White")
 
+def test_captions_fit_the_moment() -> None:
+    """Check a match of bots says nothing about Pass, and the result says
+    nothing about early numbers swinging"""
+    window = GoGUI(GameConfig(9, False, ("smart", "random")))
+    found = texts(window)
+    assert "The bots play on their own. When every player passes in a "\
+        "row, the game ends and the most area wins." in found
+    assert not [t for t in found if "Pass skips" in t]
+    leave(window)
+    found = texts(window)
+    assert "Area: your stones plus the empty points only your stones "\
+        "surround." in found
+    assert not [t for t in found if "swing" in t]
+
 def test_the_area_labels_line_up() -> None:
     """Check the Area labels share one column whatever the width of the
     numbers, with 81 against 0 after one stone"""

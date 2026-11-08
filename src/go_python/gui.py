@@ -827,19 +827,24 @@ class GoGUI:
         self._text(f"{config.size} × {config.size} board · {ko} · "
                    f"{self.match.moves} of at most {self.match.move_limit} "
                    "moves played", 15, (SIDE, y), MUTED)
+        swing = (" One stone alone claims the whole empty board, so early "
+                 "numbers swing." if self.screen is Screen.PLAYING else "")
         self._text("Area: your stones plus the empty points only your "
-                   "stones surround. One stone alone claims the whole empty "
-                   "board, so early numbers swing.", 15, (SIDE, y + 24),
-                   MUTED, width=SIDE_W)
-        if self.screen is Screen.PLAYING:
+                   "stones surround." + swing, 15, (SIDE, y + 24), MUTED,
+                   width=SIDE_W)
+        color = MUTED
+        if self.screen is Screen.GAME_OVER:
+            caption = "Play again keeps the same board and players."
+            if self.note:
+                # A click on the finished board is answered by the buttons
+                caption, color = self.note, ERROR
+        elif "human" in config.seats:
             caption = ("Pass skips your turn. When every player passes in "
                        "a row, the game ends and the most area wins.")
         else:
-            caption = "Play again keeps the same board and players."
-        color = MUTED
-        if self.screen is Screen.GAME_OVER and self.note:
-            # A click on the finished board is answered beside the buttons
-            caption, color = self.note, ERROR
+            caption = ("The bots play on their own. When every player "
+                       "passes in a row, the game ends and the most area "
+                       "wins.")
         self._text(caption, 15, (SIDE, 585), color, "bottomleft", SIDE_W)
 
     def _draw_status(self) -> None:
