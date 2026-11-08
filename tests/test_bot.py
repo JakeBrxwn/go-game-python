@@ -114,8 +114,8 @@ def test_smart_plays_the_tactical_move(rows: list[str],
 
 def test_smart_presses_the_weakest_enemy_chain() -> None:
     """Check Smart takes a liberty of the enemy chain that has fewest"""
-    go = load(["......", ".1111.", "122221", ".11...", "......",
-               "......"])
+    go = load([".........", ".1111....", "122221...", ".11......"]
+              + ["........."] * 5)
     assert Smart().move(go) in {(3, 3), (3, 4)}
 
 @pytest.mark.parametrize("side", [6, 19, 30])
