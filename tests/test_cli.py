@@ -13,6 +13,20 @@ from go_python import gui, tui
 from go_python.cli import main, tui_main
 from go_python.match import GameConfig, SeriesResult
 
+@pytest.fixture(autouse=True)
+def no_real_apps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Makes any test that reaches the real window or terminal app fail at
+    once, rather than open it.
+
+    Args:
+        monkeypatch: The pytest fixture
+    """
+    def refuse(config: GameConfig | None = None) -> None:
+        raise AssertionError("a test started a real app")
+    monkeypatch.setattr(gui, "run", refuse)
+    monkeypatch.setattr(tui, "run", refuse)
+
 def test_version() -> None:
     """Check the command reports its version"""
     result = CliRunner().invoke(main, ["--version"])

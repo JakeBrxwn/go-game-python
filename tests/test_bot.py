@@ -149,21 +149,26 @@ def test_random_leaves_a_ko(rows: list[str], pos: tuple[int, int],
     assert go.legal_move(pos)
     assert (pos in picks(go)) is not ko
 
-@pytest.mark.parametrize("rows, players, superko", [
+@pytest.mark.parametrize("rows, players, superko, turn, pos", [
     # The next player's stone is taken; player 3 surrounds the taker
-    ([".....", "..13.", ".12.3", "..13.", "....."], 3, False),
+    ([".....", "..13.", ".12.3", "..13.", "....."], 3, False, 1, (2, 3)),
     # Player 3's stone is taken; the next player surrounds the taker
-    ([".....", "..12.", ".13.2", "..12.", "....."], 3, False),
+    ([".....", "..12.", ".13.2", "..12.", "....."], 3, False, 1, (2, 3)),
     # Superko stops loops anyway, but Random leaves the ko all the same
-    ([".....", "..12.", ".12.2", "..12.", "....."], 2, True),
+    ([".....", "..12.", ".12.2", "..12.", "....."], 2, True, 1, (2, 3)),
+    # Player 2 is to move
+    ([".21.", "21.1", ".21.", "...."], 2, False, 2, (1, 2)),
+    # Player 3 is to move
+    ([".....", "..31.", ".32.1", "..31.", "....."], 3, False, 3, (2, 3)),
 ])
 def test_random_leaves_a_ko_in_any_game(rows: list[str], players: int,
-                                        superko: bool) -> None:
-    """Check Random leaves a ko whichever players hold the stones around
-    it, and under either ko rule"""
-    go = load(rows, players=players, superko=superko)
-    assert go.legal_move((2, 3))
-    assert (2, 3) not in picks(go)
+                                        superko: bool, turn: int,
+                                        pos: tuple[int, int]) -> None:
+    """Check Random leaves a ko whoever is to move, whichever players hold
+    the stones around it, and under either ko rule"""
+    go = load(rows, turn, players, superko)
+    assert go.legal_move(pos)
+    assert pos not in picks(go)
 
 def test_random_passes_when_only_a_ko_is_left() -> None:
     """Check Random passes when its only legal move, (1, 5), takes a

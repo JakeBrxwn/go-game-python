@@ -299,6 +299,7 @@ def test_series_counts_every_game() -> None:
 @pytest.mark.parametrize("moves, wins", [
     ([(0, 0)], {1: 1, 2: 0}),
     ([None, (0, 0)], {1: 0, 2: 1}),
+    ([None, None, (0, 0)], {1: 0, 2: 0, 3: 1}),
 ])
 def test_series_credits_the_winner(monkeypatch: pytest.MonkeyPatch,
                                    moves: list[tuple[int, int] | None],
@@ -309,7 +310,7 @@ def test_series_credits_the_winner(monkeypatch: pytest.MonkeyPatch,
                         property(lambda self: len(moves)))
     monkeypatch.setattr("go_python.bot.Random.move",
                         lambda self, game: next(played))
-    series = run_series(GameConfig(6, False, ("random", "random")), 1)
+    series = run_series(GameConfig(6, False, ("random",) * len(wins)), 1)
     assert series.wins == wins
     assert series.ties == 0
 
