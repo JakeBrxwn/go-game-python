@@ -239,10 +239,10 @@ class GoGUI:
         pygame.display.set_caption("Go Python")
         self._surface = pygame.display.set_mode((WIDTH, HEIGHT))
         self._clock = pygame.time.Clock()
+        # Kerning stays off: freetype's kerning spaces this font unevenly
         self._fonts = {}
         for size in (15, 18, 21, 25, 38, 66):
             self._fonts[size] = pygame.freetype.Font(None, size)
-            self._fonts[size].kerning = True
             self._fonts[size].origin = True
         self._log = []
         self.running = True
@@ -585,7 +585,7 @@ class GoGUI:
               color: tuple[int, int, int] = INK, anchor: str = "topleft",
               width: int = 0) -> pygame.Rect:
         """
-        Draws text, kerned, wrapping at the last space that fits.
+        Draws text, wrapping at the last space that fits.
 
         Args:
             text: The words

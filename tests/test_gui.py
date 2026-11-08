@@ -744,22 +744,30 @@ def test_regression_every_seat_count_draws(players: int) -> None:
 # Layout: every text fits its box, at every size and ending
 #
 
-def test_regression_letters_sit_evenly_apart() -> None:
-    """Check the gaps between the letters of "rule" in the Ko rule heading
-    differ by at most a pixel; unkerned text drew it as "rul e" """
-    window = GoGUI()
-    press(window, "Play")
-    heading = next(d.rect for d in window.draw() if d.text == "Ko rule")
-    inked = [any(sum(pixel((x, y))) < 600 for y in range(heading.top,
-                                                            heading.bottom))
-             for x in range(heading.left, heading.right)]
+def letter_gaps(window: GoGUI, words: str) -> list[int]:
+    """Draws once and returns the widths of the blank columns between the
+    letters of a text, left to right, word spaces included"""
+    rect = next(d.rect for d in window.draw() if d.text == words)
+    inked = [any(sum(pixel((x, y))) < 600 for y in range(rect.top,
+                                                            rect.bottom))
+             for x in range(rect.left, rect.right)]
     gaps, blank = [], 0
     for ink in inked:
         if ink and blank:
             gaps.append(blank)
         blank = 0 if ink else blank + 1
-    rule = gaps[-3:]
-    assert max(rule) - min(rule) <= 1, gaps
+    return gaps
+
+def test_regression_letters_sit_evenly_apart() -> None:
+    """Check the gaps between the letters of two button labels differ by at
+    most a pixel; pygame.font drew "Super ko", and freetype's kerning
+    "Watch bot s" too"""
+    window = GoGUI()
+    bots = letter_gaps(window, "Watch bots")[-3:]
+    assert max(bots) - min(bots) <= 1, bots
+    press(window, "Play")
+    superko = letter_gaps(window, "Superko")
+    assert max(superko) - min(superko) <= 1, superko
 
 def test_menu_and_setup_layouts_are_tidy() -> None:
     """Check the menu, and setup with 2 and 4 players and only bots"""
