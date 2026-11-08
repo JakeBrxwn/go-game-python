@@ -11,6 +11,10 @@ from go_python.match import SEAT_KINDS, GameConfig, run_series
 
 BOT_KINDS = [kind for kind in SEAT_KINDS if kind != "human"]
 
+#
+# Settings of one match
+#
+
 # The options of the commands that start one match, outermost first
 MATCH_OPTIONS = [
     click.option('-s', '--size', type=click.INT, default=19,
@@ -68,6 +72,10 @@ def match_config(size: int, ko: str, seats: str) -> GameConfig:
     """
     return make_config(size, ko == "super",
                        tuple(seat.strip().lower() for seat in seats.split(",")))
+
+#
+# go-python
+#
 
 @click.group(invoke_without_command=True)
 @click.version_option(__version__, prog_name="go-python")
@@ -128,6 +136,10 @@ def bots(num_games: int, size: int, player1: str, player2: str) -> None:
     print(f'Player 2 wins: {round(100 * series.wins[2] / num_games, 2)}%')
     print(f'Ties: {round(100 * series.ties / num_games, 2)}%')
     print('Average moves:', series.moves / num_games)
+
+#
+# go-python-tui
+#
 
 @click.command()
 @click.version_option(__version__, prog_name="go-python-tui")

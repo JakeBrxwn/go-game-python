@@ -65,6 +65,17 @@ def test_bots_print_exact_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
     CliRunner().invoke(main, ["bots"])
     assert seen[-1] == (GameConfig(6, False, ("random", "random")), 20)
 
+def test_bots_round_each_rate_once(monkeypatch: pytest.MonkeyPatch) \
+        -> None:
+    """Check a rate is rounded from the exact percentage: 23 of 160 games
+    is 14.375%, which prints as 14.38%"""
+    monkeypatch.setattr("go_python.cli.run_series",
+                        lambda config, games: SeriesResult(
+                            160, {1: 23, 2: 49}, 88, 1000))
+    result = CliRunner().invoke(main, ["bots", "-n", "160"])
+    assert result.output == ("Player 1 wins: 14.38%\nPlayer 2 wins: 30.62%\n"
+                             "Ties: 55.0%\nAverage moves: 6.25\n")
+
 #
 # Starting the window and the terminal
 #

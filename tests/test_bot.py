@@ -9,17 +9,20 @@ import pytest
 from go_python.bot import Random, Smart, is_own_eye
 from go_python.go import Go
 
-def load(rows: list[str], turn: int = 1) -> Go:
+def load(rows: list[str], turn: int = 1, players: int = 2,
+         superko: bool = False) -> Go:
     """
-    Builds a two-player game from rows of text.
+    Builds a game from rows of text.
 
     Args:
         rows: One string per row, "." for empty and a digit for a stone
         turn: The player to move
+        players: Number of players
+        superko: True for superko, False for simple ko
 
     Returns: The game
     """
-    go = Go(len(rows), 2)
+    go = Go(len(rows), players, superko)
     go.load_game(turn, [[None if ch == "." else int(ch) for ch in row]
                         for row in rows])
     return go
@@ -146,9 +149,25 @@ def test_random_leaves_a_ko(rows: list[str], pos: tuple[int, int],
     assert go.legal_move(pos)
     assert (pos in picks(go)) is not ko
 
+@pytest.mark.parametrize("rows, players, superko", [
+    # The next player's stone is taken; player 3 surrounds the taker
+    ([".....", "..13.", ".12.3", "..13.", "....."], 3, False),
+    # Player 3's stone is taken; the next player surrounds the taker
+    ([".....", "..12.", ".13.2", "..12.", "....."], 3, False),
+    # Superko stops loops anyway, but Random leaves the ko all the same
+    ([".....", "..12.", ".12.2", "..12.", "....."], 2, True),
+])
+def test_random_leaves_a_ko_in_any_game(rows: list[str], players: int,
+                                        superko: bool) -> None:
+    """Check Random leaves a ko whichever players hold the stones around
+    it, and under either ko rule"""
+    go = load(rows, players=players, superko=superko)
+    assert go.legal_move((2, 3))
+    assert (2, 3) not in picks(go)
+
 def test_random_passes_when_only_a_ko_is_left() -> None:
-    """Check Random passes when every move left fills its own eye, is
-    suicide, or takes a ko (at (1, 5))"""
+    """Check Random passes when its only legal move, (1, 5), takes a
+    ko"""
     go = load(["211112", "221.2.", "2222.2", "112221", "112221", ".11111"])
     assert go.legal_move((1, 5))
     assert Random().move(go) is None

@@ -6,6 +6,10 @@ import random
 from go_python.board import BoardGridType
 from go_python.go import Go
 
+#
+# Random
+#
+
 def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
     """
     Checks if a point is a single-point eye of the player to move: every
@@ -23,7 +27,7 @@ def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
 class Random:
     """
     A bot that plays a random legal move, but never fills its own eye and
-    never takes a ko.
+    never takes a ko, under either ko rule.
     """
 
     def move(self, game: Go) -> tuple[int, int] | None:
@@ -41,6 +45,10 @@ class Random:
                  if not is_own_eye(game, pos)
                  and not _takes_ko(game, chains, pos)]
         return random.choice(moves) if moves else None
+
+#
+# Chains, shared by both bots
+#
 
 # A point on the board, as (row, column)
 Point = tuple[int, int]
@@ -112,6 +120,10 @@ def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
         return False
     caught = [len(chains[n][0]) for n in near if len(chains[n][1]) == 1]
     return caught == [1]
+
+#
+# Smart
+#
 
 def _value(game: Go, grid: BoardGridType, chains: dict[Point, Chain],
            pos: Point) -> float | None:
