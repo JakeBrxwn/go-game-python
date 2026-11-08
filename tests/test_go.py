@@ -833,6 +833,7 @@ def test_regression_load_game_accepts_tuple_rows_it_can_play_on() -> None:
 
 KO_FOR_PLAYERS_1_2 = [".12..", "12.2.", ".12..", ".....", "....."]
 KO_FOR_PLAYERS_1_3 = [".13..", "13.3.", ".13..", ".....", "....."]
+KO_FOR_PLAYERS_1_4 = [".14..", "14.4.", ".14..", ".....", "....."]
 
 def parse_board(rows: list[str]) -> BoardGridType:
     """
@@ -924,15 +925,19 @@ def test_superko_survives_a_pass() -> None:
     play(go, [(0, 0), (0, 1), (1, 0), (1, 1), None, (1, 0)])
     assert not go.legal_move((0, 0))
 
-def test_ko_survives_a_pass_by_a_third_player() -> None:
+@pytest.mark.parametrize("players, rows", [(3, KO_FOR_PLAYERS_1_3),
+                                           (4, KO_FOR_PLAYERS_1_4)])
+def test_ko_survives_passes_by_the_players_between(players: int,
+                                                   rows: list[str]) -> None:
     """
-    Check that a pass leaves the ko ban in place. A pass does not change the
+    Check that passes leave the ko ban in place. A pass does not change the
     board, so the board before the capture is still the immediately prior one.
     """
-    go = Go(5, 3)
-    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_3))
+    go = Go(5, players)
+    go.load_game(1, parse_board(rows))
     go.apply_move((1, 2))
-    go.pass_turn()
+    for _ in range(players - 2):
+        go.pass_turn()
     assert not go.legal_move((1, 1))
 
 def test_simulate_move_rejects_ko() -> None:
