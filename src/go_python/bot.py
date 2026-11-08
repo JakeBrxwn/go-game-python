@@ -173,7 +173,8 @@ class Smart:
     """
     A bot that rates every move by the chains next to it: it captures,
     saves its own stones, presses on weak enemy chains and keeps off the
-    edge. It never puts its own chain in atari and never takes a ko.
+    edge. It never takes a ko, and never puts its own chain in atari
+    unless that captures two or more stones.
     """
 
     def move(self, game: Go) -> tuple[int, int] | None:

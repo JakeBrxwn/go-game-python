@@ -1,6 +1,7 @@
 """
 Runs the go-python command the way a user would.
 """
+import os
 import random
 import subprocess
 import sys
@@ -197,5 +198,7 @@ def test_terminal_commands_never_load_pygame(command: str) -> None:
     """Check the terminal package can ship without pygame"""
     code = (f"import sys\ntry:\n    {command}\nexcept SystemExit:\n"
             "    pass\nassert 'pygame' not in sys.modules")
+    # A broken command that opens the window gets no screen and no time
+    env = dict(os.environ, SDL_VIDEODRIVER="dummy")
     subprocess.run([sys.executable, "-c", code], check=True,
-                   capture_output=True)
+                   capture_output=True, env=env, timeout=30)

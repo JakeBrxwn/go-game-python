@@ -100,7 +100,8 @@ def test_bot_repeats_when_seeded(bot: Random | Smart) -> None:
         random.seed(11)
         go = Go(6, 2)
         played: list[tuple[int, int] | None] = []
-        while not go.done:
+        # Capped, so a bot that never passes fails rather than hangs
+        while not go.done and len(played) < 3 * 6 * 6:
             played.append(bot.move(go))
             go = go.simulate_move(played[-1])
         return played
@@ -170,6 +171,12 @@ def test_random_leaves_a_ko_in_any_game(rows: list[str], players: int,
     assert go.legal_move(pos)
     assert pos not in picks(go)
 
+def test_random_plays_its_last_good_point() -> None:
+    """Check Random plays (1, 3) when every other empty point is its own eye
+    or illegal"""
+    go = load(["1.112.", "111.22", "1.1222", "111222", "1.1222", "111222"])
+    assert picks(go, 20) == {(1, 3)}
+
 def test_random_passes_when_only_a_ko_is_left() -> None:
     """Check Random passes when its only legal move, (1, 5), takes a
     ko"""
@@ -190,6 +197,9 @@ def test_random_passes_when_only_a_ko_is_left() -> None:
     ([".....", "..2..", ".212.", ".....", "....."], (3, 2)),
     # Takes one stone though its stone keeps a single other liberty
     (["12...", ".12..", ".....", ".....", "....."], (0, 2)),
+    # Takes four stones over three, though the three touch (0, 0) twice
+    ([".21....", "221....", "11.....", ".......", ".......", "...1111",
+      "...2222"], (6, 2)),
     # Saves a chain whose only other liberty is its own eye
     (["1.1..", "1112.", "222..", ".....", "....."], (0, 3)),
 ])
@@ -199,16 +209,29 @@ def test_smart_plays_the_tactical_move(rows: list[str],
     assert Smart().move(load(rows)) == expected
 
 def test_smart_presses_the_weakest_enemy_chain() -> None:
-    """Check Smart takes a liberty of the enemy chain that has fewest"""
-    go = load([".........", ".1111....", "122221...", ".11......"]
-              + ["........."] * 5)
-    assert Smart().move(go) in {(3, 3), (3, 4)}
+    """Check Smart takes a liberty of the enemy chain with the fewest
+    liberties for its size, not of the lone stone in open space"""
+    go = load([".........", ".1111....", "122221...", ".11......",
+               ".........", ".........", "......2..", ".........",
+               "........."])
+    for seed in range(20):
+        random.seed(seed)
+        assert Smart().move(go) in {(3, 3), (3, 4)}
 
 @pytest.mark.parametrize("side", [6, 19, 30])
 def test_smart_opens_off_the_edge(side: int) -> None:
     """Check Smart's first move on an empty board is off the two edge lines"""
     r, c = Smart().move(Go(side, 2)) or (0, 0)
     assert min(r, c, side - 1 - r, side - 1 - c) >= 2
+
+def test_smart_varies_its_opening() -> None:
+    """Check every point off the two edge lines rates the same, so Smart's
+    first move follows the seed rather than always taking the centre"""
+    openings = set()
+    for seed in range(20):
+        random.seed(seed)
+        openings.add(Smart().move(Go(9, 2)))
+    assert len(openings) > 1
 
 def test_smart_does_not_fill_its_eye_to_save_a_stone() -> None:
     """Check Smart leaves its own eye empty even when filling it would save
