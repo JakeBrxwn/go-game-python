@@ -547,7 +547,12 @@ class GoGUI:
 
         def chosen(on: bool) -> str:
             """
-            Returns the style of an option: chosen if on, else plain
+            Picks the style of an option button.
+
+            Args:
+                on: True if the option is the current setting
+
+            Returns: chosen if on, else plain
             """
             return "chosen" if on else "plain"
 
