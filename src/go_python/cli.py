@@ -4,7 +4,9 @@ The go-python command. It is the only code that reads command-line arguments.
 import click
 
 from go_python import __version__
-from go_python.match import GameConfig, run_series
+from go_python.match import SEAT_KINDS, GameConfig, run_series
+
+BOT_KINDS = [kind for kind in SEAT_KINDS if kind != "human"]
 
 def make_config(size: int, superko: bool,
                 seats: tuple[str, ...]) -> GameConfig:
@@ -39,10 +41,10 @@ def main() -> None:
 @click.option('-s', '--size', type=click.INT, default=6,
               help="The size of the board.")
 @click.option('-1', '--player1',
-              type=click.Choice(['random', 'smart'], case_sensitive=False),
+              type=click.Choice(BOT_KINDS, case_sensitive=False),
               default='random')
 @click.option('-2', '--player2',
-              type=click.Choice(['random', 'smart'], case_sensitive=False),
+              type=click.Choice(BOT_KINDS, case_sensitive=False),
               default='random')
 def bots(num_games: int, size: int, player1: str, player2: str) -> None:
     """

@@ -60,7 +60,8 @@ class EndReason(Enum):
 @dataclass(frozen=True)
 class MatchResult:
     """
-    How a match finished. An aborted match has no winners.
+    How a match finished. Winners are player numbers, from 1, and scores map
+    each player number to its area. An aborted match has no winners.
     """
     reason: EndReason
     winners: tuple[int, ...]
@@ -233,7 +234,8 @@ class Match:
 @dataclass(frozen=True)
 class SeriesResult:
     """
-    The totals of a series of bot-only matches.
+    The totals of a series of bot-only matches. Wins map each player number,
+    from 1, to the matches that player won alone; the rest are ties.
     """
     games: int
     wins: dict[int, int]
