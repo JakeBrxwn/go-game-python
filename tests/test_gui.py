@@ -20,8 +20,15 @@ Color = tuple[int, int, int]
 
 @pytest.fixture(autouse=True)
 def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Use the dummy SDL drivers, and run bots, clicks and frames without
-    waiting"""
+    """
+    Uses the dummy SDL drivers, and runs bots, clicks and frames without
+    waiting.
+
+    Args:
+        monkeypatch: The pytest fixture
+
+    Returns: Control to the test, then shuts pygame down after it
+    """
     monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
     monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
@@ -35,18 +42,36 @@ def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 #
 
 def post(kind: int, **attrs: Any) -> None:
-    """Posts one real pygame event"""
+    """
+    Posts one real pygame event.
+
+    Args:
+        kind: The event type
+        attrs: The event's attributes
+    """
     pygame.event.post(pygame.event.Event(kind, **attrs))
 
 def move(window: GoGUI, pos: tuple[float, float]) -> None:
-    """Moves the mouse, then runs a frame"""
+    """
+    Moves the mouse, then runs a frame.
+
+    Args:
+        window: The window
+        pos: Where the mouse goes
+    """
     post(pygame.MOUSEMOTION, pos=(round(pos[0]), round(pos[1])),
          rel=(0, 0), buttons=(0, 0, 0))
     window.frame()
 
 def click(window: GoGUI, pos: tuple[float, float]) -> None:
-    """Moves the mouse, presses and releases the left button there, then
-    runs a frame"""
+    """
+    Moves the mouse, presses and releases the left button there, then runs
+    a frame.
+
+    Args:
+        window: The window
+        pos: Where to click
+    """
     x, y = round(pos[0]), round(pos[1])
     post(pygame.MOUSEMOTION, pos=(x, y), rel=(0, 0), buttons=(0, 0, 0))
     post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
@@ -54,28 +79,68 @@ def click(window: GoGUI, pos: tuple[float, float]) -> None:
     window.frame()
 
 def button(window: GoGUI, label: str, nth: int = 0) -> pygame.Rect:
-    """Returns where the nth button with this label is"""
+    """
+    Finds a button on the current screen.
+
+    Args:
+        window: The window
+        label: The button's label
+        nth: Which of the buttons with that label, from 0
+
+    Returns: Where the button is
+    """
     return [b.rect for b in window.buttons() if b.label == label][nth]
 
 def press(window: GoGUI, label: str, nth: int = 0) -> None:
-    """Clicks the nth button with this label on the current screen"""
+    """
+    Clicks a button on the current screen.
+
+    Args:
+        window: The window
+        label: The button's label
+        nth: Which of the buttons with that label, from 0
+    """
     click(window, button(window, label, nth).center)
 
 def spot(window: GoGUI, point: tuple[int, int]) -> tuple[float, float]:
-    """Returns where a board point is drawn in the current match"""
+    """
+    Finds where a board point is drawn in the current match.
+
+    Args:
+        window: The window
+        point: The (row, column)
+
+    Returns: The window position of the point
+    """
     return center(BOARD, window.match.config.size, point)
 
 def key(window: GoGUI, which: int) -> None:
-    """Presses a key, then runs a frame"""
+    """
+    Presses a key, then runs a frame.
+
+    Args:
+        window: The window
+        which: The pygame key code
+    """
     post(pygame.KEYDOWN, key=which)
     window.frame()
 
 def escape(window: GoGUI) -> None:
-    """Presses Esc, then runs a frame"""
+    """
+    Presses Esc, then runs a frame.
+
+    Args:
+        window: The window
+    """
     key(window, pygame.K_ESCAPE)
 
 def leave(window: GoGUI) -> None:
-    """Leaves the match: Esc, then Esc again to confirm"""
+    """
+    Leaves the match: Esc, then Esc again to confirm.
+
+    Args:
+        window: The window
+    """
     escape(window)
     escape(window)
 
@@ -84,52 +149,132 @@ def leave(window: GoGUI) -> None:
 #
 
 def screen() -> pygame.Surface:
-    """Returns what the window shows"""
+    """
+    Finds the window's surface.
+
+    Returns: What the window shows
+    """
     surface = pygame.display.get_surface()
     assert surface is not None
     return surface
 
 def pixel(pos: tuple[float, float]) -> Color:
-    """Returns the colour on the screen at a position"""
+    """
+    Reads one pixel of the window.
+
+    Args:
+        pos: Where to read, rounded to whole pixels
+
+    Returns: The colour there
+    """
     r, g, b, _ = screen().get_at((round(pos[0]), round(pos[1])))
     return (r, g, b)
 
 def on_point(window: GoGUI, point: tuple[int, int]) -> Color:
-    """Returns the colour inside a board point's stone, clear of the lines,
-    the shine, the last-move ring and the star points"""
+    """
+    Reads the colour inside a board point's stone, clear of the lines, the
+    shine, the last-move ring and the star points.
+
+    Args:
+        window: The window
+        point: The (row, column)
+
+    Returns: The colour there
+    """
     x, y = spot(window, point)
     step = BOARD.width / window.match.config.size * 0.2
     return pixel((x + step, y + step))
 
 def count(rect: pygame.Rect, color: Color) -> int:
-    """Counts the screen pixels of exactly this colour inside rect"""
+    """
+    Counts the window's pixels of exactly one colour.
+
+    Args:
+        rect: The part of the window to count in
+        color: The colour
+
+    Returns: The number of pixels
+    """
     area = screen().subsurface(rect)
     return int(pygame.mask.from_threshold(area, color, (1, 1, 1, 255))
                .count())
 
 def texts(window: GoGUI) -> list[str]:
-    """Draws once and returns the words of every text drawn"""
+    """
+    Draws once.
+
+    Args:
+        window: The window
+
+    Returns: The words of every text drawn
+    """
     return [d.text for d in window.draw() if d.kind == "text"]
 
 def box_around(window: GoGUI, words: str) -> pygame.Rect:
-    """Draws once and returns the box that holds the text with these words"""
+    """
+    Draws once and finds the box that holds a text.
+
+    Args:
+        window: The window
+        words: The text's exact words
+
+    Returns: Where the box is
+    """
     drawn = window.draw()
     rect = next(d.rect for d in drawn if d.kind == "text" and d.text == words)
     return next(d.rect for d in drawn
                 if d.kind == "box" and d.rect.contains(rect))
 
 def edge(rect: pygame.Rect) -> Color:
-    """Returns a box's border colour, read at the middle of its top edge"""
+    """
+    Reads a box's border colour, at the middle of its top edge.
+
+    Args:
+        rect: Where the box is
+
+    Returns: The colour there
+    """
     return pixel((rect.centerx, rect.y))
 
 def fill(rect: pygame.Rect) -> Color:
-    """Returns a button's fill colour, read left of its label"""
+    """
+    Reads a button's fill colour, left of its label.
+
+    Args:
+        rect: Where the button is
+
+    Returns: The colour there
+    """
     return pixel((rect.x + 6, rect.centery))
 
 def contrast(one: Color, two: Color) -> float:
-    """Returns the WCAG contrast ratio of two colours, from 1 to 21"""
+    """
+    Works out the WCAG contrast ratio of two colours.
+
+    Args:
+        one: A colour
+        two: The other colour
+
+    Returns: The ratio, from 1 to 21
+    """
     def luminance(color: Color) -> float:
+        """
+        Works out a colour's relative luminance, as WCAG defines it.
+
+        Args:
+            color: The colour
+
+        Returns: The luminance, from 0 for black to 1 for white
+        """
         def linear(value: int) -> float:
+            """
+            Undoes the sRGB gamma of one channel.
+
+            Args:
+                value: The channel, from 0 to 255
+
+            Returns: Its linear light, from 0 to 1
+            """
             v = value / 255
             return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
         r, g, b = map(linear, color)
@@ -143,6 +288,9 @@ def assert_tidy(window: GoGUI) -> list[str]:
     Draws once and checks the layout: every text and side stone inside the
     window, either clear of a box or inside it with room to spare, no two
     of them touching, and no two boxes overlapping.
+
+    Args:
+        window: The window
 
     Returns: The texts drawn, for the caller to check
     """
@@ -261,6 +409,12 @@ def test_run_with_a_config_starts_that_match(
     windows: list[GoGUI] = []
 
     def remember(window: GoGUI) -> None:
+        """
+        Keeps the window instead of running its loop.
+
+        Args:
+            window: The window run() made
+        """
         windows.append(window)
 
     monkeypatch.setattr(GoGUI, "loop", remember)
@@ -435,6 +589,15 @@ def test_setup_previews_the_board_size() -> None:
     """Check the setup screen draws an empty board with the chosen number
     of lines, counted along a row of its pixels"""
     def lines(window: GoGUI) -> int:
+        """
+        Draws once and counts the dark lines crossed along a row of the
+        preview, between its first two points.
+
+        Args:
+            window: The window
+
+        Returns: The number of lines
+        """
         wood = next(d.rect for d in window.draw() if d.kind == "box")
         grid = wood.inflate(-2 * gui.PAD, -2 * gui.PAD)
         y = grid.y + grid.height / window.config.size
@@ -499,8 +662,17 @@ def test_only_the_left_button_plays() -> None:
 
 def double_click(window: GoGUI, pos: tuple[float, float], frames: int,
                  clock: list[int]) -> None:
-    """Double-clicks the way a person does: press and release, then again
-    33 ms per frame later, the time at 30 frames a second"""
+    """
+    Double-clicks the way a person does: press and release, then again
+    33 ms per frame later, the time at 30 frames a second. The clock first
+    moves on a second, so no earlier press is part of it.
+
+    Args:
+        window: The window
+        pos: Where to click
+        frames: How many frames run between the two clicks
+        clock: The fake time in ms, moved on in place
+    """
     x, y = round(pos[0]), round(pos[1])
     clock[0] += 1000
     for _ in range(2):
@@ -959,8 +1131,16 @@ def test_regression_every_seat_count_draws(players: int) -> None:
 #
 
 def letter_gaps(window: GoGUI, words: str) -> list[int]:
-    """Draws once and returns the widths of the blank columns between the
-    letters of a text, left to right, word spaces included"""
+    """
+    Draws once and measures the blank columns between the letters of a
+    text, word spaces included.
+
+    Args:
+        window: The window
+        words: The text's exact words
+
+    Returns: The widths of the gaps, left to right
+    """
     rect = next(d.rect for d in window.draw() if d.text == words)
     inked = [any(sum(pixel((x, y))) < 600 for y in range(rect.top,
                                                             rect.bottom))
@@ -1047,7 +1227,14 @@ def test_a_big_win_on_the_biggest_board_fits() -> None:
 #
 
 def draw_changes_nothing(window: GoGUI) -> bool:
-    """Draws once and tells if the window and the game stayed the same"""
+    """
+    Draws once and compares the window and the game with before.
+
+    Args:
+        window: The window
+
+    Returns: True if neither changed
+    """
     before = dict(vars(window))
     board = window.match.game.frozengrid
     window.draw()
