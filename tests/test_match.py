@@ -110,19 +110,29 @@ def test_illegal_move_changes_nothing() -> None:
     assert match.game.turn == 2
     assert match.moves == 1
 
-def test_bot_pass_is_returned() -> None:
+def test_bot_pass_is_returned(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check step reports a bot's pass as None"""
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: None)
     match = Match(GameConfig(6, False, ("human", "random")))
-    match.game.load_game(1, [[1, None, 1, 2, None, 2],
-                             [1, 1, 1, 2, 2, 2],
-                             [1, None, 1, 2, None, 2],
-                             [1, 1, 1, 2, 2, 2],
-                             [1, None, 1, 2, None, 2],
-                             [1, 1, 1, 2, 2, 2]])
     match.play(None)
     assert match.step() is None
     assert match.result is not None
     assert match.result.reason is EndReason.PASSES
+
+# Simple ko allows (1, 2) after these moves; superko bans it
+SUPERKO_ONLY_BAN = [(0, 2), (0, 1), (0, 3), (1, 0), (1, 4), (1, 2), (2, 2),
+                    (2, 1), (2, 3), (1, 3), (1, 1)]
+
+def test_match_plays_by_the_chosen_ko_rule() -> None:
+    """Check the ko rule in the settings reaches the game"""
+    simple = Match(GameConfig(19, False, ("human", "human")))
+    superko = Match(GameConfig(19, True, ("human", "human")))
+    for match in (simple, superko):
+        for pos in SUPERKO_ONLY_BAN:
+            match.play(pos)
+    simple.play((1, 2))
+    with pytest.raises(ValueError):
+        superko.play((1, 2))
 
 def test_hint_suggests_a_legal_move() -> None:
     """Check a hint is a move the person could play"""
@@ -220,6 +230,23 @@ def test_series_counts_every_game() -> None:
     assert series.games == 6
     assert sum(series.wins.values()) + series.ties == 6
     assert series.moves > 6
+
+@pytest.mark.parametrize("moves, wins", [
+    ([(0, 0)], {1: 1, 2: 0}),
+    ([None, (0, 0)], {1: 0, 2: 1}),
+])
+def test_series_credits_the_winner(monkeypatch: pytest.MonkeyPatch,
+                                   moves: list[tuple[int, int] | None],
+                                   wins: dict[int, int]) -> None:
+    """Check a win goes to the player who owns the board"""
+    played = iter(moves)
+    monkeypatch.setattr(Match, "move_limit",
+                        property(lambda self: len(moves)))
+    monkeypatch.setattr("go_python.bot.Random.move",
+                        lambda self, game: next(played))
+    series = run_series(GameConfig(6, False, ("random", "random")), 1)
+    assert series.wins == wins
+    assert series.ties == 0
 
 def test_series_counts_a_tie(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a game with tied winners counts as a tie"""
