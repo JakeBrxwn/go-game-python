@@ -450,12 +450,30 @@ def test_menu_offers_play_watch_bots_and_quit() -> None:
     assert not window.running
 
 def test_the_menu_says_what_each_button_does() -> None:
-    """Check the menu draws its title, its introduction, a hint beside each
-    button and the version"""
+    """Check the menu draws its title, its introduction, the version, and
+    each hint level with its own button, just right of it"""
     window = GoGUI()
     assert {"Go Python", "The board game Go for 2 to 4 players. Play people "
             "or bots, or watch the bots play each other.", *gui.MENU_HINTS,
             f"Version {__version__}"} <= set(texts(window))
+    drawn = window.draw()
+    rects = [button(window, label) for label in ("Play", "Watch bots",
+                                                 "Quit")]
+    for rect, hint in zip(rects, gui.MENU_HINTS, strict=True):
+        found = next(d.rect for d in drawn if d.text == hint)
+        assert found.centery == rect.centery, hint
+        assert 0 < found.left - rect.right <= 24, hint
+
+def test_the_menu_board_shows_every_colour() -> None:
+    """Check the sample board on the menu has each of its stones, in its
+    player's colour"""
+    window = GoGUI()
+    window.frame()
+    step = gui.HERO.width / 9 * 0.2
+    assert {player for _, player in gui.HERO_STONES} == {1, 2, 3, 4}
+    for point, player in gui.HERO_STONES:
+        x, y = center(gui.HERO, 9, point)
+        assert pixel((x + step, y + step)) == gui.STONES[player - 1], point
 
 def test_setup_explains_every_choice() -> None:
     """Check setup draws its title, its introduction and the help for the
