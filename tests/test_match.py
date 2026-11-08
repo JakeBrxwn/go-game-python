@@ -2,6 +2,8 @@
 Tests for Match: its states, how it ends, and the settings it accepts.
 """
 import random
+import re
+from pathlib import Path
 
 import pytest
 
@@ -256,3 +258,16 @@ def test_series_counts_a_tie(monkeypatch: pytest.MonkeyPatch) -> None:
     assert series.ties == 2
     assert series.wins == {1: 0, 2: 0}
     assert series.moves == 2
+
+#
+# Ownership
+#
+
+def test_only_match_changes_the_game() -> None:
+    """Check no other module moves, passes or loads the game behind Match"""
+    source = Path(__file__).parent.parent / "src" / "go_python"
+    changers = re.compile(r"\.(apply_move|pass_turn|load_game)\(")
+    offenders = [path.name for path in sorted(source.glob("*.py"))
+                 if path.name not in ("go.py", "match.py")
+                 and changers.search(path.read_text())]
+    assert offenders == []

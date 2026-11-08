@@ -1,12 +1,39 @@
 """
-The go-python command. It is the only code that reads command-line arguments.
+The go-python commands. They are the only code that reads command-line
+arguments.
 """
+from collections.abc import Callable
+
 import click
 
-from go_python import __version__
+from go_python import __version__, tui
 from go_python.match import SEAT_KINDS, GameConfig, run_series
 
 BOT_KINDS = [kind for kind in SEAT_KINDS if kind != "human"]
+
+# The options of the commands that start one match, outermost first
+MATCH_OPTIONS = [
+    click.option('-s', '--size', type=click.INT, default=19,
+                 show_default=True, help="The size of the board."),
+    click.option('--ko', type=click.Choice(['simple', 'super']),
+                 default='simple', show_default=True, help="The ko rule."),
+    click.option('--seats', default='human,smart', show_default=True,
+                 help="One per player, in turn order, separated by commas: "
+                      "human, random or smart."),
+]
+
+def match_options(command: Callable[..., None]) -> Callable[..., None]:
+    """
+    Adds the options that start one match: size, ko and seats.
+
+    Args:
+        command: The command function
+
+    Returns: The command function with the options
+    """
+    for option in reversed(MATCH_OPTIONS):
+        command = option(command)
+    return command
 
 def make_config(size: int, superko: bool,
                 seats: tuple[str, ...]) -> GameConfig:
@@ -28,12 +55,50 @@ def make_config(size: int, superko: bool,
     except ValueError as err:
         raise click.UsageError(str(err)) from err
 
-@click.group()
+def match_config(size: int, ko: str, seats: str) -> GameConfig:
+    """
+    Builds the settings of one match from the match options.
+
+    Args:
+        size: The size of the board
+        ko: "simple" or "super"
+        seats: Seats separated by commas
+
+    Returns: The settings
+    """
+    return make_config(size, ko == "super",
+                       tuple(seat.strip().lower() for seat in seats.split(",")))
+
+@click.group(invoke_without_command=True)
 @click.version_option(__version__, prog_name="go-python")
-def main() -> None:
+@click.pass_context
+def main(ctx: click.Context) -> None:
     """
-    Go Python: the board game Go, for humans and bots.
+    Go Python: the board game Go, for humans and bots. With no command it
+    opens the game window.
     """
+    if ctx.invoked_subcommand is None:
+        # Imported here so the terminal commands never load pygame
+        from go_python import gui
+        gui.run()
+
+@main.command(name="gui")
+@match_options
+def gui_match(size: int, ko: str, seats: str) -> None:
+    """
+    Starts one match in the window, skipping the menu. For testing.
+    """
+    config = match_config(size, ko, seats)
+    from go_python import gui
+    gui.run(config)
+
+@main.command(name="tui")
+@match_options
+def tui_match(size: int, ko: str, seats: str) -> None:
+    """
+    Plays one match in the terminal, skipping the menu. For testing.
+    """
+    tui.run(match_config(size, ko, seats))
 
 @main.command()
 @click.option('-n', '--num-games', type=click.IntRange(min=1), default=20,
@@ -63,3 +128,11 @@ def bots(num_games: int, size: int, player1: str, player2: str) -> None:
     print(f'Player 2 wins: {round(100 * series.wins[2] / num_games, 2)}%')
     print(f'Ties: {round(100 * series.ties / num_games, 2)}%')
     print('Average moves:', series.moves / num_games)
+
+@click.command()
+@click.version_option(__version__, prog_name="go-python-tui")
+def tui_main() -> None:
+    """
+    Go Python in the terminal: play or watch Go by typing moves.
+    """
+    tui.run()

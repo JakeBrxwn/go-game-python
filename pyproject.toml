@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 go-python = "go_python.cli:main"
+go-python-tui = "go_python.cli:tui_main"
 
 [tool.setuptools.dynamic]
 version = {attr = "go_python.__version__"}
