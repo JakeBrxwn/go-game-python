@@ -11,7 +11,7 @@ from typing import Any
 import pygame
 import pytest
 
-from go_python import gui
+from go_python import __version__, gui
 from go_python.gui import (BOARD, GoGUI, Screen, center, point_at, points,
                            star_points, summary)
 from go_python.match import EndReason, GameConfig, MatchResult, MatchState
@@ -114,7 +114,7 @@ def texts(window: GoGUI) -> list[str]:
 def box_around(window: GoGUI, words: str) -> pygame.Rect:
     """Draws once and returns the box that holds the text with these words"""
     drawn = window.draw()
-    rect = next(d.rect for d in drawn if d.text == words)
+    rect = next(d.rect for d in drawn if d.kind == "text" and d.text == words)
     return next(d.rect for d in drawn
                 if d.kind == "box" and d.rect.contains(rect))
 
@@ -281,6 +281,31 @@ def test_menu_offers_play_watch_bots_and_quit() -> None:
                                                    "Quit"]
     press(window, "Quit")
     assert not window.running
+
+def test_the_menu_says_what_each_button_does() -> None:
+    """Check the menu draws its title, its introduction, a hint beside each
+    button and the version"""
+    window = GoGUI()
+    assert {"Go Python", "The board game Go for 2 to 4 players. Play people "
+            "or bots, or watch the bots play each other.", *gui.MENU_HINTS,
+            f"Version {__version__}"} <= set(texts(window))
+
+def test_setup_explains_every_choice() -> None:
+    """Check setup draws its title, its introduction and the help for the
+    size, the ko rule and the seats, for a game and for watching bots"""
+    window = GoGUI()
+    press(window, "Play")
+    assert {"New game", "The defaults are ready: press Start game, or "
+            "change anything first.", "New to Go?", gui.HOW_TO_PLAY,
+            "Board size", "Lines on each side. 9 × 9 is quick; 19 × 19 is "
+            "the classic board.", "Ko rule", "Simple ko: no move may bring "
+            "back the board as it was one move ago. Superko: no move may "
+            "bring back any earlier board.", "Players",
+            gui.SEAT_HELP} <= set(texts(window))
+    press(window, "Back")
+    press(window, "Watch bots")
+    assert {"Watch bots", "Every seat is a bot. Press Start watching, then "
+            "sit back.", "Start watching"} <= set(texts(window))
 
 def test_buttons_change_shade_under_the_mouse() -> None:
     """Check the hover shade shows on a dark and on a light button"""
@@ -592,6 +617,49 @@ def test_the_sidebar_shows_whose_turn_it_is() -> None:
         assert edge(other) == gui.EDGE
         press(window, "Pass")
     assert texts(window).count("Passed") == 2
+
+def test_the_sidebar_states_the_facts_of_the_match() -> None:
+    """Check the details count the moves and name the size and the ko rule,
+    each row names who sits there, and the captions explain area and Pass"""
+    window = GoGUI(GameConfig(13, True, ("human", "smart")))
+    click(window, spot(window, (3, 3)))
+    assert window.match.moves == 2
+    assert {"13 × 13 board · superko · 2 of at most 507 moves played",
+            "Area: your stones plus the empty points only your stones "
+            "surround. One stone alone claims the whole empty board, so "
+            "early numbers swing.", "Pass skips your turn. When every "
+            "player passes in a row, the game ends and the most area "
+            "wins."} <= set(texts(window))
+    assert box_around(window, "Human") == box_around(window, "Black")
+    assert box_around(window, "Smart bot") == box_around(window, "White")
+
+def test_the_result_shows_the_winners_stone() -> None:
+    """Check a single winner's stone is drawn beside the headline in their
+    colour, and the caption says what Play again does"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    press(window, "Pass")
+    click(window, spot(window, (4, 4)))
+    press(window, "Pass")
+    press(window, "Pass")
+    drawn = window.draw()
+    stones = [d.rect for d in drawn if d.kind == "stone"]
+    headline = next(d.rect for d in drawn if d.text == "White wins")
+    assert [d.text for d in drawn if d.kind == "stone"] == [
+        "White", "Black", "White"]
+    assert pixel(stones[0].center) == gui.STONES[1]
+    assert stones[0].right < headline.left and \
+        abs(stones[0].centery - headline.centery) <= 2
+    assert "Play again keeps the same board and players." in texts(window)
+
+def test_stones_on_the_board_cast_a_shadow() -> None:
+    """Check a stone played on the board has its shadow on the wood"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    x, y = spot(window, (4, 4))
+    around = pygame.Rect(x - 40, y - 40, 80, 80)
+    window.frame()
+    assert count(around, gui.SHADOW) == 0
+    click(window, (x, y))
+    assert count(around, gui.SHADOW) > 100
 
 def test_refusals_show_in_red() -> None:
     """Check a refused click is explained in red in the status card"""
