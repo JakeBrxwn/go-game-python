@@ -3,12 +3,16 @@ Tests for Match: its states, how it ends, and the settings it accepts.
 """
 import random
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+from go_python.bot import Random, Smart
 from go_python.match import (EndReason, GameConfig, Match, MatchState,
                              run_series)
+
+Move = tuple[int, int] | None
 
 #
 # GameConfig
@@ -142,6 +146,39 @@ def test_hint_suggests_a_legal_move() -> None:
     pos = match.hint()
     assert pos is not None and match.game.legal_move(pos)
     assert match.moves == 0
+
+def same_seed(choose: Callable[..., Move], seed: int, *args: object) \
+        -> Move:
+    """
+    Runs a bot's choice with the random module seeded.
+
+    Args:
+        choose: What picks the move
+        seed: The seed
+        args: What to pass to choose
+
+    Returns: The move it picked
+    """
+    random.seed(seed)
+    return choose(*args)
+
+@pytest.mark.parametrize("seats", [("random", "smart"), ("smart", "random")])
+def test_each_seat_is_played_by_its_own_bot(seats: tuple[str, ...]) -> None:
+    """Check every move comes from the bot named for the seat to move"""
+    match = Match(GameConfig(9, False, seats))
+    for seat in seats * 4:
+        bot = Smart() if seat == "smart" else Random()
+        expected = same_seed(bot.move, match.moves, match.game)
+        assert same_seed(match.step, match.moves) == expected
+
+def test_hint_is_what_smart_would_play() -> None:
+    """Check a hint is Smart's move for the person to move"""
+    match = Match(GameConfig(9, False, ("human", "random")))
+    for seed in range(4):
+        expected = same_seed(Smart().move, seed, match.game)
+        assert same_seed(match.hint, seed) == expected
+        match.play(expected)
+        match.step()
 
 #
 # Endings
