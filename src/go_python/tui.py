@@ -258,7 +258,7 @@ def _setup(defaults: tuple[str, str]) -> GameConfig:
                                  strict=True):
             kinds = ("human, random, smart or none" if default == "none"
                      else "human, random or smart")
-            seat = _ask(f"{name}: {kinds}", default)
+            seat = _ask(f"{name} player: {kinds}", default)
             if seat == "none":
                 break
             seats.append(seat)

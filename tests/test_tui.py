@@ -158,8 +158,8 @@ def test_watch_bots_from_the_menu(
     monkeypatch.setattr(time, "sleep", delays.append)
     random.seed(3)
     out = session(monkeypatch, capsys, ["2", "6", "super", "", "", "", "3"])
-    assert "Black: human, random or smart [smart]: " in out
-    assert "White: human, random or smart [random]: " in out
+    assert "Black player: human, random or smart [smart]: " in out
+    assert "White player: human, random or smart [random]: " in out
     assert "Press Ctrl+C to stop watching." in out
     turns = re.findall(r"(?:Black ●|White ○) (?:plays [A-F][1-6]|passes)\.",
                        out)
@@ -175,7 +175,7 @@ def test_four_seats_from_the_menu(
     out = session(monkeypatch, capsys,
                   ["1", "", "", "", "human", "random", "random", "quit"])
     assert "Board size, 6 to 30 [19]: " in out
-    assert "Red: human, random, smart or none [none]: " in out
+    assert "Red player: human, random, smart or none [none]: " in out
     assert "   A B C D E F G H J K L M N O P Q R S T\n19 · " in out
     assert "Game over: the match was left.\nNo winner.\n" \
            "Scores: Black 0, White 0, Red 0, Blue 0\n" in out
@@ -237,7 +237,7 @@ def test_menu_and_setup_explain_a_bad_answer(
     assert "size must be a whole number from 6 to 30\n" in out
     assert "Please type simple or super.\n" in out
     assert "seats must be 2 to 4 of human, random, smart\n" in out
-    assert out.count("Black: human, random or smart [human]: ") == 2
+    assert out.count("Black player: human, random or smart [human]: ") == 2
     assert "Game over: the match was left." in out
 
 #
