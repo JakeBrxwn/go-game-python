@@ -6,6 +6,22 @@ Team members:
 - Daniel Fields (dfields) (TUI)
 - Jake Brown (jacobbrown) (Bot)
 
+## Run it
+
+Install it into a Python 3.14 environment with `pip install .`, then:
+
+- `go-python` opens the game window: Play, Watch bots or Quit.
+- `go-python-tui` is the same game in the terminal, typed move by move. It
+  never loads pygame.
+
+For testing, `go-python` also has commands that skip the menu:
+
+- `go-python gui` or `go-python tui` starts one match. Options:
+  `-s/--size` (6 to 30), `--ko simple|super`, and `--seats human,smart`
+  (2 to 4 seats, each human, random or smart).
+- `go-python bots` plays bot-only games and prints the totals, for example
+  `go-python bots -n 4 -s 9 -1 smart`.
+
 ## Enhancements
 
 Enhancement 1: We updated the GUI to play music in the background while it is running.
