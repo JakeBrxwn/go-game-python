@@ -20,10 +20,12 @@ Color = tuple[int, int, int]
 
 @pytest.fixture(autouse=True)
 def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Use the dummy SDL drivers, and run bots and frames without waiting"""
+    """Use the dummy SDL drivers, and run bots, clicks and frames without
+    waiting"""
     monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
     monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 0)
     monkeypatch.setattr(gui, "FPS", 0)
     yield
     pygame.quit()
@@ -424,16 +426,74 @@ def test_two_clicks_in_one_frame_play_one_stone() -> None:
     assert window.note == "That point already has a stone."
 
 def test_only_the_left_button_plays() -> None:
-    """Check right, middle and wheel clicks, and a left press never
-    released, place no stone"""
+    """Check right, middle and wheel clicks, and a press of one button
+    released with another, place no stone"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     x, y = (round(v) for v in spot(window, (2, 2)))
-    for which in (2, 3, 4, 5):
-        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=which)
-        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=which)
-    post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
+    for down, up in [(2, 2), (3, 3), (4, 4), (5, 5), (3, 1), (1, 3)]:
+        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=down)
+        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=up)
     window.frame()
     assert window.match.moves == 0
+
+def double_click(window: GoGUI, label: str, frames: int,
+                 clock: list[int]) -> None:
+    """Double-clicks a button the way a person does: press and release,
+    then again 33 ms per frame later, the time at 30 frames a second"""
+    x, y = button(window, label).center
+    clock[0] += 1000
+    for _ in range(2):
+        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
+        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
+        window.frame()
+        for _ in range(frames):
+            clock[0] += 33
+            window.frame()
+
+@pytest.mark.parametrize("frames", [0, 3])
+def test_regression_a_double_click_never_reaches_the_next_screen(
+        frames: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the second click of a double-click lands on nothing: it used
+    to leave a match just started, pass at once after Play again, and seat
+    a Human after Watch bots"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI()
+    double_click(window, "Watch bots", frames, clock)
+    assert window.screen is Screen.SETUP and window.config == gui.WATCH
+    clock[0] += 1000
+    press(window, "Back")
+    double_click(window, "Play", frames, clock)
+    assert window.screen is Screen.SETUP and window.config == GameConfig()
+    double_click(window, "Start game", frames, clock)
+    assert window.screen is Screen.PLAYING and window.match.moves == 0
+    leave(window)
+    double_click(window, "Play again", frames, clock)
+    assert window.screen is Screen.PLAYING and window.match.moves == 0
+
+def test_regression_a_drag_between_targets_does_nothing() -> None:
+    """Check a press on one thing released on another acts on neither: a
+    press on the board released on Leave match used to leave"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    board = spot(window, (4, 4))
+    targets = [board, button(window, "Leave match (Esc)").center,
+               button(window, "Pass").center, board]
+    for start, end in pairwise(targets):
+        post(pygame.MOUSEBUTTONDOWN, pos=start, button=1)
+        post(pygame.MOUSEBUTTONUP, pos=end, button=1)
+        window.frame()
+    assert window.screen is Screen.PLAYING and window.match.moves == 0
+    assert window.note == ""
+
+def test_one_press_makes_one_click() -> None:
+    """Check a release with no press of its own, as when a press outside the
+    window is released over Pass, does not pass again"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    press(window, "Pass")
+    post(pygame.MOUSEBUTTONUP, pos=button(window, "Pass").center, button=1)
+    window.frame()
+    assert window.screen is Screen.PLAYING and window.match.game.turn == 2
 
 #
 # Play

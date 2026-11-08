@@ -4,7 +4,7 @@ The window only reads the game; every move goes through a Match.
 """
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from functools import partial
 from typing import Any, NamedTuple
@@ -24,6 +24,9 @@ WIDTH, HEIGHT = 1200, 675
 FPS = 30
 # Pause before each bot move so a person can follow the game; tests set 0
 BOT_DELAY_MS = 600
+# A press this soon after the screen changed is the second half of a
+# double-click on the screen before, so it is ignored; tests set 0
+DOUBLE_CLICK_MS = 500
 
 # The board keeps its original look: off-white backdrop, wood, black lines
 BACKDROP = (249, 241, 241)
@@ -88,8 +91,8 @@ class Button:
     """
     rect: pygame.Rect
     label: str
-    action: Callable[[], None]
-    style: str = "plain"
+    action: Callable[[], None] = field(compare=False)
+    style: str = field(default="plain", compare=False)
 
 class Drawn(NamedTuple):
     """
@@ -210,6 +213,8 @@ class GoGUI:
     _fonts: dict[int, pygame.font.Font]
     _log: list[Drawn]
     _mouse: tuple[int, int]
+    _down: Button | tuple[int, int] | None
+    _shown_ms: int
     _last: tuple[int, int] | None
     _passed: frozenset[int]
     _last_ms: int
@@ -234,6 +239,8 @@ class GoGUI:
         self.running = True
         self.screen = Screen.MENU
         self._mouse = (-1, -1)
+        self._down = None
+        self._shown_ms = 0
         self.note = ""
         self.config = config or GameConfig()
         # Never shown until a match starts; it saves a None check everywhere
@@ -279,28 +286,40 @@ class GoGUI:
             self._mouse = event.pos
         elif event.type == pygame.WINDOWLEAVE:
             self._mouse = (-1, -1)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            soon = pygame.time.get_ticks() - self._shown_ms < DOUBLE_CLICK_MS
+            self._down = None if soon else self._target(event.pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            self._click(event.pos)
+            # A click counts only if pressed and released on one target
+            target = self._target(event.pos)
+            if target is not None and target == self._down:
+                self._down = None
+                if isinstance(target, Button):
+                    target.action()
+                else:
+                    self._play(target)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             if self.screen is Screen.PLAYING:
                 self._leave()
             elif self.screen is not Screen.MENU:
                 self._go(Screen.MENU)
 
-    def _click(self, pos: tuple[int, int]) -> None:
+    def _target(self, pos: tuple[int, int]) -> Button | tuple[int, int] | None:
         """
-        Presses the button under a click, or plays the board point under it.
+        Finds what a click at a position would press.
 
         Args:
-            pos: Where the click was
+            pos: Where the mouse is
+
+        Returns: The button there; else, on the play screen, the board point
+        there; else None
         """
         for button in self.buttons():
             if button.rect.collidepoint(pos):
-                button.action()
-                return
-        point = point_at(pos, BOARD, self.match.config.size)
-        if self.screen is Screen.PLAYING and point is not None:
-            self._play(point)
+                return button
+        if self.screen is Screen.PLAYING:
+            return point_at(pos, BOARD, self.match.config.size)
+        return None
 
     def _bot_turn(self) -> None:
         """
@@ -330,13 +349,15 @@ class GoGUI:
 
     def _go(self, screen: Screen) -> None:
         """
-        Shows another screen and clears the last message.
+        Shows another screen and clears the last message. Presses in the
+        next DOUBLE_CLICK_MS are ignored.
 
         Args:
             screen: The screen to show
         """
         self.screen = screen
         self.note = ""
+        self._shown_ms = pygame.time.get_ticks()
 
     def _quit(self) -> None:
         """
@@ -441,7 +462,7 @@ class GoGUI:
         self.note = ""
         self._last_ms = pygame.time.get_ticks()
         if self.match.state is MatchState.FINISHED:
-            self.screen = Screen.GAME_OVER
+            self._go(Screen.GAME_OVER)
 
     def _leave(self) -> None:
         """
