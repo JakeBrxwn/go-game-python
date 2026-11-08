@@ -211,6 +211,7 @@ class GoGUI:
     screen: Screen
     config: GameConfig
     match: Match
+    _last_game: GameConfig
     note: str
     running: bool
     _surface: pygame.Surface
@@ -255,9 +256,9 @@ class GoGUI:
         self._asked = -2
         self.note = ""
         self.config = config or GameConfig()
-        # Never shown until a match starts; it saves a None check everywhere,
-        # and gives Play its first settings
+        # Never shown until a match starts; it saves a None check everywhere
         self.match = Match(self.config)
+        self._last_game = GameConfig()
         self._last = None
         self._passed = frozenset()
         self._last_ms = 0
@@ -446,13 +447,15 @@ class GoGUI:
 
     def _start(self, config: GameConfig) -> None:
         """
-        Starts a match.
+        Starts a match. One with a person in it is what Play offers next.
 
         Args:
             config: The settings of the match
         """
         self.config = config
         self.match = Match(config)
+        if "human" in config.seats:
+            self._last_game = config
         self._last = None
         self._passed = frozenset()
         self._last_ms = pygame.time.get_ticks()
@@ -521,10 +524,10 @@ class GoGUI:
         Returns: The buttons, which drawing and clicks both read
         """
         if self.screen is Screen.MENU:
-            # Play offers the last match's settings: the defaults at first
+            # Play offers the last game a person played: the defaults at
+            # first, and never a match of bots
             return [Button(pygame.Rect(604, 300, 200, 54), "Play",
-                           partial(self._setup, self.match.config),
-                           "primary"),
+                           partial(self._setup, self._last_game), "primary"),
                     Button(pygame.Rect(604, 370, 200, 54), "Watch bots",
                            partial(self._setup, WATCH)),
                     Button(pygame.Rect(604, 440, 200, 54), "Quit",

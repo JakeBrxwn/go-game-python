@@ -531,6 +531,28 @@ def test_play_reopens_setup_on_the_last_match() -> None:
     assert window.screen is Screen.SETUP
     assert window.config == used != GameConfig()
 
+def test_play_never_opens_a_match_of_bots() -> None:
+    """Check Play after watching bots offers the last game a person played,
+    or the defaults before any: never the Watch bots screen"""
+    window = GoGUI()
+    press(window, "Watch bots")
+    press(window, "Start watching")
+    leave(window)
+    press(window, "Menu")
+    press(window, "Play")
+    assert window.config == GameConfig() and "New game" in texts(window)
+    press(window, "9 × 9")
+    press(window, "Start game")
+    used = window.match.config
+    leave(window)
+    press(window, "Menu")
+    press(window, "Watch bots")
+    press(window, "Start watching")
+    leave(window)
+    press(window, "Menu")
+    press(window, "Play")
+    assert window.config == used and "New game" in texts(window)
+
 def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     """Check Watch bots seats only bots, who then play a whole match"""
     random.seed(3)
