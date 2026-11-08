@@ -244,16 +244,20 @@ def _ask(question: str, default: str) -> str:
 
 def _menu() -> str:
     """
-    Asks what to do until the answer is one of the choices.
+    Asks what to do until the answer is a number, a choice or its first
+    word.
 
     Returns: "play", "watch" or "quit"
     """
+    choices = ("play", "watch bots", "quit")
     while True:
-        print("\nGo Python: 1) play  2) watch bots  3) quit")
+        print("\nGo Python: " + "  ".join(
+            f"{number}) {choice}"
+            for number, choice in enumerate(choices, start=1)))
         answer = _ask("Choose", "1")
-        for number, choice in enumerate(("play", "watch", "quit"), start=1):
-            if answer in (str(number), choice):
-                return choice
+        for number, choice in enumerate(choices, start=1):
+            if answer in (str(number), choice, choice.split()[0]):
+                return choice.split()[0]
         print("Please type 1, 2 or 3.")
 
 def _ask_seat(name: str, default: str, offer: tuple[str, ...]) -> str:
@@ -299,8 +303,10 @@ def _setup(size: str, defaults: tuple[str, str],
     while True:
         answer = _ask("Board size, 6 to 30", size)
         try:
-            # Text that is not a number becomes 0, which GameConfig refuses
-            config = GameConfig(int(answer) if answer.isdecimal() else 0)
+            # Text that is not a number of at most three digits becomes 0,
+            # which GameConfig refuses, so int() never meets a huge number
+            config = GameConfig(int(answer) if answer.isdecimal()
+                                and len(answer) <= 3 else 0)
             break
         except ValueError as err:
             print(err)

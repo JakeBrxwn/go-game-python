@@ -159,6 +159,7 @@ def test_human_against_human_to_the_end(
                   GameConfig(6, False, ("human", "human")))
     assert out.startswith("\nBoard 6x6: columns A to F, rows 1 to 6. "
                           "Ko rule: simple.\nBlack ● human, White ○ human\n")
+    assert "stop watching" not in out
     assert "Black ● plays D1." in out and "White ○ plays E6." in out
     assert "Black ● passes." in out and "White ○ passes." in out
     assert out.endswith("Game over: every player passed.\nBlack ● wins.\n"
@@ -225,6 +226,11 @@ def test_hint_suggests_a_point_or_a_pass(
                   GameConfig(6, False, ("human", "human")))
     assert re.search(r"hint\nHint: [A-F][1-6]\n", out)
 
+    monkeypatch.setattr(tui.Match, "hint", lambda self: (0, 0))
+    out = session(monkeypatch, capsys, ["hint", "quit"],
+                  GameConfig(6, False, ("human", "human")))
+    assert "hint\nHint: A6\n" in out
+
     monkeypatch.setattr(tui.Match, "hint", lambda self: None)
     out = session(monkeypatch, capsys, ["hint", "quit"],
                   GameConfig(6, False, ("human", "human")))
@@ -272,6 +278,14 @@ def test_menu_and_setup_explain_a_bad_answer(
     assert "[19]: seven\nsize must be a whole number from 6 to 30\n" in out
     assert "[simple]: none\nPlease type simple or superko.\n" in out
     assert "Game over: the match was left." in out
+
+@pytest.mark.parametrize("answer", ["2", "watch", "Watch Bots"])
+def test_menu_takes_a_number_or_the_words_of_a_choice(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str], answer: str) -> None:
+    """Check the menu takes a choice's number, first word or whole label"""
+    out = session(monkeypatch, capsys, [answer])
+    assert "Board size, 6 to 30 [9]: " in out
 
 @pytest.mark.skipif(sys.platform == "win32", reason="termios is POSIX only")
 @pytest.mark.parametrize("tty", [True, False])
@@ -452,6 +466,19 @@ def test_regression_bytes_that_are_not_utf8_get_a_message(
     assert "Choose [1]: Please type 1, 2 or 3.\n" in out
     assert "quit): " + NOT_A_MOVE + "\n" in out
     assert "Game over: the match was left." in out
+
+def test_regression_a_huge_board_size_gets_the_usual_message(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """Check a size of 5000 digits, pasted or piped, is refused like any bad
+    size, not by Python's limit on converting long numbers"""
+    typed = b"1\n" + b"9" * 5000 + b"\n"
+    monkeypatch.setattr(sys, "stdin",
+                        io.TextIOWrapper(io.BytesIO(typed), encoding="utf-8"))
+    tui.run()
+    out = capsys.readouterr().out
+    assert "[19]: size must be a whole number from 6 to 30\n" in out
+    assert "digits" not in out
 
 def test_regression_a_terminal_without_utf8_stops_with_one_line(
         monkeypatch: pytest.MonkeyPatch) -> None:
