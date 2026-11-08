@@ -344,7 +344,6 @@ class GoGUI:
         if now - self._pressed_ms < DOUBLE_CLICK_MS and \
            dist(pos, self._pressed) <= DOUBLE_CLICK_PX and \
            not (isinstance(target, Button) and target.repeats):
-            self._down = None
             return
         self._pressed, self._pressed_ms = pos, now
         self._inputs += 1
