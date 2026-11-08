@@ -273,6 +273,24 @@ def test_menu_and_setup_explain_a_bad_answer(
     assert "[simple]: none\nPlease type simple or superko.\n" in out
     assert "Game over: the match was left." in out
 
+@pytest.mark.skipif(sys.platform == "win32", reason="termios is POSIX only")
+@pytest.mark.parametrize("tty", [True, False])
+def test_keys_pressed_during_a_match_are_dropped_on_a_terminal(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str], tty: bool) -> None:
+    """Check keys typed while a match ran are thrown away after every match,
+    so they cannot answer the menu, and only when stdin is a terminal"""
+    monkeypatch.setattr(sys, "stdin", io.StringIO())
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: tty)
+    monkeypatch.setattr(tui.termios, "tcflush", lambda fd, queue: print(
+        "<flushed>" if (fd, queue) == (sys.stdin, tui.termios.TCIFLUSH)
+        else "<wrong flush>"))
+    match = ["1", "6", "", "", "", "", "quit"]
+    out = session(monkeypatch, capsys, match + match + ["3"])
+    flushed = re.findall(r"Scores: .*\n<flushed>\n\nGo Python", out)
+    assert len(flushed) == (2 if tty else 0)
+    assert out.count("flush") == len(flushed)
+
 def test_bad_seat_is_refused_at_once(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:

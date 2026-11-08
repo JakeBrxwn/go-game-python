@@ -16,6 +16,11 @@ from go_python.go import Go
 from go_python.match import (PLAYER_NAMES, GameConfig, Match, MatchResult,
                              MatchState)
 
+if sys.platform == "win32":  # pragma: no cover
+    import msvcrt
+else:
+    import termios
+
 #
 # Display
 #
@@ -206,6 +211,20 @@ def _play_match(config: GameConfig) -> None:
     assert match.result is not None
     print(board_text(match.game))
     _print_result(match.result)
+    _drop_typeahead()
+
+def _drop_typeahead() -> None:
+    """
+    Throws away keys pressed while the match ran, such as Enter or Ctrl+D
+    while bots played, so they cannot answer the next question.
+    """
+    if not sys.stdin.isatty():
+        return
+    if sys.platform == "win32":  # pragma: no cover
+        while msvcrt.kbhit():
+            msvcrt.getwch()
+    else:
+        termios.tcflush(sys.stdin, termios.TCIFLUSH)
 
 #
 # Menu and setup
