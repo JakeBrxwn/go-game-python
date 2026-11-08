@@ -1407,6 +1407,22 @@ def test_clicks_on_a_bots_turn_say_why_nothing_happens(
     key(window, pygame.K_a)
     assert window.note == ""
 
+def test_a_click_while_only_bots_play_says_so() -> None:
+    """Check a click on the board or the greyed Pass while only bots play
+    says so and how to stop, and stays as the bots move until the next
+    key: it used to say Wait, as if a person's turn were coming, and
+    vanish at the next move"""
+    window = GoGUI(GameConfig(9, False, ("smart", "random")))
+    only = "Only bots play here. Leave match (Esc) to stop."
+    click(window, spot(window, (4, 4)))
+    window.frame()
+    assert window.match.moves >= 2 and window.note == only
+    assert only in assert_tidy(window)
+    key(window, pygame.K_a)
+    assert window.note == ""
+    press(window, "Pass")
+    assert window.note == only
+
 def test_regression_a_click_dropped_after_a_wait_is_not_silent(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Check the Wait note outlasts the bot's move, so a second click on

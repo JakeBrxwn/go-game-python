@@ -507,6 +507,8 @@ class GoGUI:
         game = self.match.game
         if self.match.state is MatchState.FINISHED:
             self.note = "The match is over: Play again or Menu."
+        elif "human" not in self.match.config.seats:
+            self.note = "Only bots play here. Leave match (Esc) to stop."
         elif self.match.state is not MatchState.HUMAN_TURN:
             self.note = (f"Wait: {PLAYER_NAMES[game.turn - 1]} is a bot "
                          "and moves by itself.")
