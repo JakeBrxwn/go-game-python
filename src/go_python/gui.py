@@ -303,14 +303,14 @@ class GoGUI:
             self._down = None if soon else self._target(event.pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self._inputs += 1
-            # A click counts only if pressed and released on one target
+            # A button acts only if pressed and released on it; the board
+            # plays where the mouse is let go, as its preview shows
+            down, self._down = self._down, None
             target = self._target(event.pos)
-            if target is not None and target == self._down:
-                self._down = None
-                if isinstance(target, Button):
-                    target.action()
-                else:
-                    self._play(target)
+            if isinstance(target, Button) and target == down:
+                target.action()
+            elif isinstance(target, tuple) and isinstance(down, tuple):
+                self._play(target)
         elif event.type == pygame.KEYDOWN:
             self._inputs += 1
             if event.key != pygame.K_ESCAPE:

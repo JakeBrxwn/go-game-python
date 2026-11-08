@@ -567,6 +567,21 @@ def test_regression_a_drag_between_targets_does_nothing() -> None:
     assert window.screen is Screen.PLAYING and window.match.moves == 0
     assert window.note == "" and gui.LEAVE_ASK not in texts(window)
 
+def test_the_board_plays_where_the_mouse_is_let_go() -> None:
+    """Check a press that drifts 4 px across a point border on a 30 x 30
+    board plays at the release point, where the preview showed"""
+    window = GoGUI(GameConfig(30, False, ("human", "human")))
+    _, y = spot(window, (4, 4))
+    border = BOARD.x + 5 * BOARD.width / 30
+    post(pygame.MOUSEBUTTONDOWN, pos=(round(border - 2), round(y)),
+         button=1)
+    move(window, (border + 2, y))
+    assert window.hover() == (4, 5)
+    post(pygame.MOUSEBUTTONUP, pos=(round(border + 2), round(y)), button=1)
+    window.frame()
+    assert window.match.game.piece_at((4, 5)) == 1
+    assert window.match.moves == 1 and window.note == ""
+
 def test_one_press_makes_one_click() -> None:
     """Check a release with no press of its own, as when a press outside the
     window is released over Pass, does not pass again"""
