@@ -740,6 +740,15 @@ def test_the_sidebar_states_the_facts_of_the_match() -> None:
     assert box_around(window, "Human") == box_around(window, "Black")
     assert box_around(window, "Smart bot") == box_around(window, "White")
 
+def test_the_area_labels_line_up() -> None:
+    """Check the Area labels share one column whatever the width of the
+    numbers, with 81 against 0 after one stone"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    click(window, spot(window, (4, 4)))
+    drawn = window.draw()
+    assert [d.text for d in drawn if d.text in ("81", "0")] == ["81", "0"]
+    assert len({d.rect.x for d in drawn if d.text == "Area"}) == 1
+
 def test_the_result_shows_the_winners_stone() -> None:
     """Check a single winner's stone is drawn beside the headline in their
     colour, and the caption says what Play again does"""

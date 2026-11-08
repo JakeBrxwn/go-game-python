@@ -900,9 +900,10 @@ class GoGUI:
             self._text(SEAT_LABELS[seat], 15, (rect.x + 136, y), MUTED,
                        "midleft")
             self._text(status, 15, (rect.x + 256, y), color, "midleft")
-            score = self._text(str(scores[player]), 21,
-                               (rect.right - 16, y), anchor="midright")
-            self._text("Area", 15, (score.x - 8, y), MUTED, "midright")
+            self._text(str(scores[player]), 21, (rect.right - 16, y),
+                       anchor="midright")
+            # Room for three digits keeps the labels in one column
+            self._text("Area", 15, (rect.right - 60, y), MUTED, "midright")
 
 def run(config: GameConfig | None = None) -> None:
     """
