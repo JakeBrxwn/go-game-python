@@ -975,15 +975,29 @@ def test_stones_show_in_their_players_colours() -> None:
 
 @pytest.mark.parametrize("size", [6, 9])
 def test_grid_lines_are_thin_on_small_boards(size: int) -> None:
-    """Check a line of a small board is one pixel wide, read across it
-    halfway between two points"""
+    """Check a column and a row of a small board are each one pixel wide,
+    read across them halfway between two points"""
     window = GoGUI(GameConfig(size, False, ("human", "human")))
     window.frame()
-    x, y = spot(window, (1, 1))
-    y += BOARD.width / size / 2
-    across = [sum(pixel((col, y))) < 100
-              for col in range(int(x) - 8, int(x) + 9)]
-    assert sum(across) == 1, across
+    x, y = (int(v) for v in spot(window, (1, 1)))
+    half = BOARD.width // size // 2
+    across = [sum(pixel((x + d, y + half))) < 100 for d in range(-8, 9)]
+    down = [sum(pixel((x + half, y + d))) < 100 for d in range(-8, 9)]
+    assert sum(across) == sum(down) == 1, (across, down)
+
+@pytest.mark.parametrize("size", [6, 9, 19])
+def test_the_grid_ends_at_the_edge_points(size: int) -> None:
+    """Check the lines stop at the edge points on all four sides: dark at
+    an edge point, bare wood 3 px beyond it. pygame draws a line at the
+    whole pixel below its position."""
+    window = GoGUI(GameConfig(size, False, ("human", "human")))
+    window.frame()
+    (left, top), (x, y), (right, bottom) = (
+        (int(v) for v in spot(window, (i, i))) for i in (0, 1, size - 1))
+    for (px, py), (dx, dy) in [((left, y), (-3, 0)), ((right, y), (3, 0)),
+                               ((x, top), (0, -3)), ((x, bottom), (0, 3))]:
+        assert sum(pixel((px, py))) < 100, (px, py)
+        assert pixel((px + dx, py + dy)) == gui.WOOD, (px, py)
 
 def test_star_points_are_drawn() -> None:
     """Check a 9 x 9 board marks its star points and only them"""
