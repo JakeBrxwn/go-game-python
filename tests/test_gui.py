@@ -17,6 +17,9 @@ from go_python.gui import (BOARD, GoGUI, Screen, center, point_at, points,
 from go_python.match import EndReason, GameConfig, MatchResult, MatchState
 
 Color = tuple[int, int, int]
+# The shipped timings, read before the fixture below sets them to 0
+SHIPPED = {"BOT_DELAY_MS": gui.BOT_DELAY_MS,
+           "DOUBLE_CLICK_MS": gui.DOUBLE_CLICK_MS}
 
 @pytest.fixture(autouse=True)
 def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
@@ -1315,6 +1318,29 @@ def test_bots_wait_their_pause(monkeypatch: pytest.MonkeyPatch) -> None:
         assert_tidy(window)
     move(window, (5, 5))
     assert fill(button(window, "Pass")) == gui.INK
+
+def test_the_shipped_timings() -> None:
+    """Check the pause before a bot's move and the double-click window as
+    shipped: every other test sets them to 0 or its own value"""
+    assert SHIPPED == {"BOT_DELAY_MS": 600, "DOUBLE_CLICK_MS": 500}
+
+def test_bots_keep_their_pace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check on a fake clock, read every 100 ms, that the first bot move
+    comes BOT_DELAY_MS after Start watching, and each later one
+    BOT_DELAY_MS after the move before"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 600)
+    window = GoGUI()
+    press(window, "Watch bots")
+    clock[0] += 5000
+    press(window, "Start watching")
+    moves = []
+    for _ in range(19):
+        moves.append(window.match.moves)
+        clock[0] += 100
+        window.frame()
+    assert moves == [step // 6 for step in range(19)]
 
 @pytest.mark.parametrize("act", ["board", "Pass"])
 def test_clicks_on_a_bots_turn_say_why_nothing_happens(
