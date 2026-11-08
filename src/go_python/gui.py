@@ -8,7 +8,7 @@ import pygame
 import pygame.gfxdraw
 import click
 
-from go import Go
+from go_python.go import Go
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
@@ -57,8 +57,8 @@ class GoGUI:
     ### Precalculated rending positions
     # Go board positions
     _grid_dims: tuple[float, float, float, float]
-    _line_positions: tuple[tuple[tuple[float, float], tuple[float, float]]]
-    _intersections: tuple[tuple[tuple[float, float]]]
+    _line_positions: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
+    _intersections: tuple[tuple[tuple[float, float], ...], ...]
     # UI positions
     _score_board: dict[int, tuple[float, float]]
     _pass_position: tuple[float, float]
@@ -67,7 +67,7 @@ class GoGUI:
     ### Go attributes
     size: int
     players: int
-    board: "Go"
+    board: Go
     _current_tile: tuple[int, int]|None
     _scores: dict[int, int]
 
@@ -88,16 +88,14 @@ class GoGUI:
 
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("TreeFarm")
+        pygame.display.set_caption("Go Python")
         self.font = pygame.font.Font(None, size=FONT_SIZE)
         self.surface = pygame.display.set_mode((width, height))
         self.clock = pygame.time.Clock()
-        pygame.mixer.music.load("src\glorious_morning.mp3")
-        pygame.mixer.music.play(-1)
 
         self.event_loop()
 
-    def _precal_gui(self):
+    def _precal_gui(self) -> None:
         """
         Calculate the positions and dimensions of all of the GUI elements
         dynamically from the height and width.
@@ -299,9 +297,8 @@ class GoGUI:
 
                     if self._current_tile is not None:
                         self.board.apply_move(self._current_tile)
+                        self._current_tile = None
                         self._scores = self.board.scores()
-                        if self.board.done:
-                            pygame.mixer.music.fadeout(5)
 
                     elif is_within_radius(pygame.mouse.get_pos(),
                                           self._pass_position,
@@ -319,7 +316,8 @@ class GoGUI:
               default = True, help = "Starts a simple ko game.")
 @click.option('--super-ko', is_flag = True, show_default = True,
               default = False, help = "Starts a super ko game.")
-def startGUI(num_players: int, size: int, simple_ko, super_ko):
+def startGUI(num_players: int, size: int, simple_ko: bool,
+             super_ko: bool) -> None:
     if simple_ko and not super_ko:
         GoGUI(num_players, size, False)
     elif not simple_ko and super_ko:
