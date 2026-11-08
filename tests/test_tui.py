@@ -21,7 +21,6 @@ NOT_A_MOVE = "Not a move: type a column letter then a row number, like D4."
 NO_I = "There is no column I: Go boards skip it, so J follows H."
 NOT_ALLOWED = "is not allowed: your stones would have no liberty, or ko " \
               "forbids it.\n"
-BAD_SEAT = "seats must be 2 to 4 of human, random, smart\n"
 RED, BLUE = f"Red {STONES[2]}", f"Blue {STONES[3]}"
 
 @pytest.fixture(autouse=True)
@@ -38,7 +37,7 @@ def session(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
     Args:
         monkeypatch: Replaces input() with the typed lines
         capsys: Captures the screen: output, prompts and what was typed
-        lines: What the person types, one entry per Enter
+        lines: What the person types, one entry per Enter; "^C" is Ctrl+C
         config: The settings of one match, or None for the menu
 
     Returns: Everything on screen
@@ -51,6 +50,8 @@ def session(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
         if line is None:
             raise EOFError
         print(line)
+        if line == "^C":
+            raise KeyboardInterrupt
         return line
 
     monkeypatch.setattr("builtins.input", type_line)
@@ -169,7 +170,7 @@ def test_human_against_bot_to_the_end(
     """Check a person who keeps passing plays a smart bot to the end"""
     out = session(monkeypatch, capsys, ["pass"] * 200,
                   GameConfig(6, True, ("human", "smart")))
-    assert "Ko rule: super.\nBlack ● human, White ○ smart\n" in out
+    assert "Ko rule: superko.\nBlack ● human, White ○ smart\n" in out
     assert "White ○ plays " in out
     assert "Game over: every player passed.\nWhite ○ wins.\n" in out
 
@@ -182,10 +183,13 @@ def test_watch_bots_from_the_menu(
     monkeypatch.setattr(tui, "BOT_DELAY_S", 0.25)
     monkeypatch.setattr(time, "sleep", delays.append)
     random.seed(3)
-    out = session(monkeypatch, capsys, ["2", "", "", "", "", "", "3"])
+    out = session(monkeypatch, capsys,
+                  ["2", "", "", "", "none", "", "", "3"])
     assert "Board size, 6 to 30 [9]: \n" in out
-    assert "Black player: human, random or smart [smart]: \n" in out
-    assert "White player: human, random or smart [random]: \n" in out
+    assert "Black player: random bot or smart bot [smart]: \n" in out
+    assert "White player: random bot or smart bot [random]: none\n" \
+           "White must play: type random bot or smart bot.\n" in out
+    assert "Red player: random bot, smart bot or none [none]: \n" in out
     assert "Board 9x9: columns A to J, rows 1 to 9. Ko rule: simple.\n" \
            "Black ● smart, White ○ random\n" \
            "Press Ctrl+C to stop watching.\n" in out
@@ -198,12 +202,15 @@ def test_watch_bots_from_the_menu(
 def test_four_seats_on_the_largest_board(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
-    """Check Red and Blue join when given a seat, a 30x30 board fits, and
-    quit leaves the match with every player's score"""
-    out = session(monkeypatch, capsys,
-                  ["1", "30", "", "", "human", "random", "random", "quit"])
-    assert "Red player: human, random, smart or none [none]: random\n" in out
+    """Check Red and Blue join when given a seat, a 30x30 board fits and
+    says how to read its two-letter columns, and quit leaves the match with
+    every player's score"""
+    out = session(monkeypatch, capsys, ["1", "30", "", "", "human", "random",
+                                        "Random Bot", "quit"])
+    assert "Red player: human, random bot, smart bot or none [none]: " \
+           "random\n" in out
     assert "Board 30x30: columns A to AE, rows 1 to 30. Ko rule: simple.\n" \
+           "Columns after Z have two letters, read top to bottom.\n" \
            f"Black ● human, White ○ human, {RED} random, {BLUE} random\n" \
            in out
     assert " Z A B C D E\n30 · " in out
@@ -263,7 +270,7 @@ def test_menu_and_setup_explain_a_bad_answer(
                    "quit", "3"])
     assert "Choose [1]: 9\nPlease type 1, 2 or 3.\n" in out
     assert "[19]: seven\nsize must be a whole number from 6 to 30\n" in out
-    assert "[simple]: none\nPlease type simple or super.\n" in out
+    assert "[simple]: none\nPlease type simple or superko.\n" in out
     assert "Game over: the match was left." in out
 
 def test_bad_seat_is_refused_at_once(
@@ -272,14 +279,34 @@ def test_bad_seat_is_refused_at_once(
     """Check GameConfig refuses a bad seat as soon as it is typed, and the
     same player is asked again; Black and White may not be none"""
     out = session(monkeypatch, capsys,
-                  ["1", "6", "", "robot", "none", "random", "Smart", "dog",
-                   "", "quit", "3"])
-    black = "Black player: human, random or smart [human]: "
-    white = "White player: human, random or smart [smart]: "
-    red = "Red player: human, random, smart or none [none]: "
-    assert f"{black}robot\n{BAD_SEAT}{black}none\n{BAD_SEAT}{black}random\n" \
-           f"{white}Smart\n{red}dog\n{BAD_SEAT}{red}\n" in out
+                  ["1", "6", "", "robot", "none", "random", "Smart bot",
+                   "dog", "", "quit", "3"])
+    bots = "random bot or smart bot"
+    black = f"Black player: human, {bots} [human]: "
+    white = f"White player: human, {bots} [smart]: "
+    red = "Red player: human, random bot, smart bot or none [none]: "
+    assert f"{black}robot\nrobot is not a choice: type human, {bots}.\n" \
+           f"{black}none\nBlack must play: type human, {bots}.\n" \
+           f"{black}random\n{white}Smart bot\n{red}dog\n" \
+           "dog is not a choice: type human, random bot, smart bot or none.\n" \
+           f"{red}\n" in out
     assert "Black ● random, White ○ smart\n" in out
+
+@pytest.mark.parametrize("typed, rule", [
+    ("", "simple"),
+    ("Simple", "simple"),
+    ("simple ko", "simple"),
+    ("super", "superko"),
+    ("superko", "superko"),
+    ("Super Ko", "superko"),
+])
+def test_ko_rule_takes_its_usual_spellings(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        typed: str, rule: str) -> None:
+    """Check simple and superko are understood however they are spelt"""
+    out = session(monkeypatch, capsys,
+                  ["1", "6", typed, "", "", "", "quit", "3"])
+    assert f"Ko rule: {rule}.\n" in out
 
 #
 # Leaving
@@ -294,19 +321,20 @@ def test_end_of_input_at_any_prompt_leaves_cleanly(
     out = session(monkeypatch, capsys, lines[:typed])
     assert out.endswith("\n")
     assert ("Game over: the match was left." in out) == (typed >= 6)
+    # Leaving setup or a match shows the menu again before Ctrl+D leaves it
+    assert out.count("Choose [1]: ") == (1 if typed == 0 else 2)
 
 def test_ctrl_c_in_a_match_aborts_it(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check Ctrl+C at a person's prompt or during a bot's pause ends the
     match with no winner and prints the result"""
-    def interrupt(*args: object) -> str:
-        raise KeyboardInterrupt
+    out = session(monkeypatch, capsys, ["^C"],
+                  GameConfig(6, False, ("human", "smart")))
+    assert "Game over: the match was left.\nNo winner.\n" in out
 
-    monkeypatch.setattr("builtins.input", interrupt)
-    tui.run(GameConfig(6, False, ("human", "smart")))
-    assert "Game over: the match was left.\nNo winner.\n" in \
-           capsys.readouterr().out
+    def interrupt(*args: object) -> None:
+        raise KeyboardInterrupt
 
     monkeypatch.setattr(time, "sleep", interrupt)
     tui.run(GameConfig(6, False, ("smart", "random")))
@@ -318,12 +346,19 @@ def test_ctrl_c_at_the_menu_leaves(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check Ctrl+C at the menu returns instead of raising"""
-    def interrupt(*args: object) -> str:
-        raise KeyboardInterrupt
+    out = session(monkeypatch, capsys, ["^C", "1"])
+    assert out.endswith("Choose [1]: ^C\n\n")
 
-    monkeypatch.setattr("builtins.input", interrupt)
-    tui.run()
-    assert capsys.readouterr().out.endswith("\n")
+@pytest.mark.parametrize("blanks", range(4))
+def test_ctrl_c_in_setup_goes_back_to_the_menu(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        blanks: int) -> None:
+    """Check Ctrl+C at any setup question returns to the menu, as it does
+    in a match"""
+    out = session(monkeypatch, capsys, ["1", *[""] * blanks, "^C", "3"])
+    assert out.count("Choose [1]: ") == 2 and "Board 19x19" not in out
+    assert out.endswith("^C\n\n\nGo Python: 1) play  2) watch bots  3) quit\n"
+                        "Choose [1]: 3\n")
 
 def test_tui_never_imports_pygame() -> None:
     """Check the TUI loads without pygame, in a fresh interpreter"""

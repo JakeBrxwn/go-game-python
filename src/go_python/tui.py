@@ -178,7 +178,9 @@ def _play_match(config: GameConfig) -> None:
     match = Match(config)
     size = config.size
     print(f"\nBoard {size}x{size}: columns A to {COLUMNS[size - 1]}, rows 1 "
-          f"to {size}. Ko rule: {'super' if config.superko else 'simple'}.")
+          f"to {size}. Ko rule: {'superko' if config.superko else 'simple'}.")
+    if len(COLUMNS[size - 1]) > 1:
+        print("Columns after Z have two letters, read top to bottom.")
     print(", ".join(f"{_who(player)} {seat}"
                     for player, seat in enumerate(config.seats, start=1)))
     if "human" not in config.seats:
@@ -235,7 +237,7 @@ def _menu() -> str:
                 return choice
         print("Please type 1, 2 or 3.")
 
-def _ask_seat(name: str, default: str) -> str:
+def _ask_seat(name: str, default: str, offer: tuple[str, ...]) -> str:
     """
     Asks who sits in one player's seat until GameConfig accepts the answer.
 
@@ -243,30 +245,34 @@ def _ask_seat(name: str, default: str) -> str:
         name: The player's name
         default: The seat Enter gives. If it is "none", the player may stay
         out.
+        offer: The seats the prompt lists, such as "random bot"
 
     Returns: "human", "random" or "smart", or "none" for no player
     """
-    kinds = ("human, random, smart or none" if default == "none"
-             else "human, random or smart")
+    words = (*offer, "none") if default == "none" else offer
+    kinds = ", ".join(words[:-1]) + " or " + words[-1]
     while True:
-        seat = _ask(f"{name} player: {kinds}", default)
+        seat = _ask(f"{name} player: {kinds}", default).removesuffix(" bot")
         if seat == default == "none":
             return seat
         try:
             # Two of the seat, so GameConfig judges this one answer
             return GameConfig(seats=(seat, seat)).seats[0]
-        except ValueError as err:
-            print(err)
+        except ValueError:
+            print(f"{name} must play: type {kinds}." if seat == "none"
+                  else f"{seat} is not a choice: type {kinds}.")
 
-def _setup(size: str, defaults: tuple[str, str]) -> GameConfig:
+def _setup(size: str, defaults: tuple[str, str],
+           offer: tuple[str, ...]) -> GameConfig:
     """
     Asks for the board size, the ko rule and a seat per player. GameConfig
-    checks every answer; a refused answer is asked again with its message.
+    checks every answer; a refused answer is asked again with a message.
 
     Args:
         size: The board size Enter gives
         defaults: The seats Enter gives Black and White. Red and Blue
         default to none, which ends the list of players.
+        offer: The seats each prompt lists
 
     Returns: The settings
     """
@@ -279,21 +285,33 @@ def _setup(size: str, defaults: tuple[str, str]) -> GameConfig:
             break
         except ValueError as err:
             print(err)
-    while (ko := _ask("Ko rule, simple or super", "simple")) not in (
-            "simple", "super"):
-        print("Please type simple or super.")
+    while True:
+        # "superko", "super ko" and "super" all name the same rule
+        ko = _ask("Ko rule, simple or superko", "simple")
+        ko = ko.replace(" ", "").removesuffix("ko")
+        if ko in ("simple", "super"):
+            break
+        print("Please type simple or superko.")
     seats: list[str] = []
     for name, default in zip(PLAYER_NAMES, defaults + ("none", "none"),
                              strict=True):
-        seat = _ask_seat(name, default)
+        seat = _ask_seat(name, default, offer)
         if seat == "none":
             break
         seats.append(seat)
     return GameConfig(config.size, ko == "super", tuple(seats))
 
+# What setup starts from for each menu choice: the board size, Black's and
+# White's seats, and the seats on offer. Watching starts small, since a
+# 19x19 bot game takes minutes.
+PRESETS = {"play": ("19", ("human", "smart"),
+                    ("human", "random bot", "smart bot")),
+           "watch": ("9", ("smart", "random"), ("random bot", "smart bot"))}
+
 def run(config: GameConfig | None = None) -> None:
     """
-    Runs the text frontend. Ctrl+D or Ctrl+C at the menu or in setup leaves.
+    Runs the text frontend. Ctrl+D or Ctrl+C in setup goes back to the
+    menu, and at the menu leaves.
 
     Args:
         config: The settings of one match to play before returning, or None
@@ -307,8 +325,9 @@ def run(config: GameConfig | None = None) -> None:
             _play_match(config)
             return
         while (choice := _menu()) != "quit":
-            # Watching starts small: a 19x19 bot game takes minutes
-            _play_match(_setup("9", ("smart", "random")) if choice == "watch"
-                        else _setup("19", ("human", "smart")))
+            try:
+                _play_match(_setup(*PRESETS[choice]))
+            except (EOFError, KeyboardInterrupt):
+                print()
     except (EOFError, KeyboardInterrupt):
         print()
