@@ -65,6 +65,14 @@ def test_bots_print_exact_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
     CliRunner().invoke(main, ["bots"])
     assert seen[-1] == (GameConfig(6, False, ("random", "random")), 20)
 
+def test_bots_help_describes_each_option() -> None:
+    """Check the help shows the summary and one line per option, not the
+    docstring's Args block"""
+    result = CliRunner().invoke(main, ["bots", "--help"])
+    assert "Args:" not in result.output
+    assert "The bot that moves first." in result.output
+    assert "The bot that moves second." in result.output
+
 def test_bots_round_each_rate_once(monkeypatch: pytest.MonkeyPatch) \
         -> None:
     """Check a rate is rounded from the exact percentage: 23 of 160 games

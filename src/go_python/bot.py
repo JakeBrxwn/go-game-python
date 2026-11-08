@@ -7,47 +7,7 @@ from go_python.board import BoardGridType
 from go_python.go import Go
 
 #
-# Random
-#
-
-def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
-    """
-    Checks if a point is a single-point eye of the player to move: every
-    neighbor holds one of their stones.
-
-    Args:
-        game: The game to look at.
-        pos: An empty point on the board.
-
-    Returns: True if every neighbor of the point is the mover's stone.
-    """
-    return all(game.piece_at(neigh) == game.turn
-               for neigh in _neighbors(pos, game.side))
-
-class Random:
-    """
-    A bot that plays a random legal move, but never fills its own eye and
-    never takes a ko, under either ko rule.
-    """
-
-    def move(self, game: Go) -> tuple[int, int] | None:
-        """
-        Picks a move for the player whose turn it is.
-
-        Args:
-            game: The game to move in. It is not changed.
-
-        Returns: The position to play, or None to pass once only the bot's
-        own eyes and kos are left.
-        """
-        chains = _chains(game.grid)
-        moves = [pos for pos in game.available_moves
-                 if not is_own_eye(game, pos)
-                 and not _takes_ko(game, chains, pos)]
-        return random.choice(moves) if moves else None
-
-#
-# Chains, shared by both bots
+# Shared by both bots
 #
 
 # A point on the board, as (row, column)
@@ -101,6 +61,24 @@ def _chains(grid: BoardGridType) -> dict[Point, Chain]:
                     stack.append((r, c))
     return chains
 
+def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
+    """
+    Checks if a point is a single-point eye of the player to move: every
+    neighbor holds one of their stones.
+
+    Args:
+        game: The game to look at.
+        pos: An empty point on the board.
+
+    Returns: True if every neighbor of the point is the mover's stone.
+    """
+    return all(game.piece_at(neigh) == game.turn
+               for neigh in _neighbors(pos, game.side))
+
+#
+# Random
+#
+
 def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
     """
     Checks if a move takes a ko: it captures one stone, and every other
@@ -120,6 +98,28 @@ def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
         return False
     caught = [len(chains[n][0]) for n in near if len(chains[n][1]) == 1]
     return caught == [1]
+
+class Random:
+    """
+    A bot that plays a random legal move, but never fills its own eye and
+    never takes a ko, under either ko rule.
+    """
+
+    def move(self, game: Go) -> tuple[int, int] | None:
+        """
+        Picks a move for the player whose turn it is.
+
+        Args:
+            game: The game to move in. It is not changed.
+
+        Returns: The position to play, or None to pass once only the bot's
+        own eyes and kos are left.
+        """
+        chains = _chains(game.grid)
+        moves = [pos for pos in game.available_moves
+                 if not is_own_eye(game, pos)
+                 and not _takes_ko(game, chains, pos)]
+        return random.choice(moves) if moves else None
 
 #
 # Smart

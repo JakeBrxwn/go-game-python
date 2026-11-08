@@ -73,8 +73,8 @@ def test_random_games_end_by_passing_on_every_size() -> None:
                             and result.reason is EndReason.PASSES
                             for result in results)
     print(f"\nRandom games ended by passing, by size: {passing}")
-    assert sum(passing.values()) >= MIN_PASSING_ENDS * sum(
-        SIZES_GAMES.values())
+    assert all(passing[size] >= MIN_PASSING_ENDS * games
+               for size, games in SIZES_GAMES.items())
 
 def test_smart_answers_fast_on_the_largest_common_board() -> None:
     """Check Smart's time on an empty 19x19 board and in a whole game"""

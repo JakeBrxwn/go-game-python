@@ -110,19 +110,21 @@ def tui_match(size: int, ko: str, seats: str) -> None:
 
 @main.command()
 @click.option('-n', '--num-games', type=click.IntRange(min=1), default=20,
-              help="The number of games to play.")
-@click.option('-s', '--size', type=click.INT, default=6,
+              show_default=True, help="The number of games to play.")
+@click.option('-s', '--size', type=click.INT, default=6, show_default=True,
               help="The size of the board.")
 @click.option('-1', '--player1',
               type=click.Choice(BOT_KINDS, case_sensitive=False),
-              default='random')
+              default='random', show_default=True,
+              help="The bot that moves first.")
 @click.option('-2', '--player2',
               type=click.Choice(BOT_KINDS, case_sensitive=False),
-              default='random')
+              default='random', show_default=True,
+              help="The bot that moves second.")
 def bots(num_games: int, size: int, player1: str, player2: str) -> None:
     """
     Plays bot-only games with no display and prints the totals. For testing.
-
+    \f
     Args:
         num_games: Number of games to play
         size: The size of the board

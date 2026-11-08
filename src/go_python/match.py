@@ -31,6 +31,7 @@ class GameConfig:
     seats: tuple[str, ...] = ("human", "smart")
 
     def __post_init__(self) -> None:
+        """Refuses any setting outside the ranges above"""
         if type(self.size) is not int or not 6 <= self.size <= 30:
             raise ValueError("size must be a whole number from 6 to 30")
         if type(self.superko) is not bool:
