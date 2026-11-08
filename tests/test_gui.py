@@ -944,6 +944,37 @@ def test_every_preview_has_a_rim_at_three_to_one() -> None:
         assert max(contrast(p, gui.WOOD) for p in edge) >= 3, (player, edge)
         press(window, "Pass")
 
+def test_the_preview_is_fainter_than_a_stone() -> None:
+    """Check each player's preview lets the wood show through: each of its
+    channels lies between the wood's and the stone's then played there"""
+    window = GoGUI(GameConfig(9, False, ("human",) * 4))
+    for player, point in enumerate([(2, 2), (2, 6), (6, 2), (6, 6)]):
+        move(window, spot(window, point))
+        ghost = on_point(window, point)
+        click(window, spot(window, point))
+        stone = on_point(window, point)
+        assert stone == gui.STONES[player]
+        assert all(min(s, w) < g < max(s, w) for g, s, w in
+                   zip(ghost, stone, gui.WOOD, strict=True)), (player, ghost)
+
+def test_stones_have_a_shine_and_a_rim() -> None:
+    """Check a stone has a lighter shine up and left of its centre, read on
+    Black and Red, and a rim darker than the wood, read up and left on
+    White, where the rim is what marks its edge"""
+    window = GoGUI(GameConfig(9, False, ("human",) * 3))
+    for point in [(2, 2), (2, 6), (6, 2), (6, 6)]:
+        click(window, spot(window, point))
+    radius = BOARD.width / 9 * 0.47
+    for player, point in [(1, (2, 2)), (3, (6, 2))]:
+        x, y = spot(window, point)
+        shine = pixel((x - radius / 3, y - radius / 3))
+        assert sum(shine) > sum(gui.STONES[player - 1]) + 100, shine
+    x, y = spot(window, (2, 6))
+    edge = [pixel((x - d * 0.7071, y - d * 0.7071))
+            for d in range(round(radius * 0.8), round(radius) + 3)]
+    assert edge[0] == gui.STONES[1] and edge[-1] == gui.WOOD
+    assert min(map(sum, edge)) < sum(gui.WOOD) - 50, edge
+
 def test_mouse_leaving_the_window_clears_the_hover() -> None:
     """Check no preview stays behind once the mouse leaves the window"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
@@ -1009,7 +1040,8 @@ def test_the_area_labels_line_up() -> None:
 
 def test_the_result_shows_the_winners_stone() -> None:
     """Check a single winner's stone is drawn beside the headline in their
-    colour, and the caption says what Play again does"""
+    colour, the line under it gives the margin, the reason and the number
+    of moves, and the caption says what Play again does"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     press(window, "Pass")
     click(window, spot(window, (4, 4)))
@@ -1023,7 +1055,9 @@ def test_the_result_shows_the_winners_stone() -> None:
     assert pixel(stones[0].center) == gui.STONES[1]
     assert stones[0].right < headline.left and \
         abs(stones[0].centery - headline.centery) <= 2
-    assert "Play again keeps the same board and players." in texts(window)
+    assert {"By 81 points. Every player passed after 4 moves.",
+            "Play again keeps the same board and players."} <= \
+        set(texts(window))
 
 def test_stones_on_the_board_cast_a_shadow() -> None:
     """Check a stone played on the board has its shadow on the wood"""
