@@ -247,6 +247,19 @@ def fill(rect: pygame.Rect) -> Color:
     """
     return pixel((rect.x + 6, rect.centery))
 
+def gold(window: GoGUI) -> list[str]:
+    """
+    Moves the mouse off the buttons, so none is shaded, and reads which
+    are filled gold.
+
+    Args:
+        window: The window
+
+    Returns: The labels of the gold buttons, in order
+    """
+    move(window, (5, 5))
+    return [b.label for b in window.buttons() if fill(b.rect) == gui.GOLD]
+
 def contrast(one: Color, two: Color) -> float:
     """
     Works out the WCAG contrast ratio of two colours.
@@ -538,14 +551,27 @@ def test_setup_changes_every_setting() -> None:
         14, False, ("human", "human", "random"))
 
 def test_setup_marks_the_chosen_options() -> None:
-    """Check exactly the current choices are filled gold"""
+    """Check exactly the current choices are filled gold, after each change:
+    a size preset, a size off the presets, the ko rule, the seats and the
+    number of players"""
     window = GoGUI()
     press(window, "Play")
+    assert gold(window) == ["19 × 19", "Simple ko", "2 players", "Human",
+                            "Smart bot"]
+    press(window, "9 × 9")
+    assert gold(window) == ["9 × 9", "Simple ko", "2 players", "Human",
+                            "Smart bot"]
+    press(window, "Superko")
+    assert gold(window) == ["9 × 9", "Superko", "2 players", "Human",
+                            "Smart bot"]
+    press(window, "Random bot")
+    press(window, "Human", 1)
+    assert gold(window) == ["9 × 9", "Superko", "2 players", "Random bot",
+                            "Human"]
+    press(window, "+")
     press(window, "3 players")
-    move(window, (5, 5))
-    chosen = [b.label for b in window.buttons() if fill(b.rect) == gui.GOLD]
-    assert chosen == ["19 × 19", "Simple ko", "3 players", "Human",
-                      "Smart bot", "Smart bot"]
+    assert gold(window) == ["Superko", "3 players", "Random bot", "Human",
+                            "Smart bot"]
 
 def test_setup_shows_the_gameconfig_message_under_the_size() -> None:
     """Check a refused size shows GameConfig's words, in red, just under
@@ -587,39 +613,51 @@ def test_setup_shows_the_size_as_plain_text() -> None:
 
 def test_setup_previews_the_board_size() -> None:
     """Check the setup screen draws an empty board with the chosen number
-    of lines, counted along a row of its pixels"""
-    def lines(window: GoGUI) -> int:
+    of lines each way, counted along a row and down a column of its
+    pixels"""
+    def lines(window: GoGUI) -> list[int]:
         """
-        Draws once and counts the dark lines crossed along a row of the
-        preview, between its first two points.
+        Draws once and counts the dark lines crossed along a row and down
+        a column of the preview, each between its first two points.
 
         Args:
             window: The window
 
-        Returns: The number of lines
+        Returns: The lines crossed along the row, then down the column
         """
         wood = next(d.rect for d in window.draw() if d.kind == "box")
         grid = wood.inflate(-2 * gui.PAD, -2 * gui.PAD)
-        y = grid.y + grid.height / window.config.size
-        dark = [sum(pixel((x, y))) < 100
-                for x in range(grid.left, grid.right)]
-        return sum(1 for a, b in pairwise([False, *dark]) if b and not a)
+        gap = grid.width / window.config.size
+        found = []
+        for scan in ([(x, grid.y + gap) for x in range(grid.x, grid.right)],
+                     [(grid.x + gap, y) for y in range(grid.y, grid.bottom)]):
+            dark = [sum(pixel(pos)) < 100 for pos in scan]
+            found.append(sum(1 for a, b in pairwise([False, *dark])
+                             if b and not a))
+        return found
 
     window = GoGUI()
     press(window, "Play")
     press(window, "9 × 9")
-    assert lines(window) == 9
+    assert lines(window) == [9, 9]
     press(window, "+")
-    assert lines(window) == 10
+    assert lines(window) == [10, 10]
 
 def test_setup_seats_show_each_players_stone() -> None:
-    """Check each seat row has its player's stone in that player's colour"""
+    """Check each seat row has its player's stone in that player's colour,
+    with the player's name level with it and just right of it"""
     window = GoGUI()
     press(window, "Play")
     press(window, "4 players")
-    stones = [d for d in window.draw() if d.kind == "stone"]
+    drawn = window.draw()
+    stones = [d for d in drawn if d.kind == "stone"]
     assert [d.text for d in stones] == ["Black", "White", "Red", "Blue"]
     assert [pixel(d.rect.center) for d in stones] == list(gui.STONES)
+    names = [next(d.text for d in drawn if d.kind == "text"
+                  and 0 < d.rect.left - stone.rect.right <= 12
+                  and d.rect.centery == stone.rect.centery)
+             for stone in stones]
+    assert names == ["Black", "White", "Red", "Blue"]
 
 def test_back_and_escape_return_to_the_menu() -> None:
     """Check Back and Esc leave setup, and Esc on the menu does nothing"""
