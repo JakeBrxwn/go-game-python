@@ -1,6 +1,8 @@
 """
 Runs the bot command the way a user would.
 """
+import random
+
 import pytest
 from click.testing import CliRunner
 
@@ -15,5 +17,6 @@ def test_board_with_no_side_is_refused(size: str) -> None:
 
 def test_bots_finish_a_game() -> None:
     """Check that two bots play a small game without crashing"""
+    random.seed(0)
     result = CliRunner().invoke(cmd, ["-s", "6", "-n", "1"])
     assert result.exit_code == 0, result.output
