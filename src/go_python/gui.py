@@ -15,6 +15,7 @@ from go_python.match import (PLAYER_NAMES, SEAT_KINDS, EndReason, GameConfig,
 
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame  # noqa: E402
+import pygame.freetype  # noqa: E402
 
 #
 # Layout, colours and timing
@@ -212,7 +213,7 @@ class GoGUI:
     running: bool
     _surface: pygame.Surface
     _clock: pygame.time.Clock
-    _fonts: dict[int, pygame.font.Font]
+    _fonts: dict[int, pygame.freetype.Font]
     _log: list[Drawn]
     _mouse: tuple[int, int]
     _down: Button | tuple[int, int] | None
@@ -226,19 +227,22 @@ class GoGUI:
     def __init__(self, config: GameConfig | None = None) -> None:
         """
         Constructor. Opens the window without sound, so a missing audio
-        device never matters, and with pygame's own font, so it looks the
-        same on every machine.
+        device never matters, and with the font bundled with pygame, so it
+        looks the same on every machine.
 
         Args:
             config: The match to start at once, or None to open the menu
         """
         pygame.display.init()
-        pygame.font.init()
+        pygame.freetype.init()
         pygame.display.set_caption("Go Python")
         self._surface = pygame.display.set_mode((WIDTH, HEIGHT))
         self._clock = pygame.time.Clock()
-        self._fonts = {size: pygame.font.Font(None, size)
-                       for size in (22, 26, 30, 36, 56, 96)}
+        self._fonts = {}
+        for size in (15, 18, 21, 25, 38, 66):
+            self._fonts[size] = pygame.freetype.Font(None, size)
+            self._fonts[size].kerning = True
+            self._fonts[size].origin = True
         self._log = []
         self.running = True
         self.screen = Screen.MENU
@@ -577,11 +581,11 @@ class GoGUI:
               color: tuple[int, int, int] = INK, anchor: str = "topleft",
               width: int = 0) -> pygame.Rect:
         """
-        Draws text.
+        Draws text, kerned, wrapping at the last space that fits.
 
         Args:
             text: The words
-            size: Font size
+            size: Font size in pixels
             pos: Where the anchor point of the text goes
             color: Text colour
             anchor: Which point of the text sits at pos, as a Rect name
@@ -589,9 +593,22 @@ class GoGUI:
 
         Returns: Where the text was drawn
         """
-        image = self._fonts[size].render(text, True, color, wraplength=width)
-        rect = image.get_rect(**{anchor: pos})
-        self._surface.blit(image, rect)
+        font = self._fonts[size]
+        lines = [""]
+        for word in text.split():
+            joined = f"{lines[-1]} {word}".strip()
+            if width and lines[-1] and font.get_rect(joined).width > width:
+                lines.append(word)
+            else:
+                lines[-1] = joined
+        height = font.get_sized_height(size)
+        rect = pygame.Rect(0, 0, max(font.get_rect(line).width
+                                     for line in lines), height * len(lines))
+        setattr(rect, anchor, pos)
+        for i, line in enumerate(lines):
+            font.render_to(self._surface, (rect.x, rect.y + i * height +
+                                           font.get_sized_ascender(size)),
+                           line, color)
         if text:
             self._log.append(Drawn("text", rect, text))
         return rect
@@ -626,7 +643,7 @@ class GoGUI:
         pygame.draw.rect(self._surface, edge, button.rect, 2,
                          border_radius=10)
         self._log.append(Drawn("box", button.rect))
-        self._text(button.label, 30, button.rect.center, ink, "center")
+        self._text(button.label, 21, button.rect.center, ink, "center")
 
     def _draw_board(self, rect: pygame.Rect, size: int) -> None:
         """
@@ -686,15 +703,15 @@ class GoGUI:
         for point, player in HERO_STONES:
             self._draw_stone(center(HERO, 9, point), HERO.width / 9 * 0.47,
                              player)
-        self._text("Go Python", 96, (600, 136))
+        self._text("Go Python", 66, (600, 136))
         self._text("The board game Go for 2 to 4 players. Play people or "
-                   "bots, or watch the bots play each other.", 30,
+                   "bots, or watch the bots play each other.", 21,
                    (604, 214), MUTED, width=540)
         for button, hint in zip(self.buttons(), MENU_HINTS, strict=True):
-            self._text(hint, 26, (button.rect.right + 20,
+            self._text(hint, 18, (button.rect.right + 20,
                                   button.rect.centery), MUTED,
                        "midleft", 330)
-        self._text(f"Version {__version__}", 22, (WIDTH - 24, HEIGHT - 20),
+        self._text(f"Version {__version__}", 15, (WIDTH - 24, HEIGHT - 20),
                    MUTED, "bottomright")
 
     def _draw_setup(self) -> None:
@@ -710,38 +727,38 @@ class GoGUI:
         else:
             title, intro = "Watch bots", ("Every seat is a bot. Press Start "
                                           "watching, then sit back.")
-        self._text(title, 56, (48, 24))
-        self._text(intro, 26, (48, 76), MUTED, width=360)
+        self._text(title, 38, (48, 24))
+        self._text(intro, 18, (48, 76), MUTED, width=360)
         self._draw_board(PREVIEW, config.size)
 
         card = pygame.Rect(48, 494, 360, 157)
         self._card(card)
-        self._text("New to Go?", 30, (card.x + 16, card.y + 14))
-        self._text(HOW_TO_PLAY, 22, (card.x + 16, card.y + 40), MUTED,
+        self._text("New to Go?", 21, (card.x + 16, card.y + 14))
+        self._text(HOW_TO_PLAY, 15, (card.x + 16, card.y + 40), MUTED,
                    width=card.width - 32)
 
-        self._text("Board size", 36, (456, 24))
+        self._text("Board size", 25, (456, 24))
         self._text("Lines on each side. 9 × 9 is quick; 19 × 19 "
-                   "is the classic board.", 22, (456, 56), MUTED)
+                   "is the classic board.", 15, (456, 56), MUTED)
         box = pygame.Rect(506, 80, 110, 44)
         self._card(box, LINE, 2)
-        self._text(f"{config.size} × {config.size}", 30, box.center,
+        self._text(f"{config.size} × {config.size}", 21, box.center,
                    anchor="center")
         # Only the size can be refused; every other control offers valid
         # choices only
-        self._text(self.note, 22, (456, 132), ERROR)
+        self._text(self.note, 15, (456, 132), ERROR)
 
-        self._text("Ko rule", 36, (456, 160))
+        self._text("Ko rule", 25, (456, 160))
         self._text("Simple ko: no move may bring back the board as it was "
                    "one move ago. Superko: no move may bring back any "
-                   "earlier board.", 22, (456, 192), MUTED, width=696)
+                   "earlier board.", 15, (456, 192), MUTED, width=696)
 
-        self._text("Players", 36, (456, 302))
-        self._text(SEAT_HELP, 22, (456, 346), MUTED, width=696)
+        self._text("Players", 25, (456, 302))
+        self._text(SEAT_HELP, 15, (456, 346), MUTED, width=696)
         for i in range(len(config.seats)):
             y = 390 + i * 48 + 20
             self._draw_stone((470, y), 13, i + 1, on_wood=False)
-            self._text(PLAYER_NAMES[i], 30, (492, y), anchor="midleft")
+            self._text(PLAYER_NAMES[i], 21, (492, y), anchor="midleft")
 
     def _draw_match(self) -> None:
         """
@@ -780,16 +797,16 @@ class GoGUI:
         ko = "superko" if config.superko else "simple ko"
         self._text(f"{config.size} × {config.size} board · {ko} "
                    f"· move {self.match.moves} of at most "
-                   f"{self.match.move_limit}", 22, (SIDE, y), MUTED)
+                   f"{self.match.move_limit}", 15, (SIDE, y), MUTED)
         self._text("Points: your stones plus the empty points only your "
-                   "stones surround.", 22, (SIDE, y + 24), MUTED,
+                   "stones surround.", 15, (SIDE, y + 24), MUTED,
                    width=SIDE_W)
         if self.screen is Screen.PLAYING:
             caption = ("Pass skips your turn. When every player passes in "
                        "a row, the game ends and the most points wins.")
         else:
             caption = "Play again keeps the same board and players."
-        self._text(caption, 22, (SIDE, 585), MUTED, "bottomleft", SIDE_W)
+        self._text(caption, 15, (SIDE, 585), MUTED, "bottomleft", SIDE_W)
 
     def _draw_status(self) -> None:
         """
@@ -818,8 +835,8 @@ class GoGUI:
         if player is not None:
             self._draw_stone((SIDE + 42, 66), 22, player, on_wood=False)
             x = SIDE + 76
-        self._text(headline, 56, (x, 66), anchor="midleft")
-        self._text(line, 26, (SIDE + 20, 104), color, width=SIDE_W - 40)
+        self._text(headline, 38, (x, 66), anchor="midleft")
+        self._text(line, 18, (SIDE + 20, 104), color, width=SIDE_W - 40)
 
     def _draw_players(self) -> None:
         """
@@ -845,11 +862,11 @@ class GoGUI:
                     status, color = "Passed", MUTED
             y = rect.centery
             self._draw_stone((rect.x + 30, y), 15, player, on_wood=False)
-            self._text(PLAYER_NAMES[i], 30, (rect.x + 56, y), anchor="midleft")
-            self._text(SEAT_LABELS[seat], 22, (rect.x + 136, y), MUTED,
+            self._text(PLAYER_NAMES[i], 21, (rect.x + 56, y), anchor="midleft")
+            self._text(SEAT_LABELS[seat], 15, (rect.x + 136, y), MUTED,
                        "midleft")
-            self._text(status, 22, (rect.x + 256, y), color, "midleft")
-            self._text(points(scores[player]), 30, (rect.right - 16, y),
+            self._text(status, 15, (rect.x + 256, y), color, "midleft")
+            self._text(points(scores[player]), 21, (rect.right - 16, y),
                        anchor="midright")
 
 def run(config: GameConfig | None = None) -> None:
