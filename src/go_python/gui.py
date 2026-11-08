@@ -764,9 +764,14 @@ class GoGUI:
             self._log.append(Drawn("stone", pygame.Rect(
                 x - radius, y - radius, 2 * radius, 2 * radius),
                 PLAYER_NAMES[player - 1]))
-        pygame.draw.aacircle(self._surface, color, pos, radius)
+        # A darker crescent on the lower right rounds the stone, so even
+        # White on a white card reads as a stone, not a ring
+        pygame.draw.aacircle(self._surface, color.lerp(GRID, 0.2), pos,
+                             radius)
+        pygame.draw.aacircle(self._surface, color,
+                             (x - radius / 8, y - radius / 8), radius * 0.82)
         pygame.draw.aacircle(self._surface, color.lerp(GRID, 0.4), pos,
-                             radius, max(1, round(radius / 14)))
+                             radius, max(2, round(radius / 10)))
         pygame.draw.aacircle(self._surface, color.lerp(CARD, 0.3),
                              (x - radius / 3, y - radius / 3), radius / 4)
 

@@ -175,8 +175,9 @@ def pixel(pos: tuple[float, float]) -> Color:
 
 def on_point(window: GoGUI, point: tuple[int, int]) -> Color:
     """
-    Reads the colour inside a board point's stone, clear of the lines, the
-    shine, the last-move ring and the star points.
+    Reads the colour inside a board point's stone, down and left of its
+    centre: clear of the lines, the shine, the shading on the lower right,
+    the last-move ring and the star points.
 
     Args:
         window: The window
@@ -186,7 +187,7 @@ def on_point(window: GoGUI, point: tuple[int, int]) -> Color:
     """
     x, y = spot(window, point)
     step = BOARD.width / window.match.config.size * 0.2
-    return pixel((x + step, y + step))
+    return pixel((x - step, y + step))
 
 def count(rect: pygame.Rect, color: Color) -> int:
     """
@@ -487,14 +488,14 @@ def test_the_menu_says_what_each_button_does() -> None:
 
 def test_the_menu_board_shows_every_colour() -> None:
     """Check the sample board on the menu has each of its stones, in its
-    player's colour"""
+    player's colour, read down and left of each centre as on_point does"""
     window = GoGUI()
     window.frame()
     step = gui.HERO.width / 9 * 0.2
     assert {player for _, player in gui.HERO_STONES} == {1, 2, 3, 4}
     for point, player in gui.HERO_STONES:
         x, y = center(gui.HERO, 9, point)
-        assert pixel((x + step, y + step)) == gui.STONES[player - 1], point
+        assert pixel((x - step, y + step)) == gui.STONES[player - 1], point
 
 def test_setup_explains_every_choice() -> None:
     """Check setup draws its title, its introduction and the help for the
@@ -1083,6 +1084,24 @@ def test_stones_have_a_shine_and_a_rim() -> None:
             for d in range(round(radius * 0.8), round(radius) + 3)]
     assert edge[0] == gui.STONES[1] and edge[-1] == gui.WOOD
     assert min(map(sum, edge)) < sum(gui.WOOD) - 50, edge
+
+def test_white_beside_the_board_has_a_rim_and_shading() -> None:
+    """Check White's stones by the headline and in its row, on a white and
+    a tinted card, have a rim 2 px wide at 2:1 against white, and a lower
+    right darker than the upper left: White there used to look like an
+    empty ring"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    press(window, "Pass")
+    stones = [d.rect for d in window.draw() if d.text == "White" and
+              d.kind == "stone"]
+    assert len(stones) == 2
+    for stone in stones:
+        x, y, r = stone.centerx, stone.centery, stone.width // 2
+        rim = [pixel((x - r + d, y)) for d in range(4)]
+        assert sum(contrast(p, gui.CARD) >= 2 for p in rim) >= 2, rim
+        lit, shaded = (pixel((x + s * r * 0.55, y + s * r * 0.55))
+                       for s in (-1, 1))
+        assert lit == gui.CARD and contrast(shaded, lit) >= 1.4, shaded
 
 def test_mouse_leaving_the_window_clears_the_hover() -> None:
     """Check no preview stays behind once the mouse leaves the window"""
