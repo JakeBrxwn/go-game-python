@@ -798,12 +798,13 @@ class GoGUI:
         self._text(f"{config.size} × {config.size} board · {ko} "
                    f"· move {self.match.moves} of at most "
                    f"{self.match.move_limit}", 15, (SIDE, y), MUTED)
-        self._text("Points: your stones plus the empty points only your "
-                   "stones surround.", 15, (SIDE, y + 24), MUTED,
-                   width=SIDE_W)
+        self._text("Area: your stones plus the empty points only your "
+                   "stones surround. One stone alone claims the whole empty "
+                   "board, so early numbers swing.", 15, (SIDE, y + 24),
+                   MUTED, width=SIDE_W)
         if self.screen is Screen.PLAYING:
             caption = ("Pass skips your turn. When every player passes in "
-                       "a row, the game ends and the most points wins.")
+                       "a row, the game ends and the most area wins.")
         else:
             caption = "Play again keeps the same board and players."
         self._text(caption, 15, (SIDE, 585), MUTED, "bottomleft", SIDE_W)
@@ -840,7 +841,7 @@ class GoGUI:
 
     def _draw_players(self) -> None:
         """
-        Draws a row per player: stone, name, seat, status and score. The
+        Draws a row per player: stone, name, seat, status and area. The
         player to move is outlined; at the end, the winners are, in gold.
         """
         game = self.match.game
@@ -866,8 +867,9 @@ class GoGUI:
             self._text(SEAT_LABELS[seat], 15, (rect.x + 136, y), MUTED,
                        "midleft")
             self._text(status, 15, (rect.x + 256, y), color, "midleft")
-            self._text(points(scores[player]), 21, (rect.right - 16, y),
-                       anchor="midright")
+            score = self._text(str(scores[player]), 21,
+                               (rect.right - 16, y), anchor="midright")
+            self._text("Area", 15, (score.x - 8, y), MUTED, "midright")
 
 def run(config: GameConfig | None = None) -> None:
     """

@@ -797,11 +797,12 @@ def test_a_big_win_on_the_biggest_board_fits() -> None:
     window = GoGUI(GameConfig(30, False, ("human", "human")))
     click(window, spot(window, (15, 15)))
     found = assert_tidy(window)
-    assert "900 points" in found and "0 points" in found
+    scores = [t for t in found if t == "Area" or t.isdigit()]
+    assert scores == ["900", "Area", "0", "Area"]
     press(window, "Pass")
     press(window, "Pass")
     found = assert_tidy(window)
-    assert "900 points" in found and "Black wins" in found
+    assert "900" in found and "Black wins" in found
 
 #
 # Drawing and robustness
