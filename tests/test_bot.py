@@ -35,6 +35,17 @@ def test_is_own_eye_on_an_edge(pos: tuple[int, int], expected: bool) -> None:
     """Check that an edge point surrounded by the mover's stones is an eye"""
     assert is_own_eye(load(ONLY_EYES), pos) == expected
 
+@pytest.mark.parametrize("rows, expected", [
+    ([".1.", "1.1", ".1."], True),
+    (["...", "1.1", ".1."], False),
+    ([".1.", "1.1", "..."], False),
+    ([".1.", "..1", ".1."], False),
+    ([".1.", "1..", ".1."], False),
+])
+def test_is_own_eye_looks_every_way(rows: list[str], expected: bool) -> None:
+    """Check that a gap to the north, south, west or east stops an eye"""
+    assert is_own_eye(load(rows), (1, 1)) == expected
+
 def test_is_own_eye_needs_every_neighbor() -> None:
     """Check that one empty or enemy neighbor stops a point being an eye"""
     go = load(["1.1", "1.2", "..."])
@@ -92,6 +103,42 @@ def test_bot_repeats_when_seeded(bot: Random | Smart) -> None:
         return played
 
     assert moves() == moves()
+
+def picks(go: Go, seeds: int = 100) -> set[tuple[int, int] | None]:
+    """
+    Collects Random's moves in one position over many seeds.
+
+    Args:
+        go: The game
+        seeds: How many seeds to try, from 0
+
+    Returns: Every move Random picked
+    """
+    found = set()
+    for seed in range(seeds):
+        random.seed(seed)
+        found.add(Random().move(go))
+    return found
+
+def test_random_spreads_its_moves() -> None:
+    """Check that Random's move follows the seed, not one fixed choice"""
+    assert len(picks(Go(6, 2), 20)) > 1
+
+@pytest.mark.parametrize("rows, pos, ko", [
+    # Taking one stone leaves the taker in atari to be taken straight back
+    ([".12.", "12.2", ".12.", "...."], (1, 2), True),
+    # The same capture with a liberty to spare
+    ([".12.", "12..", ".12.", "...."], (1, 2), False),
+    # Taking two stones: the taker is in atari, but a retake is no ko
+    ([".112.", "122.2", ".112.", ".....", "....."], (1, 3), False),
+])
+def test_random_leaves_a_ko(rows: list[str], pos: tuple[int, int],
+                            ko: bool) -> None:
+    """Check Random never takes a ko, so bot games under simple ko cannot
+    loop to the move limit, but still makes other captures"""
+    go = load(rows)
+    assert go.legal_move(pos)
+    assert (pos in picks(go)) is not ko
 
 #
 # Smart's rules

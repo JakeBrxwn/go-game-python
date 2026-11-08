@@ -17,14 +17,13 @@ def is_own_eye(game: Go, pos: tuple[int, int]) -> bool:
 
     Returns: True if every neighbor of the point is the mover's stone.
     """
-    r, c = pos
-    neighbors = [(r + dr, c + dc) for dr, dc in ((0, 1), (1, 0), (0, -1), (-1, 0))
-                 if 0 <= r + dr < game.side and 0 <= c + dc < game.side]
-    return all(game.piece_at(neigh) == game.turn for neigh in neighbors)
+    return all(game.piece_at(neigh) == game.turn
+               for neigh in _neighbors(pos, game.side))
 
 class Random:
     """
-    A bot that plays a random legal move, but never fills its own eye.
+    A bot that plays a random legal move, but never fills its own eye and
+    never takes a ko.
     """
 
     def move(self, game: Go) -> tuple[int, int] | None:
@@ -35,10 +34,12 @@ class Random:
             game: The game to move in. It is not changed.
 
         Returns: The position to play, or None to pass once only the bot's
-        own eyes are left.
+        own eyes and kos are left.
         """
+        chains = _chains(game.grid)
         moves = [pos for pos in game.available_moves
-                 if not is_own_eye(game, pos)]
+                 if not is_own_eye(game, pos)
+                 and not _takes_ko(game, chains, pos)]
         return random.choice(moves) if moves else None
 
 # A point on the board, as (row, column)
@@ -91,6 +92,27 @@ def _chains(grid: BoardGridType) -> dict[Point, Chain]:
                     chain[0].add((r, c))
                     stack.append((r, c))
     return chains
+
+def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
+    """
+    Checks if a move takes a ko: it captures one stone, and every other
+    neighbor is an enemy stone, so the opponent could take straight back.
+    Simple ko only bans the immediate retake, so bots that keep taking kos
+    can loop until the move limit.
+
+    Args:
+        game: The game, with the player to move.
+        chains: The board's chains, from _chains.
+        pos: An empty point.
+
+    Returns: True if the move takes a ko.
+    """
+    near = _neighbors(pos, game.side)
+    if any(n not in chains or game.piece_at(n) == game.turn for n in near):
+        return False
+    caught = {id(chains[n]): len(chains[n][0]) for n in near
+              if len(chains[n][1]) == 1}
+    return list(caught.values()) == [1]
 
 def _value(game: Go, grid: BoardGridType, chains: dict[Point, Chain],
            pos: Point) -> float | None:

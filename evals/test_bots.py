@@ -14,6 +14,8 @@ STRENGTH_GAMES = 200
 MIN_SMART_WIN_RATE = 0.9
 ENDING_GAMES = 60
 MIN_PASSING_ENDS = 0.95
+# Two-player Random games per board size; fewer on large boards, which are slow
+SIZES_GAMES = {6: 20, 13: 20, 19: 10, 30: 4}
 EMPTY_BOARD_BUDGET_MS = 100
 SLOWEST_MOVE_BUDGET_MS = 250
 
@@ -58,6 +60,21 @@ def test_bot_games_end_by_passing() -> None:
     total = len(pairings) * ENDING_GAMES
     print(f"\n{passing} of {total} bot games ended by passing")
     assert passing >= MIN_PASSING_ENDS * total
+
+def test_random_games_end_by_passing_on_every_size() -> None:
+    """Check that Random against Random ends by passing on small and large
+    boards under simple ko, where taking kos back and forth used to run
+    to the move limit"""
+    passing = {}
+    for size, games in SIZES_GAMES.items():
+        results = [play_out(("random", "random"), size, 3000 + game).result
+                   for game in range(games)]
+        passing[size] = sum(result is not None
+                            and result.reason is EndReason.PASSES
+                            for result in results)
+    print(f"\nRandom games ended by passing, by size: {passing}")
+    assert sum(passing.values()) >= MIN_PASSING_ENDS * sum(
+        SIZES_GAMES.values())
 
 def test_smart_answers_fast_on_the_largest_common_board() -> None:
     """Check Smart's time on an empty 19x19 board and in a whole game"""
