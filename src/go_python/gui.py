@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from enum import Enum, auto
 from functools import partial
-from typing import Any
+from typing import Any, NamedTuple
 
 from go_python import __version__
 from go_python.match import (PLAYER_NAMES, SEAT_KINDS, EndReason, GameConfig,
@@ -90,6 +90,14 @@ class Button:
     label: str
     action: Callable[[], None]
     style: str = "plain"
+
+class Drawn(NamedTuple):
+    """
+    One thing draw() put on the screen.
+    """
+    kind: str  # "text", "box" (a panel, button or board) or "stone"
+    rect: pygame.Rect
+    text: str = ""  # the words of a text, the player of a stone
 
 #
 # Pure helpers
@@ -200,6 +208,7 @@ class GoGUI:
     _surface: pygame.Surface
     _clock: pygame.time.Clock
     _fonts: dict[int, pygame.font.Font]
+    _log: list[Drawn]
     _mouse: tuple[int, int]
     _last: tuple[int, int] | None
     _passed: frozenset[int]
@@ -221,6 +230,7 @@ class GoGUI:
         self._clock = pygame.time.Clock()
         self._fonts = {size: pygame.font.Font(None, size)
                        for size in (22, 26, 30, 36, 56, 96)}
+        self._log = []
         self.running = True
         self.screen = Screen.MENU
         self._mouse = (-1, -1)
@@ -509,10 +519,14 @@ class GoGUI:
     # Drawing: reads the state and never changes it
     #
 
-    def draw(self) -> None:
+    def draw(self) -> list[Drawn]:
         """
         Draws the current screen.
+
+        Returns: Each text, box and stone beside the board, in the order
+        drawn, so tests can check the layout
         """
+        self._log = []
         self._surface.fill(BACKDROP)
         if self.screen is Screen.MENU:
             self._draw_menu()
@@ -522,6 +536,7 @@ class GoGUI:
             self._draw_match()
         for button in self.buttons():
             self._draw_button(button)
+        return self._log
 
     def _text(self, text: str, size: int, pos: tuple[float, float],
               color: tuple[int, int, int] = INK, anchor: str = "topleft",
@@ -542,6 +557,8 @@ class GoGUI:
         image = self._fonts[size].render(text, True, color, wraplength=width)
         rect = image.get_rect(**{anchor: pos})
         self._surface.blit(image, rect)
+        if text:
+            self._log.append(Drawn("text", rect, text))
         return rect
 
     def _card(self, rect: pygame.Rect, edge: tuple[int, int, int] = EDGE,
@@ -557,6 +574,7 @@ class GoGUI:
         """
         pygame.draw.rect(self._surface, fill, rect, border_radius=12)
         pygame.draw.rect(self._surface, edge, rect, width, border_radius=12)
+        self._log.append(Drawn("box", rect))
 
     def _draw_button(self, button: Button) -> None:
         """
@@ -572,6 +590,7 @@ class GoGUI:
         pygame.draw.rect(self._surface, shade, button.rect, border_radius=10)
         pygame.draw.rect(self._surface, edge, button.rect, 2,
                          border_radius=10)
+        self._log.append(Drawn("box", button.rect))
         self._text(button.label, 30, button.rect.center, ink, "center")
 
     def _draw_board(self, rect: pygame.Rect, size: int) -> None:
@@ -583,8 +602,9 @@ class GoGUI:
             size: Number of points on each side
         """
         spacing = rect.width / size
-        pygame.draw.rect(self._surface, WOOD, rect.inflate(2 * PAD, 2 * PAD),
-                         border_radius=16)
+        wood = rect.inflate(2 * PAD, 2 * PAD)
+        pygame.draw.rect(self._surface, WOOD, wood, border_radius=16)
+        self._log.append(Drawn("box", wood))
         width = max(1, round(spacing / 30))
         for i in range(size):
             x, y = center(rect, size, (i, i))
@@ -613,6 +633,10 @@ class GoGUI:
         if on_wood:
             pygame.draw.aacircle(self._surface, SHADOW,
                                  (x + radius / 8, y + radius / 6), radius)
+        else:
+            self._log.append(Drawn("stone", pygame.Rect(
+                x - radius, y - radius, 2 * radius, 2 * radius),
+                PLAYER_NAMES[player - 1]))
         pygame.draw.aacircle(self._surface, color, pos, radius)
         pygame.draw.aacircle(self._surface, color.lerp(GRID, 0.4), pos,
                              radius, max(1, round(radius / 14)))

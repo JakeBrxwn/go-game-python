@@ -1,10 +1,11 @@
 """
 Drives the real window with posted pygame events, on a display that shows
-nothing: menu, setup, play and game over.
+nothing: menu, setup, play and game over. What the window shows is checked
+from its pixels and from the list of what draw() put where.
 """
 import random
 from collections.abc import Iterator
-from itertools import combinations
+from itertools import combinations, pairwise
 from typing import Any
 
 import pygame
@@ -14,6 +15,8 @@ from go_python import gui
 from go_python.gui import (BOARD, GoGUI, Screen, center, point_at, points,
                            star_points, summary)
 from go_python.match import EndReason, GameConfig, MatchResult, MatchState
+
+Color = tuple[int, int, int]
 
 @pytest.fixture(autouse=True)
 def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
@@ -26,7 +29,7 @@ def dummy_window(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     pygame.quit()
 
 #
-# Helpers
+# Helpers: input
 #
 
 def post(kind: int, **attrs: Any) -> None:
@@ -40,90 +43,120 @@ def move(window: GoGUI, pos: tuple[float, float]) -> None:
     window.frame()
 
 def click(window: GoGUI, pos: tuple[float, float]) -> None:
-    """Moves the mouse and clicks the left button there, then runs a frame"""
+    """Moves the mouse, presses and releases the left button there, then
+    runs a frame"""
     x, y = round(pos[0]), round(pos[1])
     post(pygame.MOUSEMOTION, pos=(x, y), rel=(0, 0), buttons=(0, 0, 0))
+    post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
     post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
     window.frame()
 
+def button(window: GoGUI, label: str, nth: int = 0) -> pygame.Rect:
+    """Returns where the nth button with this label is"""
+    return [b.rect for b in window.buttons() if b.label == label][nth]
+
 def press(window: GoGUI, label: str, nth: int = 0) -> None:
     """Clicks the nth button with this label on the current screen"""
-    rects = [button.rect for button in window.buttons()
-             if button.label == label]
-    click(window, rects[nth].center)
+    click(window, button(window, label, nth).center)
 
 def spot(window: GoGUI, point: tuple[int, int]) -> tuple[float, float]:
     """Returns where a board point is drawn in the current match"""
     return center(BOARD, window.match.config.size, point)
 
-def escape(window: GoGUI) -> None:
-    """Presses Esc, then runs a frame"""
-    post(pygame.KEYDOWN, key=pygame.K_ESCAPE)
+def key(window: GoGUI, which: int) -> None:
+    """Presses a key, then runs a frame"""
+    post(pygame.KEYDOWN, key=which)
     window.frame()
 
-def layout(window: GoGUI) -> tuple[list[tuple[str, pygame.Rect]],
-                                   list[pygame.Rect]]:
-    """
-    Draws once and records what went where.
+def escape(window: GoGUI) -> None:
+    """Presses Esc, then runs a frame"""
+    key(window, pygame.K_ESCAPE)
 
-    Returns: Each text drawn with its rect, the stones beside it counted as
-    text; and each box drawn: panels, buttons and the board's wood
-    """
-    texts: list[tuple[str, pygame.Rect]] = []
-    boxes = [button.rect for button in window.buttons()]
-    text, card = GoGUI._text, GoGUI._card
-    board, stone = GoGUI._draw_board, GoGUI._draw_stone
+def leave(window: GoGUI) -> None:
+    """Leaves the match with Esc"""
+    escape(window)
 
-    def spy_text(self: GoGUI, words: str, *args: Any,
-                 **kwargs: Any) -> pygame.Rect:
-        rect = text(self, words, *args, **kwargs)
-        if words:
-            texts.append((words, rect))
-        return rect
+#
+# Helpers: what is on the screen
+#
 
-    def spy_card(self: GoGUI, rect: pygame.Rect, *args: Any) -> None:
-        boxes.append(rect)
-        card(self, rect, *args)
+def screen() -> pygame.Surface:
+    """Returns what the window shows"""
+    surface = pygame.display.get_surface()
+    assert surface is not None
+    return surface
 
-    def spy_board(self: GoGUI, rect: pygame.Rect, size: int) -> None:
-        boxes.append(rect.inflate(2 * gui.PAD, 2 * gui.PAD))
-        board(self, rect, size)
+def pixel(pos: tuple[float, float]) -> Color:
+    """Returns the colour on the screen at a position"""
+    r, g, b, _ = screen().get_at((round(pos[0]), round(pos[1])))
+    return (r, g, b)
 
-    def spy_stone(self: GoGUI, pos: tuple[float, float], radius: float,
-                  player: int, on_wood: bool = True) -> None:
-        if not on_wood:
-            texts.append((f"stone {player}", pygame.Rect(
-                pos[0] - radius, pos[1] - radius, 2 * radius, 2 * radius)))
-        stone(self, pos, radius, player, on_wood)
+def on_point(window: GoGUI, point: tuple[int, int]) -> Color:
+    """Returns the colour inside a board point's stone, clear of the lines,
+    the shine, the last-move ring and the star points"""
+    x, y = spot(window, point)
+    step = BOARD.width / window.match.config.size * 0.2
+    return pixel((x + step, y + step))
 
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(GoGUI, "_text", spy_text)
-        patch.setattr(GoGUI, "_card", spy_card)
-        patch.setattr(GoGUI, "_draw_board", spy_board)
-        patch.setattr(GoGUI, "_draw_stone", spy_stone)
-        window.draw()
-    return texts, boxes
+def count(rect: pygame.Rect, color: Color) -> int:
+    """Counts the screen pixels of exactly this colour inside rect"""
+    area = screen().subsurface(rect)
+    return int(pygame.mask.from_threshold(area, color, (1, 1, 1, 255))
+               .count())
+
+def texts(window: GoGUI) -> list[str]:
+    """Draws once and returns the words of every text drawn"""
+    return [d.text for d in window.draw() if d.kind == "text"]
+
+def box_around(window: GoGUI, words: str) -> pygame.Rect:
+    """Draws once and returns the box that holds the text with these words"""
+    drawn = window.draw()
+    rect = next(d.rect for d in drawn if d.text == words)
+    return next(d.rect for d in drawn
+                if d.kind == "box" and d.rect.contains(rect))
+
+def edge(rect: pygame.Rect) -> Color:
+    """Returns a box's border colour, read at the middle of its top edge"""
+    return pixel((rect.centerx, rect.y))
+
+def fill(rect: pygame.Rect) -> Color:
+    """Returns a button's fill colour, read left of its label"""
+    return pixel((rect.x + 6, rect.centery))
+
+def contrast(one: Color, two: Color) -> float:
+    """Returns the WCAG contrast ratio of two colours, from 1 to 21"""
+    def luminance(color: Color) -> float:
+        def linear(value: int) -> float:
+            v = value / 255
+            return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+        r, g, b = map(linear, color)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    light, dark = sorted((luminance(one), luminance(two)), reverse=True)
+    return (light + 0.05) / (dark + 0.05)
 
 def assert_tidy(window: GoGUI) -> list[str]:
     """
-    Checks the screen's layout: every text inside the window, either clear
-    of a box or inside it with room to spare, no two texts touching, and no
-    two boxes overlapping.
+    Draws once and checks the layout: every text and side stone inside the
+    window, either clear of a box or inside it with room to spare, no two
+    of them touching, and no two boxes overlapping.
 
     Returns: The texts drawn, for the caller to check
     """
-    texts, boxes = layout(window)
-    screen = pygame.Rect(0, 0, gui.WIDTH, gui.HEIGHT)
-    for words, rect in texts:
-        assert screen.contains(rect), words
+    drawn = window.draw()
+    marks = [d for d in drawn if d.kind != "box"]
+    boxes = [d.rect for d in drawn if d.kind == "box"]
+    bounds = pygame.Rect(0, 0, gui.WIDTH, gui.HEIGHT)
+    for mark in marks:
+        assert bounds.contains(mark.rect), mark
         for box in boxes:
-            assert box.inflate(-8, -4).contains(rect) or \
-                not box.colliderect(rect), words
-    for (one, a), (two, b) in combinations(texts, 2):
-        assert not a.colliderect(b), (one, two)
+            assert box.inflate(-8, -4).contains(mark.rect) or \
+                not box.colliderect(mark.rect), (mark, box)
+    for one, two in combinations(marks, 2):
+        assert not one.rect.colliderect(two.rect), (one, two)
     for a, b in combinations(boxes, 2):
         assert not a.colliderect(b), (a, b)
-    return [words for words, _ in texts]
+    return [d.text for d in marks if d.kind == "text"]
 
 #
 # Pure helpers
@@ -152,13 +185,13 @@ def test_every_point_is_found_at_its_own_centre(size: int) -> None:
             x, y = center(BOARD, size, (r, c))
             assert point_at((round(x), round(y)), BOARD, size) == (r, c)
 
-@pytest.mark.parametrize("size, count", [
+@pytest.mark.parametrize("size, total", [
     (6, 0), (7, 5), (8, 4), (9, 5), (13, 5), (15, 9), (19, 9), (30, 4)])
-def test_star_points_sit_on_the_board(size: int, count: int) -> None:
+def test_star_points_sit_on_the_board(size: int, total: int) -> None:
     """Check each board gets its marked points, all distinct and on it"""
-    points = star_points(size)
-    assert len(set(points)) == len(points) == count
-    assert all(0 <= r < size and 0 <= c < size for r, c in points)
+    found = star_points(size)
+    assert len(set(found)) == len(found) == total
+    assert all(0 <= r < size and 0 <= c < size for r, c in found)
 
 def test_points_says_point_only_for_one() -> None:
     """Check the score words agree with the number"""
@@ -184,6 +217,17 @@ def test_summary_names_the_winners_and_the_reason(
         result: MatchResult, moves: int, headline: str, why: str) -> None:
     """Check each ending is told in words: wins, ties, limit and leaving"""
     assert summary(result, moves) == (headline, why)
+
+def test_colours_keep_three_to_one() -> None:
+    """Check WCAG's 3:1 for controls: a chosen option against a plain one
+    and the backdrop, and a plain button's border"""
+    assert round(contrast((0, 0, 0), (255, 255, 255))) == 21
+    plain_fill, plain_edge, _ = gui.STYLES["plain"]
+    chosen_fill, _, chosen_ink = gui.STYLES["chosen"]
+    assert contrast(chosen_fill, plain_fill) >= 3
+    assert contrast(chosen_fill, gui.BACKDROP) >= 3
+    assert contrast(plain_edge, gui.BACKDROP) >= 3
+    assert contrast(chosen_ink, chosen_fill) >= 4.5
 
 #
 # Starting and stopping
@@ -230,6 +274,18 @@ def test_menu_offers_play_watch_bots_and_quit() -> None:
                                                    "Quit"]
     press(window, "Quit")
     assert not window.running
+
+def test_buttons_change_shade_under_the_mouse() -> None:
+    """Check the hover shade shows on a dark and on a light button"""
+    window = GoGUI()
+    play, watch = button(window, "Play"), button(window, "Watch bots")
+    move(window, (5, 5))
+    dark, light = fill(play), fill(watch)
+    assert dark == gui.INK and light == gui.CARD
+    move(window, play.center)
+    assert fill(play) != dark
+    move(window, watch.center)
+    assert fill(watch) != light and fill(play) == dark
 
 def test_play_starts_with_the_defaults_in_one_click() -> None:
     """Check Play opens setup on the defaults and Start begins at once"""
@@ -280,39 +336,18 @@ def test_setup_changes_every_setting() -> None:
         14, False, ("human", "human", "random"))
 
 def test_setup_marks_the_chosen_options() -> None:
-    """Check exactly the current choices are drawn as chosen"""
+    """Check exactly the current choices are filled gold"""
     window = GoGUI()
     press(window, "Play")
     press(window, "3 players")
-    chosen = [b.label for b in window.buttons() if b.style == "chosen"]
+    move(window, (5, 5))
+    chosen = [b.label for b in window.buttons() if fill(b.rect) == gui.GOLD]
     assert chosen == ["19 × 19", "Simple ko", "3 players", "Human",
                       "Smart bot", "Smart bot"]
 
-def contrast(one: tuple[int, int, int], two: tuple[int, int, int]) -> float:
-    """Returns the WCAG contrast ratio of two colours, from 1 to 21"""
-    def luminance(color: tuple[int, int, int]) -> float:
-        def linear(value: int) -> float:
-            v = value / 255
-            return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
-        r, g, b = map(linear, color)
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-    light, dark = sorted((luminance(one), luminance(two)), reverse=True)
-    return (light + 0.05) / (dark + 0.05)
-
-def test_chosen_options_stand_out_at_three_to_one() -> None:
-    """Check a chosen option's fill against a plain one meets WCAG's 3:1
-    for controls, and so does a plain button's border on the backdrop"""
-    assert round(contrast((0, 0, 0), (255, 255, 255))) == 21
-    plain_fill, plain_edge, _ = gui.STYLES["plain"]
-    chosen_fill, _, chosen_ink = gui.STYLES["chosen"]
-    assert contrast(chosen_fill, plain_fill) >= 3
-    assert contrast(chosen_fill, gui.BACKDROP) >= 3
-    assert contrast(plain_edge, gui.BACKDROP) >= 3
-    assert contrast(chosen_ink, chosen_fill) >= 4.5
-
-def test_setup_shows_the_gameconfig_message_and_keeps_the_size() -> None:
-    """Check a refused size shows GameConfig's words and changes nothing"""
+def test_setup_shows_the_gameconfig_message_under_the_size() -> None:
+    """Check a refused size shows GameConfig's words, in red, just under
+    the size row, and changes nothing"""
     window = GoGUI()
     press(window, "Play")
     press(window, "19 × 19")
@@ -323,6 +358,9 @@ def test_setup_shows_the_gameconfig_message_and_keeps_the_size() -> None:
     assert window.config.size == 30
     assert window.note == "Size must be a whole number from 6 to 30."
     assert window.note in assert_tidy(window)
+    message = next(d.rect for d in window.draw() if d.text == window.note)
+    gap = message.top - button(window, "+").bottom
+    assert 0 <= gap <= 16 and count(message, gui.ERROR) > 50
     press(window, "9 × 9")
     assert window.note == ""
     for _ in range(4):
@@ -330,22 +368,32 @@ def test_setup_shows_the_gameconfig_message_and_keeps_the_size() -> None:
     assert window.config.size == 6
     assert window.note.startswith("Size must be")
 
-def test_setup_previews_the_board_size(
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check the setup screen draws an empty board of the chosen size"""
-    sizes: list[int] = []
-    draw_board = GoGUI._draw_board
-
-    def spy(self: GoGUI, rect: pygame.Rect, size: int) -> None:
-        sizes.append(size)
-        draw_board(self, rect, size)
+def test_setup_previews_the_board_size() -> None:
+    """Check the setup screen draws an empty board with the chosen number
+    of lines, counted along a row of its pixels"""
+    def lines(window: GoGUI) -> int:
+        wood = next(d.rect for d in window.draw() if d.kind == "box")
+        grid = wood.inflate(-2 * gui.PAD, -2 * gui.PAD)
+        y = grid.y + grid.height / window.config.size
+        dark = [sum(pixel((x, y))) < 100
+                for x in range(grid.left, grid.right)]
+        return sum(1 for a, b in pairwise([False, *dark]) if b and not a)
 
     window = GoGUI()
     press(window, "Play")
-    monkeypatch.setattr(GoGUI, "_draw_board", spy)
     press(window, "9 × 9")
+    assert lines(window) == 9
     press(window, "+")
-    assert sizes == [9, 10]
+    assert lines(window) == 10
+
+def test_setup_seats_show_each_players_stone() -> None:
+    """Check each seat row has its player's stone in that player's colour"""
+    window = GoGUI()
+    press(window, "Play")
+    press(window, "4 players")
+    stones = [d for d in window.draw() if d.kind == "stone"]
+    assert [d.text for d in stones] == ["Black", "White", "Red", "Blue"]
+    assert [pixel(d.rect.center) for d in stones] == list(gui.STONES)
 
 def test_back_and_escape_return_to_the_menu() -> None:
     """Check Back and Esc leave setup, and Esc on the menu does nothing"""
@@ -360,41 +408,82 @@ def test_back_and_escape_return_to_the_menu() -> None:
     assert window.screen is Screen.MENU and window.running
 
 #
-# Play
+# Clicks
 #
 
 def test_two_clicks_in_one_frame_play_one_stone() -> None:
     """Check that the second click of a frame does not replay the first move"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     x, y = (round(v) for v in spot(window, (2, 2)))
-    post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
-    post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
+    for _ in range(2):
+        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
+        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
     window.frame()
     assert window.match.game.piece_at((2, 2)) == 1
     assert window.match.game.turn == 2
     assert window.note == "That point already has a stone."
 
 def test_only_the_left_button_plays() -> None:
-    """Check right, middle and wheel clicks place no stone"""
+    """Check right, middle and wheel clicks, and a left press never
+    released, place no stone"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     x, y = (round(v) for v in spot(window, (2, 2)))
-    for button in (2, 3, 4, 5):
-        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=button)
+    for which in (2, 3, 4, 5):
+        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=which)
+        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=which)
     post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
     window.frame()
     assert window.match.moves == 0
 
+#
+# Play
+#
+
+def test_stones_show_in_their_players_colours() -> None:
+    """Check each played stone is drawn at its point in its colour, and
+    the last one carries a ring: light on dark stones, dark on White"""
+    window = GoGUI(GameConfig(9, False, ("human",) * 4))
+    window.frame()
+    played = [(2, 2), (2, 6), (6, 2), (6, 6)]
+    assert [on_point(window, point) for point in played] == [gui.WOOD] * 4
+    for i, point in enumerate(played):
+        click(window, spot(window, point))
+        x, y = spot(window, point)
+        ring = pixel((x + BOARD.width / 9 * 0.17, y))
+        assert ring == (gui.GRID if i == 1 else gui.CARD), ring
+        if i:
+            x, y = spot(window, played[i - 1])
+            assert pixel((x + BOARD.width / 9 * 0.17, y)) == \
+                gui.STONES[i - 1]
+    assert [on_point(window, point) for point in played] == \
+        list(gui.STONES)
+
+def test_star_points_are_drawn() -> None:
+    """Check a 9 x 9 board marks its star points and only them"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    window.frame()
+    for r, c in [(2, 2), (2, 6), (4, 4), (6, 2), (6, 6), (3, 3)]:
+        x, y = spot(window, (r, c))
+        dark = sum(pixel((x + 3, y + 3))) < 100
+        assert dark == ((r, c) in star_points(9)), (r, c)
+
 def test_hover_shows_only_on_legal_points() -> None:
-    """Check the preview shows on an empty legal point and nowhere else"""
+    """Check the preview shows on an empty legal point, in the colour of
+    the player to move, and nowhere else"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     move(window, spot(window, (4, 4)))
     assert window.hover() == (4, 4)
+    assert sum(on_point(window, (4, 4))) < sum(gui.WOOD) - 100
     click(window, spot(window, (4, 4)))
     assert window.hover() is None
+    move(window, spot(window, (4, 5)))
+    assert window.hover() == (4, 5)
+    white = on_point(window, (4, 5))
+    assert all(a > b for a, b in zip(white, gui.WOOD, strict=True)), white
     for pos in [(8, 8), (0, 1), (8, 7), (1, 0)]:
         click(window, spot(window, pos))
     move(window, spot(window, (0, 0)))
-    assert window.hover() is None
+    assert window.hover() is None and on_point(window, (0, 0)) == gui.WOOD
     click(window, spot(window, (0, 0)))
     assert window.match.game.piece_at((0, 0)) is None
     assert window.note.startswith("Not allowed")
@@ -407,7 +496,35 @@ def test_mouse_leaving_the_window_clears_the_hover() -> None:
     move(window, spot(window, (4, 4)))
     post(pygame.WINDOWLEAVE)
     window.frame()
-    assert window.hover() is None
+    assert window.hover() is None and on_point(window, (4, 4)) == gui.WOOD
+
+def test_the_sidebar_shows_whose_turn_it_is() -> None:
+    """Check the headline, the mover's stone beside it, and the mover's row
+    outlined in ink with "To play", the others plain"""
+    window = GoGUI(GameConfig(9, False, ("human", "human", "human")))
+    for name, turn in (("Black", 0), ("White", 1)):
+        assert f"{name} to play" in texts(window)
+        stones = [d for d in window.draw() if d.kind == "stone"]
+        assert [d.text for d in stones] == [name, "Black", "White", "Red"]
+        assert pixel(stones[0].rect.center) == gui.STONES[turn]
+        row = box_around(window, "To play")
+        assert edge(row) == gui.INK and row.collidepoint(stones[turn + 1]
+                                                         .rect.center)
+        other = box_around(window, ["White", "Black"][turn])
+        assert edge(other) == gui.EDGE
+        press(window, "Pass")
+    assert texts(window).count("Passed") == 2
+
+def test_refusals_show_in_red() -> None:
+    """Check a refused click is explained in red in the status card"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    card = box_around(window, "Black to play")
+    assert count(card, gui.ERROR) == 0
+    click(window, spot(window, (4, 4)))
+    click(window, spot(window, (4, 4)))
+    assert window.note == "That point already has a stone."
+    assert box_around(window, window.note) == card
+    assert count(card, gui.ERROR) > 100
 
 def test_pass_and_every_player_passing_end_the_game() -> None:
     """Check Pass, the result after all pass, Play again and Menu"""
@@ -422,6 +539,7 @@ def test_pass_and_every_player_passing_end_the_game() -> None:
     assert result.reason is EndReason.PASSES and result.winners == (1,)
     assert result.scores == {1: 81, 2: 0}
     assert "Black wins" in assert_tidy(window)
+    assert edge(box_around(window, "Winner")) == gui.GOLD
     press(window, "Play again")
     assert window.screen is Screen.PLAYING and window.match.moves == 0
     assert window.match.config == GameConfig(9, False, ("human", "human"))
@@ -443,7 +561,7 @@ def test_a_stone_clears_the_run_of_passes() -> None:
     assert window.screen is Screen.PLAYING
 
 def test_escape_leaves_the_match_through_abort() -> None:
-    """Check Esc ends the match as left, with no winner, then goes home"""
+    """Check Esc leaves with no winner, and Esc on the result goes home"""
     window = GoGUI(GameConfig(9, False, ("human", "smart")))
     click(window, spot(window, (2, 2)))
     window.frame()
@@ -455,26 +573,39 @@ def test_escape_leaves_the_match_through_abort() -> None:
     escape(window)
     assert window.screen is Screen.MENU
 
-def test_bots_wait_their_pause_and_clicks_meanwhile_get_a_message(
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check a bot waits BOT_DELAY_MS, and a person who clicks is told why"""
+def test_bots_wait_their_pause(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a bot waits BOT_DELAY_MS before it moves, with Pass dimmed"""
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
-    assert "Random bot is choosing a move…" in assert_tidy(window)
     move(window, spot(window, (4, 4)))
     assert window.match.moves == 0 and window.hover() is None
-    click(window, spot(window, (4, 4)))
-    assert window.match.game.piece_at((4, 4)) is None
-    assert window.note == "Wait: Black is a bot and moves by itself."
-    window.note = ""
-    press(window, "Pass")
-    assert window.note.startswith("Wait") and window.match.moves == 0
+    assert "Random bot is choosing a move…" in assert_tidy(window)
+    assert fill(button(window, "Pass")) == gui.EDGE
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
-    assert window.match.moves == 1 and window.note == ""
+    assert window.match.moves == 1
     assert window.match.state is MatchState.HUMAN_TURN
     assert "Click a point on the board to place a stone." in \
         assert_tidy(window)
+    move(window, (5, 5))
+    assert fill(button(window, "Pass")) == gui.INK
+
+@pytest.mark.parametrize("act", ["board", "Pass"])
+def test_clicks_on_a_bots_turn_say_why_nothing_happens(
+        act: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a click on the board or on Pass during a bot's turn is
+    explained, and the bot's move clears the explanation"""
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
+    window = GoGUI(GameConfig(9, False, ("random", "human")))
+    if act == "board":
+        click(window, spot(window, (4, 4)))
+    else:
+        press(window, "Pass")
+    assert window.match.moves == 0
+    assert window.note == "Wait: Black is a bot and moves by itself."
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
+    window.frame()
+    assert window.match.moves == 1 and window.note == ""
 
 def test_regression_superko_config_starts() -> None:
     """Check a superko match starts; --super-ko on its own used to raise"""
@@ -489,9 +620,9 @@ def test_regression_every_seat_count_draws(players: int) -> None:
     window = GoGUI(GameConfig(9, False, ("human",) * players))
     for i in range(players):
         click(window, spot(window, (0, 2 * i)))
-    assert [window.match.game.piece_at((0, 2 * i))
-            for i in range(players)] == list(range(1, players + 1))
-    escape(window)
+    assert [on_point(window, (0, 2 * i)) for i in range(players)] == \
+        list(gui.STONES[:players])
+    leave(window)
     window.frame()
     assert window.screen is Screen.GAME_OVER
 
@@ -521,8 +652,8 @@ def test_the_longest_message_fits_at_every_board_size(size: int) -> None:
     press(window, "Pass")
     click(window, spot(window, (0, 0)))
     assert window.note.startswith("Not allowed")
-    texts = assert_tidy(window)
-    assert window.note in texts and texts.count("Passed") == 2
+    found = assert_tidy(window)
+    assert window.note in found and found.count("Passed") == 2
 
 @pytest.mark.parametrize("players", [2, 3, 4])
 def test_a_tie_of_every_player_fits_with_the_longest_reason(
@@ -539,18 +670,20 @@ def test_a_tie_of_every_player_fits_with_the_longest_reason(
                           result.scores)
     monkeypatch.setattr(gui, "summary",
                         lambda _, __: summary(longest, 2700))
-    texts = assert_tidy(window)
-    assert texts.count("Winner") == players
-    assert summary(longest, 2700)[1] in texts
+    found = assert_tidy(window)
+    assert found.count("Winner") == players
+    assert summary(longest, 2700)[1] in found
 
 def test_a_big_win_on_the_biggest_board_fits() -> None:
-    """Check a three-digit score and its margin fit their rows"""
+    """Check a three-digit area and its margin fit their rows"""
     window = GoGUI(GameConfig(30, False, ("human", "human")))
     click(window, spot(window, (15, 15)))
+    found = assert_tidy(window)
+    assert "900 points" in found and "0 points" in found
     press(window, "Pass")
     press(window, "Pass")
-    texts = assert_tidy(window)
-    assert "900 points" in texts and "Black wins" in texts
+    found = assert_tidy(window)
+    assert "900 points" in found and "Black wins" in found
 
 #
 # Drawing and robustness
@@ -581,22 +714,25 @@ def test_drawing_changes_no_state() -> None:
 
 def test_no_click_or_key_crashes_any_screen(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check random clicks, wheels and keys on every screen never raise"""
+    """Check random clicks, drags, wheels and keys on every screen never
+    raise"""
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     rng = random.Random(2026)
     window = GoGUI()
     seen = set()
-    keys = [pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_SPACE, pygame.K_p,
-            pygame.K_q, pygame.K_LEFT]
+    keys = [pygame.K_ESCAPE, pygame.K_ESCAPE, pygame.K_ESCAPE,
+            pygame.K_RETURN, pygame.K_SPACE, pygame.K_p, pygame.K_LEFT]
     for _ in range(3000):
         pos = (rng.randrange(-20, gui.WIDTH + 20),
                rng.randrange(-20, gui.HEIGHT + 20))
         roll = rng.random()
         if roll < 0.6:
-            post(pygame.MOUSEBUTTONUP, pos=pos, button=rng.choice(
-                [1, 1, 1, 2, 3, 4, 5]))
+            which = rng.choice([1, 1, 1, 2, 3, 4, 5])
+            post(pygame.MOUSEBUTTONDOWN, pos=pos, button=which)
+            post(pygame.MOUSEBUTTONUP, pos=pos, button=which)
         elif roll < 0.7:
-            post(pygame.MOUSEBUTTONDOWN, pos=pos, button=1)
+            post(rng.choice([pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP]),
+                 pos=pos, button=1)
         elif roll < 0.8:
             post(pygame.MOUSEMOTION, pos=pos, rel=(0, 0), buttons=(0, 0, 0))
         elif roll < 0.9:
@@ -605,5 +741,4 @@ def test_no_click_or_key_crashes_any_screen(
             post(pygame.MOUSEWHEEL, x=0, y=rng.choice([-1, 1]))
         window.frame()
         seen.add(window.screen)
-        window.running = True
     assert seen == set(Screen)
