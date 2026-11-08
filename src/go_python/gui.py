@@ -366,8 +366,9 @@ class GoGUI:
 
     def hover(self) -> tuple[int, int] | None:
         """
-        Returns the point a person would play by clicking where the mouse
-        is: a legal point on their turn, otherwise None
+        Finds the point a person would play by clicking where the mouse is.
+
+        Returns: A legal point on a person's turn, otherwise None
         """
         point = self._point(self._mouse)
         if self.screen is Screen.PLAYING and point is not None and \
@@ -515,7 +516,9 @@ class GoGUI:
 
     def buttons(self) -> list[Button]:
         """
-        Returns the buttons of the current screen
+        Lists the buttons of the current screen.
+
+        Returns: The buttons, which drawing and clicks both read
         """
         if self.screen is Screen.MENU:
             # Play offers the last match's settings: the defaults at first
@@ -541,7 +544,10 @@ class GoGUI:
 
     def _setup_buttons(self) -> list[Button]:
         """
-        Returns the buttons of the setup screen
+        Lists the buttons of the setup screen, the current choices in gold.
+
+        Returns: The size, ko rule, player and seat buttons, then Back and
+        Start
         """
         config = self.config
 
