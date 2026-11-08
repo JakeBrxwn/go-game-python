@@ -96,9 +96,9 @@ def _chains(grid: BoardGridType) -> dict[Point, Chain]:
 def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
     """
     Checks if a move takes a ko: it captures one stone, and every other
-    neighbor is an enemy stone, so the opponent could take straight back.
-    Simple ko only bans the immediate retake, so bots that keep taking kos
-    can loop until the move limit.
+    neighbor is another player's stone, so the new stone could be taken
+    straight back. Simple ko only bans the immediate retake, so bots that keep
+    taking kos can loop until the move limit.
 
     Args:
         game: The game, with the player to move.
@@ -110,9 +110,8 @@ def _takes_ko(game: Go, chains: dict[Point, Chain], pos: Point) -> bool:
     near = _neighbors(pos, game.side)
     if any(n not in chains or game.piece_at(n) == game.turn for n in near):
         return False
-    caught = {id(chains[n]): len(chains[n][0]) for n in near
-              if len(chains[n][1]) == 1}
-    return list(caught.values()) == [1]
+    caught = [len(chains[n][0]) for n in near if len(chains[n][1]) == 1]
+    return caught == [1]
 
 def _value(game: Go, grid: BoardGridType, chains: dict[Point, Chain],
            pos: Point) -> float | None:

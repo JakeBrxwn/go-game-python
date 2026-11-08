@@ -131,6 +131,12 @@ def test_random_spreads_its_moves() -> None:
     ([".12.", "12..", ".12.", "...."], (1, 2), False),
     # Taking two stones: the taker is in atari, but a retake is no ko
     ([".112.", "122.2", ".112.", ".....", "....."], (1, 3), False),
+    # Taking one stone while joining an own stone
+    ([".12.", "12.1", ".12.", "...."], (1, 2), False),
+    # Taking two single stones at once
+    ([".121.", "12.2.", ".12..", ".....", "....."], (1, 2), False),
+    # A ko in the corner
+    ([".21..", "21...", ".....", ".....", "....."], (0, 0), True),
 ])
 def test_random_leaves_a_ko(rows: list[str], pos: tuple[int, int],
                             ko: bool) -> None:
@@ -139,6 +145,13 @@ def test_random_leaves_a_ko(rows: list[str], pos: tuple[int, int],
     go = load(rows)
     assert go.legal_move(pos)
     assert (pos in picks(go)) is not ko
+
+def test_random_passes_when_only_a_ko_is_left() -> None:
+    """Check Random passes when every move left fills its own eye, is
+    suicide, or takes a ko (at (1, 5))"""
+    go = load(["211112", "221.2.", "2222.2", "112221", "112221", ".11111"])
+    assert go.legal_move((1, 5))
+    assert Random().move(go) is None
 
 #
 # Smart's rules

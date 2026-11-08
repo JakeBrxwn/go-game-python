@@ -224,6 +224,17 @@ def test_move_limit_finishes_and_scores(monkeypatch: pytest.MonkeyPatch) \
     assert match.result.winners == (1,)
     assert match.result.scores == {1: 81, 2: 0}
 
+def test_last_pass_on_the_limit_counts_as_passes(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a game whose final pass is also the last move allowed ended by
+    passing"""
+    monkeypatch.setattr(Match, "move_limit", property(lambda self: 2))
+    match = Match(GameConfig(9, False, ("human", "human")))
+    match.play(None)
+    match.play(None)
+    assert match.result is not None
+    assert match.result.reason is EndReason.PASSES
+
 def test_abort_finishes_with_no_winners() -> None:
     """Check leaving a match ends it with nobody winning"""
     match = Match(GameConfig(9, False, ("human", "smart")))
@@ -261,6 +272,12 @@ def test_series_refuses_a_human_seat() -> None:
     """Check a headless series cannot wait for a person"""
     with pytest.raises(ValueError, match="bot"):
         run_series(GameConfig(6, False, ("random", "human")), 1)
+
+@pytest.mark.parametrize("games", [0, -3])
+def test_series_refuses_no_games(games: int) -> None:
+    """Check a series of no games is refused, not reported"""
+    with pytest.raises(ValueError, match="one game"):
+        run_series(GameConfig(6, False, ("random", "random")), games)
 
 def test_series_counts_every_game() -> None:
     """Check each game is a win for one player or a tie"""

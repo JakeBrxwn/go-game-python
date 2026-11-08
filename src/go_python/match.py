@@ -251,12 +251,14 @@ def run_series(config: GameConfig, games: int) -> SeriesResult:
         games: Number of matches to play
 
     Raises:
-        ValueError: If a seat is human.
+        ValueError: If a seat is human, or games is less than one.
 
     Returns: The wins of each player, the ties and the total moves
     """
     if "human" in config.seats:
         raise ValueError("Every seat in a series must be a bot")
+    if games < 1:
+        raise ValueError("A series needs at least one game")
 
     wins = {player: 0 for player in range(1, len(config.seats) + 1)}
     ties = 0
