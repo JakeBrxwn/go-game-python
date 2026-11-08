@@ -313,10 +313,18 @@ def run(config: GameConfig | None = None) -> None:
     Runs the text frontend. Ctrl+D or Ctrl+C in setup goes back to the
     menu, and at the menu leaves.
 
+    Raises:
+        SystemExit: If the terminal cannot show the stones, with a message.
+
     Args:
         config: The settings of one match to play before returning, or None
         to show the menu until the player quits
     """
+    try:
+        "".join(STONES).encode(sys.stdout.encoding or "utf-8")
+    except UnicodeEncodeError:
+        sys.exit("This terminal cannot show the stones: run it with a UTF-8 "
+                 "locale, such as LANG=C.UTF-8.")
     # Bytes that are not UTF-8 become a bad answer instead of a crash
     if isinstance(sys.stdin, io.TextIOWrapper):
         sys.stdin.reconfigure(errors="replace")

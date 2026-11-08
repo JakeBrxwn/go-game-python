@@ -434,3 +434,17 @@ def test_regression_bytes_that_are_not_utf8_get_a_message(
     assert "Choose [1]: Please type 1, 2 or 3.\n" in out
     assert "quit): " + NOT_A_MOVE + "\n" in out
     assert "Game over: the match was left." in out
+
+def test_regression_a_terminal_without_utf8_stops_with_one_line(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a terminal that cannot show the stones gets one line naming the
+    fix and a failing exit, before any prompt and with no traceback"""
+    screen = io.TextIOWrapper(io.BytesIO(), encoding="latin-1")
+    monkeypatch.setattr(sys, "stdout", screen)
+    with pytest.raises(SystemExit) as leaving:
+        tui.run()
+    assert leaving.value.code == ("This terminal cannot show the stones: run "
+                                  "it with a UTF-8 locale, such as "
+                                  "LANG=C.UTF-8.")
+    screen.flush()
+    assert screen.buffer.getvalue() == b""
