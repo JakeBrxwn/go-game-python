@@ -239,16 +239,20 @@ def box_around(window: GoGUI, words: str) -> pygame.Rect:
     return next(d.rect for d in drawn
                 if d.kind == "box" and d.rect.contains(rect))
 
-def edge(rect: pygame.Rect) -> Color:
+def outline(rect: pygame.Rect) -> tuple[Color, int, Color]:
     """
-    Reads a box's border colour, at the middle of its top edge.
+    Reads a box's border down from the middle of its top edge.
 
     Args:
         rect: Where the box is
 
-    Returns: The colour there
+    Returns: The border's colour and its width in pixels, then the fill
+    inside it
     """
-    return pixel((rect.centerx, rect.y))
+    x, top = rect.centerx, pixel((rect.centerx, rect.y))
+    width = next(i for i in range(rect.height)
+                 if pixel((x, rect.y + i)) != top)
+    return top, width, pixel((x, rect.y + width))
 
 def fill(rect: pygame.Rect) -> Color:
     """
@@ -1087,7 +1091,8 @@ def test_mouse_leaving_the_window_clears_the_hover() -> None:
 
 def test_the_sidebar_shows_whose_turn_it_is() -> None:
     """Check the headline, the mover's stone beside it, and the mover's row
-    outlined in ink with "To play", the others plain"""
+    outlined thick in ink and tinted, with "To play", the others plain;
+    each row's stone fills over half its height"""
     window = GoGUI(GameConfig(9, False, ("human", "human", "human")))
     for name, turn in (("Black", 0), ("White", 1)):
         assert f"{name} to play" in texts(window)
@@ -1095,10 +1100,11 @@ def test_the_sidebar_shows_whose_turn_it_is() -> None:
         assert [d.text for d in stones] == [name, "Black", "White", "Red"]
         assert pixel(stones[0].rect.center) == gui.STONES[turn]
         row = box_around(window, "To play")
-        assert edge(row) == gui.INK and row.collidepoint(stones[turn + 1]
-                                                         .rect.center)
+        assert outline(row) == (gui.INK, 3, gui.TINT)
+        assert row.collidepoint(stones[turn + 1].rect.center)
+        assert all(2 * d.rect.height > row.height for d in stones[1:])
         other = box_around(window, ["White", "Black"][turn])
-        assert edge(other) == gui.EDGE
+        assert outline(other) == (gui.EDGE, 1, gui.CARD)
         press(window, "Pass")
     assert texts(window).count("Passed") == 2
 
@@ -1221,7 +1227,7 @@ def test_pass_and_every_player_passing_end_the_game() -> None:
     assert result.reason is EndReason.PASSES and result.winners == (1,)
     assert result.scores == {1: 81, 2: 0}
     assert "Black wins" in assert_tidy(window)
-    assert edge(box_around(window, "Winner")) == gui.GOLD
+    assert outline(box_around(window, "Winner")) == (gui.GOLD, 3, gui.TINT)
     press(window, "Play again")
     assert window.screen is Screen.PLAYING and window.match.moves == 0
     assert window.match.config == GameConfig(9, False, ("human", "human"))
@@ -1292,12 +1298,14 @@ def test_a_bot_move_keeps_the_question_to_leave() -> None:
     assert window.screen is Screen.GAME_OVER
 
 def test_bots_wait_their_pause(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check a bot waits BOT_DELAY_MS before it moves, with Pass dimmed"""
+    """Check a bot waits BOT_DELAY_MS before it moves, with Pass dimmed and
+    unshaded even under the mouse"""
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
     move(window, spot(window, (4, 4)))
     assert window.match.moves == 0 and window.hover() is None
     assert "Random bot is choosing a move…" in assert_tidy(window)
+    move(window, button(window, "Pass").center)
     assert fill(button(window, "Pass")) == gui.EDGE
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
