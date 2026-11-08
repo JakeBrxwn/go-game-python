@@ -252,6 +252,16 @@ def test_two_clicks_in_one_frame_play_one_stone() -> None:
     assert window._match.game.turn == 2
     assert window._note == "That point already has a stone."
 
+def test_only_the_left_button_plays() -> None:
+    """Check right, middle and wheel clicks place no stone"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    x, y = (round(v) for v in spot(window, (2, 2)))
+    for button in (2, 3, 4, 5):
+        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=button)
+    post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
+    window.frame()
+    assert window._match.moves == 0
+
 def test_hover_shows_only_on_legal_points() -> None:
     """Check the preview shows on an empty legal point and nowhere else"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
@@ -325,8 +335,8 @@ def test_bots_wait_their_pause_and_clicks_meanwhile_get_a_message(
     """Check a bot waits BOT_DELAY_MS, and a person who clicks is told why"""
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
-    window.frame()
-    assert window._match.moves == 0
+    move(window, spot(window, (4, 4)))
+    assert window._match.moves == 0 and window._hover() is None
     click(window, spot(window, (4, 4)))
     assert window._match.game.piece_at((4, 4)) is None
     assert window._note == "Wait: Black is a bot and moves by itself."
