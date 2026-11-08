@@ -356,7 +356,7 @@ class Go:
 
         self._place_stone(pos)
 
-        # Remember the board this move replaced, since ko forbids returning to it
+        # Remember the board this move replaced, since ko bans a return to it
         if self._superko:
             self._prior_boards = self._prior_boards | {prior_board}
         else:
@@ -407,7 +407,8 @@ class Go:
                     empty_group, border_values = self._find_contiguous(r, c)
                     visited_empty |= empty_group
                     if len(border_values) == 1:
-                        scores[cast(int, border_values.pop())] += len(empty_group)
+                        owner = cast(int, border_values.pop())
+                        scores[owner] += len(empty_group)
                 elif value is not None:
                     scores[value] += 1
 
@@ -433,12 +434,14 @@ class Go:
 
         Raises:
              ValueError:
-             - If the value of turn is inconsistent
-               with the _players attribute.
-             - If the size of the grid is inconsistent
-               with the _side attribute.
-             - If any value in the grid is inconsistent
-               with the _players attribute.
+             - If turn is not the number of a player
+               in this game.
+             - If the grid is not side rows of side
+               entries each.
+             - If any value in the grid is neither None
+               nor the number of a player in this game.
+             Player numbers are plain ints, so 1.0 and
+             True are refused.
 
         Returns: None
         """
