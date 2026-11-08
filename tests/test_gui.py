@@ -47,13 +47,13 @@ def click(window: GoGUI, pos: tuple[float, float]) -> None:
 
 def press(window: GoGUI, label: str, nth: int = 0) -> None:
     """Clicks the nth button with this label on the current screen"""
-    rects = [button.rect for button in window._buttons()
+    rects = [button.rect for button in window.buttons()
              if button.label == label]
     click(window, rects[nth].center)
 
 def spot(window: GoGUI, point: tuple[int, int]) -> tuple[float, float]:
     """Returns where a board point is drawn in the current match"""
-    return center(BOARD, window._match.config.size, point)
+    return center(BOARD, window.match.config.size, point)
 
 def escape(window: GoGUI) -> None:
     """Presses Esc, then runs a frame"""
@@ -120,10 +120,10 @@ def test_summary_names_the_winners_and_the_reason(
 def test_regression_constructor_returns_and_the_loop_is_separate() -> None:
     """Check the constructor returns; the old one ran the loop forever"""
     window = GoGUI()
-    assert window._screen is Screen.MENU
+    assert window.screen is Screen.MENU
     post(pygame.QUIT)
     window.loop()
-    assert not window._running
+    assert not window.running
 
 def test_run_opens_the_menu_and_returns_when_the_window_closes() -> None:
     """Check closing the window returns from run, with pygame shut down"""
@@ -143,8 +143,8 @@ def test_run_with_a_config_starts_that_match(
     monkeypatch.setattr(GoGUI, "loop", remember)
     config = GameConfig(9, False, ("human", "random"))
     gui.run(config)
-    assert windows[0]._screen is Screen.PLAYING
-    assert windows[0]._match.config == config
+    assert windows[0].screen is Screen.PLAYING
+    assert windows[0].match.config == config
 
 #
 # Menu and setup
@@ -154,36 +154,36 @@ def test_menu_offers_play_watch_bots_and_quit() -> None:
     """Check the menu's buttons, and that Quit ends the loop"""
     window = GoGUI()
     window.frame()
-    assert [b.label for b in window._buttons()] == ["Play", "Watch bots",
+    assert [b.label for b in window.buttons()] == ["Play", "Watch bots",
                                                     "Quit"]
     press(window, "Quit")
-    assert not window._running
+    assert not window.running
 
 def test_play_starts_with_the_defaults_in_one_click() -> None:
     """Check Play opens setup on the defaults and Start begins at once"""
     window = GoGUI()
     press(window, "Play")
-    assert window._screen is Screen.SETUP
-    assert window._config == GameConfig()
+    assert window.screen is Screen.SETUP
+    assert window.config == GameConfig()
     press(window, "Start game")
-    assert window._screen is Screen.PLAYING
-    assert window._match.config == GameConfig()
-    assert window._match.state is MatchState.HUMAN_TURN
+    assert window.screen is Screen.PLAYING
+    assert window.match.config == GameConfig()
+    assert window.match.state is MatchState.HUMAN_TURN
 
 def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     """Check Watch bots seats only bots, who then play a whole match"""
     random.seed(3)
     window = GoGUI()
     press(window, "Watch bots")
-    assert "human" not in window._config.seats
+    assert "human" not in window.config.seats
     press(window, "Start watching")
-    assert window._match.state is MatchState.BOT_TURN
+    assert window.match.state is MatchState.BOT_TURN
     for _ in range(1000):
-        if window._screen is Screen.GAME_OVER:
+        if window.screen is Screen.GAME_OVER:
             break
         window.frame()
-    result = window._match.result
-    assert window._screen is Screen.GAME_OVER and result is not None
+    result = window.match.result
+    assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason in (EndReason.PASSES, EndReason.MOVE_LIMIT)
 
 def test_setup_changes_every_setting() -> None:
@@ -195,16 +195,16 @@ def test_setup_changes_every_setting() -> None:
     press(window, "4 players")
     press(window, "Human", 1)
     press(window, "Random bot", 2)
-    assert window._config == GameConfig(
+    assert window.config == GameConfig(
         13, True, ("human", "human", "random", "smart"))
     press(window, "−")
-    assert window._config.size == 12
+    assert window.config.size == 12
     press(window, "+")
     press(window, "+")
     press(window, "3 players")
     press(window, "Simple ko")
     press(window, "Start game")
-    assert window._match.config == GameConfig(
+    assert window.match.config == GameConfig(
         14, False, ("human", "human", "random"))
 
 def test_setup_shows_the_gameconfig_message_and_keeps_the_size() -> None:
@@ -214,28 +214,28 @@ def test_setup_shows_the_gameconfig_message_and_keeps_the_size() -> None:
     press(window, "19 × 19")
     for _ in range(11):
         press(window, "+")
-    assert window._config.size == 30 and window._note == ""
+    assert window.config.size == 30 and window.note == ""
     press(window, "+")
-    assert window._config.size == 30
-    assert window._note == "Size must be a whole number from 6 to 30."
+    assert window.config.size == 30
+    assert window.note == "Size must be a whole number from 6 to 30."
     press(window, "9 × 9")
-    assert window._note == ""
+    assert window.note == ""
     for _ in range(4):
         press(window, "−")
-    assert window._config.size == 6
-    assert window._note.startswith("Size must be")
+    assert window.config.size == 6
+    assert window.note.startswith("Size must be")
 
 def test_back_and_escape_return_to_the_menu() -> None:
     """Check Back and Esc leave setup, and Esc on the menu does nothing"""
     window = GoGUI()
     press(window, "Play")
     press(window, "Back")
-    assert window._screen is Screen.MENU
+    assert window.screen is Screen.MENU
     press(window, "Play")
     escape(window)
-    assert window._screen is Screen.MENU
+    assert window.screen is Screen.MENU
     escape(window)
-    assert window._screen is Screen.MENU and window._running
+    assert window.screen is Screen.MENU and window.running
 
 #
 # Play
@@ -248,9 +248,9 @@ def test_two_clicks_in_one_frame_play_one_stone() -> None:
     post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
     post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
     window.frame()
-    assert window._match.game.piece_at((2, 2)) == 1
-    assert window._match.game.turn == 2
-    assert window._note == "That point already has a stone."
+    assert window.match.game.piece_at((2, 2)) == 1
+    assert window.match.game.turn == 2
+    assert window.note == "That point already has a stone."
 
 def test_only_the_left_button_plays() -> None:
     """Check right, middle and wheel clicks place no stone"""
@@ -260,24 +260,24 @@ def test_only_the_left_button_plays() -> None:
         post(pygame.MOUSEBUTTONUP, pos=(x, y), button=button)
     post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
     window.frame()
-    assert window._match.moves == 0
+    assert window.match.moves == 0
 
 def test_hover_shows_only_on_legal_points() -> None:
     """Check the preview shows on an empty legal point and nowhere else"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     move(window, spot(window, (4, 4)))
-    assert window._hover() == (4, 4)
+    assert window.hover() == (4, 4)
     click(window, spot(window, (4, 4)))
-    assert window._hover() is None
+    assert window.hover() is None
     for pos in [(8, 8), (0, 1), (8, 7), (1, 0)]:
         click(window, spot(window, pos))
     move(window, spot(window, (0, 0)))
-    assert window._hover() is None
+    assert window.hover() is None
     click(window, spot(window, (0, 0)))
-    assert window._match.game.piece_at((0, 0)) is None
-    assert window._note.startswith("Not allowed")
+    assert window.match.game.piece_at((0, 0)) is None
+    assert window.note.startswith("Not allowed")
     move(window, (100, 100))
-    assert window._hover() is None
+    assert window.hover() is None
 
 def test_mouse_leaving_the_window_clears_the_hover() -> None:
     """Check no preview stays behind once the mouse leaves the window"""
@@ -285,27 +285,27 @@ def test_mouse_leaving_the_window_clears_the_hover() -> None:
     move(window, spot(window, (4, 4)))
     post(pygame.WINDOWLEAVE)
     window.frame()
-    assert window._hover() is None
+    assert window.hover() is None
 
 def test_pass_and_every_player_passing_end_the_game() -> None:
     """Check Pass, the result after all pass, Play again and Menu"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     click(window, spot(window, (4, 4)))
     press(window, "Pass")
-    assert window._passed == {2} and window._match.game.turn == 1
+    assert window._passed == {2} and window.match.game.turn == 1
     press(window, "Pass")
-    result = window._match.result
-    assert window._screen is Screen.GAME_OVER and result is not None
+    result = window.match.result
+    assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason is EndReason.PASSES and result.winners == (1,)
     assert result.scores == {1: 81, 2: 0}
     press(window, "Play again")
-    assert window._screen is Screen.PLAYING and window._match.moves == 0
-    assert window._match.config == GameConfig(9, False, ("human", "human"))
+    assert window.screen is Screen.PLAYING and window.match.moves == 0
+    assert window.match.config == GameConfig(9, False, ("human", "human"))
     press(window, "Leave match (Esc)")
-    assert window._match.result is not None
-    assert window._match.result.reason is EndReason.ABORTED
+    assert window.match.result is not None
+    assert window.match.result.reason is EndReason.ABORTED
     press(window, "Menu")
-    assert window._screen is Screen.MENU
+    assert window.screen is Screen.MENU
 
 def test_a_stone_clears_the_run_of_passes() -> None:
     """Check the cards stop showing passes once someone plays a stone"""
@@ -315,20 +315,20 @@ def test_a_stone_clears_the_run_of_passes() -> None:
     assert window._passed == {1, 2}
     click(window, spot(window, (4, 4)))
     assert window._passed == set()
-    assert window._screen is Screen.PLAYING
+    assert window.screen is Screen.PLAYING
 
 def test_escape_leaves_the_match_through_abort() -> None:
     """Check Esc ends the match as left, with no winner, then goes home"""
     window = GoGUI(GameConfig(9, False, ("human", "smart")))
     click(window, spot(window, (2, 2)))
     window.frame()
-    assert window._match.moves == 2
+    assert window.match.moves == 2
     escape(window)
-    result = window._match.result
-    assert window._screen is Screen.GAME_OVER and result is not None
+    result = window.match.result
+    assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason is EndReason.ABORTED and result.winners == ()
     escape(window)
-    assert window._screen is Screen.MENU
+    assert window.screen is Screen.MENU
 
 def test_bots_wait_their_pause_and_clicks_meanwhile_get_a_message(
         monkeypatch: pytest.MonkeyPatch) -> None:
@@ -336,24 +336,24 @@ def test_bots_wait_their_pause_and_clicks_meanwhile_get_a_message(
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
     move(window, spot(window, (4, 4)))
-    assert window._match.moves == 0 and window._hover() is None
+    assert window.match.moves == 0 and window.hover() is None
     click(window, spot(window, (4, 4)))
-    assert window._match.game.piece_at((4, 4)) is None
-    assert window._note == "Wait: Black is a bot and moves by itself."
-    window._note = ""
+    assert window.match.game.piece_at((4, 4)) is None
+    assert window.note == "Wait: Black is a bot and moves by itself."
+    window.note = ""
     press(window, "Pass")
-    assert window._note.startswith("Wait") and window._match.moves == 0
+    assert window.note.startswith("Wait") and window.match.moves == 0
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
-    assert window._match.moves == 1 and window._note == ""
-    assert window._match.state is MatchState.HUMAN_TURN
+    assert window.match.moves == 1 and window.note == ""
+    assert window.match.state is MatchState.HUMAN_TURN
 
 def test_regression_superko_config_starts() -> None:
     """Check a superko match starts; --super-ko on its own used to raise"""
     window = GoGUI(GameConfig(9, True, ("human", "human")))
     click(window, spot(window, (4, 4)))
-    assert window._match.config.superko
-    assert window._match.game.piece_at((4, 4)) == 1
+    assert window.match.config.superko
+    assert window.match.game.piece_at((4, 4)) == 1
 
 @pytest.mark.parametrize("players", [2, 3, 4])
 def test_regression_every_seat_count_draws(players: int) -> None:
@@ -361,11 +361,11 @@ def test_regression_every_seat_count_draws(players: int) -> None:
     window = GoGUI(GameConfig(9, False, ("human",) * players))
     for i in range(players):
         click(window, spot(window, (0, 2 * i)))
-    assert [window._match.game.piece_at((0, 2 * i))
+    assert [window.match.game.piece_at((0, 2 * i))
             for i in range(players)] == list(range(1, players + 1))
     escape(window)
     window.frame()
-    assert window._screen is Screen.GAME_OVER
+    assert window.screen is Screen.GAME_OVER
 
 #
 # Drawing and robustness
@@ -374,9 +374,9 @@ def test_regression_every_seat_count_draws(players: int) -> None:
 def draw_changes_nothing(window: GoGUI) -> bool:
     """Draws once and tells if the window and the game stayed the same"""
     before = dict(vars(window))
-    board = window._match.game.frozengrid
+    board = window.match.game.frozengrid
     window.draw()
-    return vars(window) == before and window._match.game.frozengrid == board
+    return vars(window) == before and window.match.game.frozengrid == board
 
 def test_drawing_changes_no_state() -> None:
     """Check drawing every screen leaves the window and the game as they were"""
@@ -384,7 +384,7 @@ def test_drawing_changes_no_state() -> None:
     click(window, spot(window, (3, 3)))
     click(window, spot(window, (3, 3)))
     move(window, spot(window, (4, 4)))
-    assert window._note and window._hover() == (4, 4)
+    assert window.note and window.hover() == (4, 4)
     assert draw_changes_nothing(window)
     escape(window)
     assert draw_changes_nothing(window)
@@ -419,6 +419,6 @@ def test_no_click_or_key_crashes_any_screen(
         else:
             post(pygame.MOUSEWHEEL, x=0, y=rng.choice([-1, 1]))
         window.frame()
-        seen.add(window._screen)
-        window._running = True
+        seen.add(window.screen)
+        window.running = True
     assert seen == set(Screen)

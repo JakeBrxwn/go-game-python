@@ -179,12 +179,12 @@ class GoGUI:
     _surface: pygame.Surface
     _clock: pygame.time.Clock
     _fonts: dict[tuple[int, bool], pygame.font.Font]
-    _running: bool
-    _screen: Screen
-    _config: GameConfig
-    _match: Match
+    running: bool
+    screen: Screen
+    config: GameConfig
+    match: Match
     _mouse: tuple[int, int]
-    _note: str
+    note: str
     _last: tuple[int, int] | None
     _passed: frozenset[int]
     _last_ms: int
@@ -205,13 +205,13 @@ class GoGUI:
         self._fonts = {(size, bold): pygame.font.SysFont(FONT, size, bold)
                        for size in (14, 16, 18, 22, 28, 40, 64)
                        for bold in (False, True)}
-        self._running = True
-        self._screen = Screen.MENU
+        self.running = True
+        self.screen = Screen.MENU
         self._mouse = (-1, -1)
-        self._note = ""
-        self._config = config or GameConfig()
+        self.note = ""
+        self.config = config or GameConfig()
         # Never shown until a match starts; it saves a None check everywhere
-        self._match = Match(self._config)
+        self.match = Match(self.config)
         self._last = None
         self._passed = frozenset()
         self._last_ms = 0
@@ -226,7 +226,7 @@ class GoGUI:
         """
         Runs the one event loop until the window closes or Quit is clicked.
         """
-        while self._running:
+        while self.running:
             self.frame()
 
     def frame(self) -> None:
@@ -248,7 +248,7 @@ class GoGUI:
             event: The event to act on
         """
         if event.type == pygame.QUIT:
-            self._running = False
+            self.running = False
         elif event.type == pygame.MOUSEMOTION:
             self._mouse = event.pos
         elif event.type == pygame.WINDOWLEAVE:
@@ -256,9 +256,9 @@ class GoGUI:
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self._click(event.pos)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            if self._screen is Screen.PLAYING:
+            if self.screen is Screen.PLAYING:
                 self._leave()
-            elif self._screen is not Screen.MENU:
+            elif self.screen is not Screen.MENU:
                 self._go(Screen.MENU)
 
     def _click(self, pos: tuple[int, int]) -> None:
@@ -268,33 +268,33 @@ class GoGUI:
         Args:
             pos: Where the click was
         """
-        for button in self._buttons():
+        for button in self.buttons():
             if button.rect.collidepoint(pos):
                 button.action()
                 return
-        point = point_at(pos, BOARD, self._match.config.size)
-        if self._screen is Screen.PLAYING and point is not None:
+        point = point_at(pos, BOARD, self.match.config.size)
+        if self.screen is Screen.PLAYING and point is not None:
             self._play(point)
 
     def _bot_turn(self) -> None:
         """
         Makes a bot's move once it has waited BOT_DELAY_MS, between frames.
         """
-        if self._screen is Screen.PLAYING and \
-           self._match.state is MatchState.BOT_TURN and \
+        if self.screen is Screen.PLAYING and \
+           self.match.state is MatchState.BOT_TURN and \
            pygame.time.get_ticks() - self._last_ms >= BOT_DELAY_MS:
-            player = self._match.game.turn
-            self._record(player, self._match.step())
+            player = self.match.game.turn
+            self._record(player, self.match.step())
 
-    def _hover(self) -> tuple[int, int] | None:
+    def hover(self) -> tuple[int, int] | None:
         """
         Returns the point a person would play by clicking where the mouse
         is: a legal point on their turn, otherwise None
         """
-        point = point_at(self._mouse, BOARD, self._match.config.size)
-        if self._screen is Screen.PLAYING and point is not None and \
-           self._match.state is MatchState.HUMAN_TURN and \
-           self._match.game.legal_move(point):
+        point = point_at(self._mouse, BOARD, self.match.config.size)
+        if self.screen is Screen.PLAYING and point is not None and \
+           self.match.state is MatchState.HUMAN_TURN and \
+           self.match.game.legal_move(point):
             return point
         return None
 
@@ -309,14 +309,14 @@ class GoGUI:
         Args:
             screen: The screen to show
         """
-        self._screen = screen
-        self._note = ""
+        self.screen = screen
+        self.note = ""
 
     def _quit(self) -> None:
         """
         Ends the event loop.
         """
-        self._running = False
+        self.running = False
 
     def _setup(self, config: GameConfig) -> None:
         """
@@ -325,7 +325,7 @@ class GoGUI:
         Args:
             config: The settings it starts from
         """
-        self._config = config
+        self.config = config
         self._go(Screen.SETUP)
 
     def _set(self, **changes: Any) -> None:
@@ -337,10 +337,10 @@ class GoGUI:
             changes: The settings to change, by GameConfig field name
         """
         try:
-            self._config = replace(self._config, **changes)
-            self._note = ""
+            self.config = replace(self.config, **changes)
+            self.note = ""
         except ValueError as err:
-            self._note = str(err).capitalize() + "."
+            self.note = str(err).capitalize() + "."
 
     def _seats(self, count: int) -> None:
         """
@@ -349,7 +349,7 @@ class GoGUI:
         Args:
             count: The number of players wanted
         """
-        seats = self._config.seats
+        seats = self.config.seats
         self._set(seats=seats[:count] + ("smart",) * (count - len(seats)))
 
     def _seat(self, index: int, kind: str) -> None:
@@ -360,7 +360,7 @@ class GoGUI:
             index: The seat, from 0
             kind: human, random or smart
         """
-        seats = self._config.seats
+        seats = self.config.seats
         self._set(seats=seats[:index] + (kind,) + seats[index + 1:])
 
     def _start(self, config: GameConfig) -> None:
@@ -370,8 +370,8 @@ class GoGUI:
         Args:
             config: The settings of the match
         """
-        self._config = config
-        self._match = Match(config)
+        self.config = config
+        self.match = Match(config)
         self._last = None
         self._passed = frozenset()
         self._last_ms = pygame.time.get_ticks()
@@ -384,18 +384,18 @@ class GoGUI:
         Args:
             pos: The point to play, or None to pass
         """
-        game = self._match.game
-        if self._match.state is not MatchState.HUMAN_TURN:
-            self._note = (f"Wait: {PLAYER_NAMES[game.turn - 1]} is a bot "
+        game = self.match.game
+        if self.match.state is not MatchState.HUMAN_TURN:
+            self.note = (f"Wait: {PLAYER_NAMES[game.turn - 1]} is a bot "
                           "and moves by itself.")
         elif pos is not None and game.piece_at(pos) is not None:
-            self._note = "That point already has a stone."
+            self.note = "That point already has a stone."
         elif pos is not None and not game.legal_move(pos):
-            self._note = ("Not allowed: a stone there would be captured "
+            self.note = ("Not allowed: a stone there would be captured "
                           "at once, or break the ko rule.")
         else:
             player = game.turn
-            self._match.play(pos)
+            self.match.play(pos)
             self._record(player, pos)
 
     def _record(self, player: int, pos: tuple[int, int] | None) -> None:
@@ -412,40 +412,40 @@ class GoGUI:
         else:
             self._passed = frozenset()
             self._last = pos
-        self._note = ""
+        self.note = ""
         self._last_ms = pygame.time.get_ticks()
-        if self._match.state is MatchState.FINISHED:
-            self._screen = Screen.GAME_OVER
+        if self.match.state is MatchState.FINISHED:
+            self.screen = Screen.GAME_OVER
 
     def _leave(self) -> None:
         """
         Leaves the match. It ends with no winner.
         """
-        self._match.abort()
+        self.match.abort()
         self._go(Screen.GAME_OVER)
 
-    def _buttons(self) -> list[Button]:
+    def buttons(self) -> list[Button]:
         """
         Returns the buttons of the current screen
         """
-        if self._screen is Screen.MENU:
+        if self.screen is Screen.MENU:
             return [Button(pygame.Rect(620, 300, 200, 54), "Play",
                            partial(self._setup, GameConfig()), "primary"),
                     Button(pygame.Rect(620, 370, 200, 54), "Watch bots",
                            partial(self._setup, WATCH)),
                     Button(pygame.Rect(620, 440, 200, 54), "Quit",
                            self._quit)]
-        if self._screen is Screen.SETUP:
+        if self.screen is Screen.SETUP:
             return self._setup_buttons()
-        if self._screen is Screen.PLAYING:
-            human = self._match.state is MatchState.HUMAN_TURN
+        if self.screen is Screen.PLAYING:
+            human = self.match.state is MatchState.HUMAN_TURN
             return [Button(pygame.Rect(RIGHT, 196, PANEL, 56), "Pass",
                            partial(self._play, None),
                            "primary" if human else "off"),
                     Button(pygame.Rect(RIGHT, 332, PANEL, 48),
                            "Leave match (Esc)", self._leave)]
         return [Button(pygame.Rect(RIGHT, 230, PANEL, 56), "Play again",
-                       partial(self._start, self._match.config), "primary"),
+                       partial(self._start, self.match.config), "primary"),
                 Button(pygame.Rect(RIGHT, 298, PANEL, 48), "Menu",
                        partial(self._go, Screen.MENU))]
 
@@ -453,7 +453,7 @@ class GoGUI:
         """
         Returns the buttons of the setup screen
         """
-        config = self._config
+        config = self.config
 
         def chosen(on: bool) -> str:
             return "chosen" if on else "plain"
@@ -499,13 +499,13 @@ class GoGUI:
         Draws the current screen.
         """
         self._surface.fill(BACKDROP)
-        if self._screen is Screen.MENU:
+        if self.screen is Screen.MENU:
             self._draw_menu()
-        elif self._screen is Screen.SETUP:
+        elif self.screen is Screen.SETUP:
             self._draw_setup()
         else:
             self._draw_match()
-        for button in self._buttons():
+        for button in self.buttons():
             self._draw_button(button)
 
     def _text(self, text: str, size: int, pos: tuple[float, float],
@@ -618,7 +618,7 @@ class GoGUI:
         self._text("The board game Go for 2 to 4 players. Play people or "
                    "bots, or watch the bots play each other.", 22,
                    (620, 214), MUTED, width=520)
-        for button, hint in zip(self._buttons(), MENU_HINTS, strict=True):
+        for button, hint in zip(self.buttons(), MENU_HINTS, strict=True):
             self._text(hint, 16, (button.rect.right + 20,
                                   button.rect.centery), MUTED,
                        anchor="midleft", width=330)
@@ -630,7 +630,7 @@ class GoGUI:
         Draws the setup screen: what each choice means, and any message
         from GameConfig.
         """
-        config = self._config
+        config = self.config
         if "human" in config.seats:
             title, intro = "New game", ("The defaults are ready: press "
                                         "Start game, or change anything "
@@ -670,8 +670,8 @@ class GoGUI:
                        anchor="midleft")
         self._text(SEAT_HELP, 16, (640, 280 + len(config.seats) * 54),
                    MUTED, width=496)
-        if self._note:
-            self._text(self._note, 18, (64, 624), ERROR, bold=True,
+        if self.note:
+            self._text(self.note, 18, (64, 624), ERROR, bold=True,
                        anchor="midleft")
 
     def _draw_match(self) -> None:
@@ -679,8 +679,8 @@ class GoGUI:
         Draws a match being played or just finished: the board, the
         players and their scores, then the turn or the result.
         """
-        game = self._match.game
-        size = self._match.config.size
+        game = self.match.game
+        size = self.match.config.size
         radius = BOARD.width / size * 0.47
         self._draw_board(BOARD, size)
         for r, row in enumerate(game.grid):
@@ -694,7 +694,7 @@ class GoGUI:
             pygame.draw.aacircle(self._surface, mark,
                                  center(BOARD, size, self._last),
                                  radius * 0.42, max(2, round(radius / 8)))
-        hover = self._hover()
+        hover = self.hover()
         if hover is not None:
             ghost = pygame.Surface((2 * radius + 2, 2 * radius + 2),
                                    pygame.SRCALPHA)
@@ -703,7 +703,7 @@ class GoGUI:
             self._surface.blit(ghost, ghost.get_rect(
                 center=center(BOARD, size, hover)))
         self._draw_players()
-        if self._screen is Screen.PLAYING:
+        if self.screen is Screen.PLAYING:
             self._draw_turn()
         else:
             self._draw_result()
@@ -714,9 +714,9 @@ class GoGUI:
         a status line. The player to move is outlined; at the end, the
         winners are.
         """
-        game = self._match.game
-        config = self._match.config
-        result = self._match.result
+        game = self.match.game
+        config = self.match.config
+        result = self.match.result
         scores = game.scores()
         self._text("Players", 16, (LEFT, 22), MUTED, bold=True)
         for i, seat in enumerate(config.seats):
@@ -749,8 +749,8 @@ class GoGUI:
         ko = "superko" if config.superko else "simple ko"
         self._text(f"{config.size} × {config.size} board, {ko}", 16,
                    (LEFT, y), MUTED)
-        self._text(f"Move {self._match.moves} of at most "
-                   f"{self._match.move_limit}", 16, (LEFT, y + 24), MUTED)
+        self._text(f"Move {self.match.moves} of at most "
+                   f"{self.match.move_limit}", 16, (LEFT, y + 24), MUTED)
         self._text("Score: your stones plus the empty points that only "
                    "your stones surround.", 14, (LEFT, HEIGHT - 24), MUTED,
                    anchor="bottomleft", width=PANEL)
@@ -760,14 +760,14 @@ class GoGUI:
         Draws whose turn it is and what to do, or why a click did nothing,
         on the right.
         """
-        player = self._match.game.turn
-        seat = self._match.config.seats[player - 1]
+        player = self.match.game.turn
+        seat = self.match.config.seats[player - 1]
         self._card(pygame.Rect(RIGHT, 24, PANEL, 156))
         self._draw_stone((RIGHT + 34, 64), 18, player, on_wood=False)
         self._text(f"{PLAYER_NAMES[player - 1]} to play", 22,
                    (RIGHT + 62, 64), bold=True, anchor="midleft")
-        if self._note:
-            doing, color = self._note, ERROR
+        if self.note:
+            doing, color = self.note, ERROR
         elif seat == "human":
             doing, color = "Click a point on the board to place a stone.", \
                 MUTED
@@ -787,9 +787,9 @@ class GoGUI:
         """
         Draws who won and why the match ended, on the right.
         """
-        result = self._match.result
+        result = self.match.result
         assert result is not None
-        headline, why = summary(result, self._match.moves)
+        headline, why = summary(result, self.match.moves)
         self._card(pygame.Rect(RIGHT, 24, PANEL, 190))
         x = RIGHT + 16
         if len(result.winners) == 1:
