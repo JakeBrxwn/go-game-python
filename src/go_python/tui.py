@@ -166,7 +166,7 @@ def _print_result(result: MatchResult) -> None:
     print("Scores: " + ", ".join(f"{PLAYER_NAMES[player - 1]} {score}"
                                  for player, score in result.scores.items()))
 
-def play_match(config: GameConfig) -> None:
+def _play_match(config: GameConfig) -> None:
     """
     Plays one match to its end, printing the board before every turn and
     each move as it is made. Quit, Ctrl+C or Ctrl+D ends it with no winner.
@@ -277,10 +277,10 @@ def run(config: GameConfig | None = None) -> None:
     """
     try:
         if config is not None:
-            play_match(config)
+            _play_match(config)
             return
         while (choice := _menu()) != "quit":
-            play_match(_setup(("smart", "random") if choice == "watch"
-                              else ("human", "smart")))
+            _play_match(_setup(("smart", "random") if choice == "watch"
+                               else ("human", "smart")))
     except (EOFError, KeyboardInterrupt):
         print()
