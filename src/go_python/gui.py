@@ -110,6 +110,7 @@ class Drawn(NamedTuple):
     kind: str  # "text", "box" (a panel, button or board) or "stone"
     rect: pygame.Rect
     text: str = ""  # the words of a text, the player of a stone
+    color: tuple[int, int, int] | None = None  # the colour of a text
 
 #
 # Pure helpers
@@ -684,7 +685,7 @@ class GoGUI:
                                            font.get_sized_ascender(size)),
                            line, color)
         if text:
-            self._log.append(Drawn("text", rect, text))
+            self._log.append(Drawn("text", rect, text, color))
         return rect
 
     def _card(self, rect: pygame.Rect, edge: tuple[int, int, int] = EDGE,

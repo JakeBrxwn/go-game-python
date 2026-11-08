@@ -210,6 +210,20 @@ def texts(window: GoGUI) -> list[str]:
     """
     return [d.text for d in window.draw() if d.kind == "text"]
 
+def colours(window: GoGUI, *words: str) -> list[Color | None]:
+    """
+    Draws once and reads the colour of some texts.
+
+    Args:
+        window: The window
+        words: Each text's exact words
+
+    Returns: The colour of each text, in the order asked; of two texts with
+    the same words, the later one's
+    """
+    drawn = {d.text: d.color for d in window.draw() if d.kind == "text"}
+    return [drawn[text] for text in words]
+
 def box_around(window: GoGUI, words: str) -> pygame.Rect:
     """
     Draws once and finds the box that holds a text.
@@ -1132,6 +1146,32 @@ def test_the_result_shows_the_winners_stone() -> None:
     assert {"By 81 points. Every player passed after 4 moves.",
             "Play again keeps the same board and players."} <= \
         set(texts(window))
+
+def test_every_kind_of_text_has_its_colour() -> None:
+    """Check headlines, names, scores and plain button labels are in ink,
+    explanations, seats, details and passes muted, a winner gold, and the
+    labels of dark and gold buttons white, on every screen"""
+    ink, muted, white = gui.INK, gui.MUTED, gui.CARD
+    window = GoGUI()
+    assert colours(window, "Go Python", gui.MENU_HINTS[0], "Play",
+                   "Watch bots") == [ink, muted, white, ink]
+    press(window, "Play")
+    assert colours(window, "New game", gui.SEAT_HELP, "Black", "Simple ko",
+                   "Superko", "Start game") == [ink, muted, ink, white, ink,
+                                                white]
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    press(window, "Pass")
+    details = (f"9 × 9 board · simple ko · 1 of at most "
+               f"{window.match.move_limit} moves played")
+    assert colours(window, "White to play", "Passed", "To play", "Human",
+                   "0", "Area", details, "Pass", "Leave match (Esc)") == [
+        ink, muted, ink, muted, ink, muted, muted, white, ink]
+    click(window, spot(window, (4, 4)))
+    press(window, "Pass")
+    press(window, "Pass")
+    assert colours(window, "White wins", "By 81 points. Every player passed "
+                   "after 4 moves.", "Winner", "81", "Play again",
+                   "Menu") == [ink, ink, gui.GOLD, ink, white, ink]
 
 def test_stones_on_the_board_cast_a_shadow() -> None:
     """Check a stone played on the board has its shadow on the wood"""
