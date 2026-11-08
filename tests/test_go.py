@@ -1369,3 +1369,17 @@ def test_simple_ko_allows_a_board_from_three_moves_back(
     go.load_game(1, parse_board(rows))
     play(go, actions)
     assert go.legal_move(point) != superko
+
+def test_long_group_lives_on_its_one_far_liberty() -> None:
+    """
+    Check that a group of eight stones whose only liberty is at its far end
+    survives a stone against its near end, and is captured once that liberty
+    is filled
+    """
+    go = Go(9, 2)
+    go.load_game(2, parse_board(["11111111.", ".22222222"] + ["........."] * 7))
+    go.apply_move((1, 0))
+    assert [go.piece_at((0, c)) for c in range(8)] == [1] * 8
+    go.pass_turn()
+    go.apply_move((0, 8))
+    assert [go.piece_at((0, c)) for c in range(8)] == [None] * 8
