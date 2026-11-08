@@ -155,13 +155,12 @@ class Smart:
         """
         grid = game.grid
         chains = _chains(grid)
-        values = {}
-        for pos in ((r, c) for r in range(game.side)
-                    for c in range(game.side) if grid[r][c] is None):
-            value = _value(game, grid, chains, pos)
-            if value is not None:
-                values[pos] = value
-        # Ko is the only rule the ratings do not check
+        values = {pos: value for pos in ((r, c) for r in range(game.side)
+                                         for c in range(game.side)
+                                         if grid[r][c] is None)
+                  if (value := _value(game, grid, chains, pos)) is not None}
+        # The ratings rule out suicide and simple ko; legal_move adds superko
+        # and a finished game
         return next((pos for pos in sorted(values, key=values.__getitem__,
                                            reverse=True)
                      if not is_own_eye(game, pos) and game.legal_move(pos)),
