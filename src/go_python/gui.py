@@ -71,8 +71,9 @@ MENU_HINTS = ("Set up a game against people, bots or both.",
               "Close the window.")
 HOW_TO_PLAY = ("Take turns placing a stone where two lines cross. Stones "
                "with no empty point next to them are captured. Your score "
-               "is your stones plus the empty points only you surround. "
-               "When every player passes in a row, the most points wins.")
+               "is your area: your stones plus the empty points only you "
+               "surround. When every player passes in a row, the most "
+               "area wins.")
 LEAVE_ASK = ("Press Esc or Leave match again to leave. Anything else "
              "keeps the match going.")
 SEAT_HELP = ("Black moves first. Human: you click the board to play. "
