@@ -742,20 +742,21 @@ def double_click(window: GoGUI, pos: tuple[float, float], frames: int,
                  clock: list[int]) -> None:
     """
     Double-clicks the way a person does: press and release, then again
-    33 ms per frame later, the time at 30 frames a second. The clock first
-    moves on a second, so no earlier press is part of it.
+    33 ms per frame later, the time at 30 frames a second, with the hand
+    drifting 3 px right and 2 px down. The clock first moves on a second,
+    so no earlier press is part of it.
 
     Args:
         window: The window
-        pos: Where to click
+        pos: Where to click first
         frames: How many frames run between the two clicks
         clock: The fake time in ms, moved on in place
     """
-    x, y = round(pos[0]), round(pos[1])
     clock[0] += 1000
-    for _ in range(2):
-        post(pygame.MOUSEBUTTONDOWN, pos=(x, y), button=1)
-        post(pygame.MOUSEBUTTONUP, pos=(x, y), button=1)
+    for drift in (0, 1):
+        at = (round(pos[0]) + 3 * drift, round(pos[1]) + 2 * drift)
+        post(pygame.MOUSEBUTTONDOWN, pos=at, button=1)
+        post(pygame.MOUSEBUTTONUP, pos=at, button=1)
         window.frame()
         for _ in range(frames):
             clock[0] += 33
@@ -802,10 +803,59 @@ def test_regression_a_double_click_plays_once(
     assert texts(window).count("Passed") == 1
     assert box_around(window, "Passed") == box_around(window, "White")
 
+@pytest.mark.parametrize("frames", [0, 3])
+def test_regression_a_double_click_on_leave_keeps_the_question(
+        frames: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the second click of a double-click on Leave match does not
+    confirm it: it used to leave before the question could be read"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    double_click(window, button(window, "Leave match (Esc)").center, frames,
+                 clock)
+    assert window.screen is Screen.PLAYING
+    assert gui.LEAVE_ASK in texts(window)
+    clock[0] += 1000
+    press(window, "Leave match (Esc)")
+    assert window.screen is Screen.GAME_OVER
+
+def test_a_quick_click_elsewhere_counts(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a click 300 ms after the match starts plays, and so does
+    White's 300 ms after Black's move: only a press near the one before is
+    the second half of a double-click"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    for point in [(4, 4), (2, 2)]:
+        clock[0] += 300
+        click(window, spot(window, point))
+    game = window.match.game
+    assert game.piece_at((4, 4)) == 1 and game.piece_at((2, 2)) == 2
+
+def test_quick_clicks_on_the_size_steps_all_count(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check three clicks 100 ms apart on + step the size three times, and
+    so do three on −: a second click there means again, not a
+    double-click"""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    window = GoGUI()
+    press(window, "Play")
+    clock[0] += 1000
+    for label, size in [("+", 22), ("−", 19)]:
+        for _ in range(3):
+            clock[0] += 100
+            press(window, label)
+        assert window.config.size == size
+
 def test_a_quick_reply_to_a_bot_counts(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check a click 100 ms after a bot's move plays: only a person's own
-    move starts the double-click pause"""
+    """Check a click 100 ms after a bot's move plays: a bot's move is no
+    click, so nothing after it is half a double-click"""
     clock = [10 ** 6]
     monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
     monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)

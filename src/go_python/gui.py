@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from enum import Enum, auto
 from functools import partial
+from math import dist
 from typing import Any, NamedTuple
 
 from go_python import __version__
@@ -25,9 +26,10 @@ WIDTH, HEIGHT = 1200, 675
 FPS = 30
 # Pause before each bot move so a person can follow the game; tests set 0
 BOT_DELAY_MS = 600
-# A press this soon after the screen changed or a person moved is the
+# A press this soon after the last press taken, and this near it, is the
 # second half of a double-click, so it is ignored; tests set 0
 DOUBLE_CLICK_MS = 500
+DOUBLE_CLICK_PX = 5
 
 # The board keeps its original look: off-white backdrop, wood, black lines
 BACKDROP = (249, 241, 241)
@@ -98,6 +100,8 @@ class Button:
     label: str
     action: Callable[[], None] = field(compare=False)
     style: str = field(default="plain", compare=False)
+    # True where a quick second click means again, as on the size steps
+    repeats: bool = field(default=False, compare=False)
 
 class Drawn(NamedTuple):
     """
@@ -220,7 +224,8 @@ class GoGUI:
     _log: list[Drawn]
     _mouse: tuple[int, int]
     _down: Button | tuple[int, int] | None
-    _acted_ms: int
+    _pressed: tuple[int, int]
+    _pressed_ms: int
     _inputs: int
     _asked: int
     _last: tuple[int, int] | None
@@ -251,7 +256,9 @@ class GoGUI:
         self.screen = Screen.MENU
         self._mouse = (-1, -1)
         self._down = None
-        self._acted_ms = 0
+        # No press taken yet: as if one long ago, off the window
+        self._pressed = (-100, -100)
+        self._pressed_ms = 0
         self._inputs = 0
         self._asked = -2
         self.note = ""
@@ -301,10 +308,8 @@ class GoGUI:
         elif event.type == pygame.WINDOWLEAVE:
             self._mouse = (-1, -1)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            soon = pygame.time.get_ticks() - self._acted_ms < DOUBLE_CLICK_MS
-            self._down = None if soon else self._target(event.pos)
+            self._press(event.pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            self._inputs += 1
             # A button acts only if pressed and released on it; the board
             # plays where the mouse is let go, as its preview shows
             down, self._down = self._down, None
@@ -321,6 +326,28 @@ class GoGUI:
                 self._leave()
             elif self.screen is not Screen.MENU:
                 self._go(Screen.MENU)
+
+    def _press(self, pos: tuple[int, int]) -> None:
+        """
+        Takes a press of the left button, for its release to act on. A
+        press within DOUBLE_CLICK_MS and DOUBLE_CLICK_PX of the last one
+        taken is the second half of a double-click: the first half may have
+        changed what is under the mouse, so it is ignored, except on a
+        button that repeats.
+
+        Args:
+            pos: Where the mouse was pressed
+        """
+        target = self._target(pos)
+        now = pygame.time.get_ticks()
+        if now - self._pressed_ms < DOUBLE_CLICK_MS and \
+           dist(pos, self._pressed) <= DOUBLE_CLICK_PX and \
+           not (isinstance(target, Button) and target.repeats):
+            self._down = None
+            return
+        self._pressed, self._pressed_ms = pos, now
+        self._inputs += 1
+        self._down = target
 
     def _target(self, pos: tuple[int, int]) -> Button | tuple[int, int] | None:
         """
@@ -384,15 +411,13 @@ class GoGUI:
 
     def _go(self, screen: Screen) -> None:
         """
-        Shows another screen and clears the last message. Presses in the
-        next DOUBLE_CLICK_MS are ignored.
+        Shows another screen and clears the last message.
 
         Args:
             screen: The screen to show
         """
         self.screen = screen
         self.note = ""
-        self._acted_ms = pygame.time.get_ticks()
 
     def _quit(self) -> None:
         """
@@ -463,9 +488,7 @@ class GoGUI:
 
     def _play(self, pos: tuple[int, int] | None) -> None:
         """
-        Makes a person's move, or says why it cannot be made. Presses in the
-        next DOUBLE_CLICK_MS after a move are ignored. A bot's move starts
-        no such pause, so a quick reply to it still counts.
+        Makes a person's move, or says why it cannot be made.
 
         Args:
             pos: The point to play, or None to pass
@@ -484,7 +507,6 @@ class GoGUI:
         else:
             player = game.turn
             self.match.play(pos)
-            self._acted_ms = pygame.time.get_ticks()
             self._record(player, pos)
 
     def _record(self, player: int, pos: tuple[int, int] | None) -> None:
@@ -508,7 +530,7 @@ class GoGUI:
 
     def _leave(self) -> None:
         """
-        Asks to confirm leaving the match; leaves if the key press or click
+        Asks to confirm leaving the match; leaves if the key or mouse press
         just before this one asked too. A match left ends with no winner.
         """
         if self._asked == self._inputs - 1:
@@ -566,9 +588,11 @@ class GoGUI:
             return "chosen" if on else "plain"
 
         buttons = [Button(pygame.Rect(456, 80, 44, 44), "−",
-                          partial(self._set, size=config.size - 1)),
+                          partial(self._set, size=config.size - 1),
+                          repeats=True),
                    Button(pygame.Rect(622, 80, 44, 44), "+",
-                          partial(self._set, size=config.size + 1))]
+                          partial(self._set, size=config.size + 1),
+                          repeats=True)]
         for i, size in enumerate((9, 13, 19)):
             buttons.append(Button(pygame.Rect(690 + i * 120, 80, 112, 44),
                                   f"{size} × {size}",
