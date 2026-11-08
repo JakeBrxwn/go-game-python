@@ -262,6 +262,8 @@ class GoGUI:
         self._pressed_ms = 0
         self._inputs = 0
         self._asked = -2
+        # Why the last click did nothing; kept until the next key or press
+        # taken, or another screen, so a dropped press is never silent
         self.note = ""
         self.config = config or GameConfig()
         # Never shown until a match starts; it saves a None check everywhere
@@ -320,6 +322,7 @@ class GoGUI:
             elif isinstance(target, tuple) and isinstance(down, tuple):
                 self._play(target)
         elif event.type == pygame.KEYDOWN:
+            self.note = ""
             self._inputs += 1
             if event.key != pygame.K_ESCAPE:
                 return
@@ -334,8 +337,8 @@ class GoGUI:
         press within DOUBLE_CLICK_MS and DOUBLE_CLICK_PX of the last one
         taken is the second half of a double-click: the first half may have
         changed what is under the mouse, so it is ignored, except on a
-        button that repeats. A press that cannot move for a person is
-        answered at once instead.
+        button that repeats, and leaves the last note up. A press taken
+        clears it; one that cannot move for a person is answered at once.
 
         Args:
             pos: Where the mouse was pressed
@@ -347,6 +350,7 @@ class GoGUI:
            not (isinstance(target, Button) and target.repeats):
             return
         self._pressed, self._pressed_ms = pos, now
+        self.note = ""
         self._inputs += 1
         if self.match.state is not MatchState.HUMAN_TURN and (
                 isinstance(target, tuple) or
@@ -453,7 +457,6 @@ class GoGUI:
         """
         try:
             self.config = replace(self.config, **changes)
-            self.note = ""
         except ValueError as err:
             self.note = str(err).capitalize() + "."
 
@@ -531,7 +534,6 @@ class GoGUI:
         else:
             self._passed = frozenset()
             self._last = pos
-        self.note = ""
         self._last_ms = pygame.time.get_ticks()
         if self.match.state is MatchState.FINISHED:
             self._go(Screen.GAME_OVER)

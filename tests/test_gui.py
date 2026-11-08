@@ -597,13 +597,17 @@ def test_play_never_opens_a_match_of_bots() -> None:
     assert window.config == used and "New game" in texts(window)
 
 def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
-    """Check Watch bots seats only bots, who then play a whole match"""
+    """Check Watch bots seats only bots, who then play a whole match; a
+    click on their board is answered, and the answer is gone from the
+    result"""
     random.seed(3)
     window = GoGUI()
     press(window, "Watch bots")
     assert "human" not in window.config.seats
     press(window, "Start watching")
     assert window.match.state is MatchState.BOT_TURN
+    click(window, spot(window, (4, 4)))
+    assert window.note
     for _ in range(1000):
         if window.screen is Screen.GAME_OVER:
             break
@@ -611,6 +615,7 @@ def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     result = window.match.result
     assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason in (EndReason.PASSES, EndReason.MOVE_LIMIT)
+    assert window.note == ""
 
 def test_setup_changes_every_setting() -> None:
     """Check size, ko rule, player count and seats all reach the match"""
@@ -1386,18 +1391,48 @@ def test_bots_keep_their_pace(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_clicks_on_a_bots_turn_say_why_nothing_happens(
         act: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a click on the board or on Pass during a bot's turn is
-    explained, and the bot's move clears the explanation"""
+    explained, and the explanation stays after the bot's move until the
+    next key or press"""
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
     if act == "board":
         click(window, spot(window, (4, 4)))
     else:
         press(window, "Pass")
-    assert window.match.moves == 0
-    assert window.note == "Wait: Black is a bot and moves by itself."
+    wait = "Wait: Black is a bot and moves by itself."
+    assert window.match.moves == 0 and window.note == wait
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
-    assert window.match.moves == 1 and window.note == ""
+    assert window.match.moves == 1 and window.note == wait
+    key(window, pygame.K_a)
+    assert window.note == ""
+
+def test_regression_a_click_dropped_after_a_wait_is_not_silent(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the Wait note outlasts the bot's move, so a second click on
+    the same point 50 ms after that move, inside the double-click window
+    and so dropped, still shows why nothing happened; the next click taken
+    plays and clears it. The dropped click used to leave no word at all."""
+    clock = [10 ** 6]
+    monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
+    monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 600)
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: (0, 0))
+    window = GoGUI(GameConfig(9, False, ("random", "human")))
+    wait = "Wait: Black is a bot and moves by itself."
+    point = spot(window, (4, 4))
+    clock[0] += 200
+    click(window, point)
+    assert window.match.moves == 0 and window.note == wait
+    clock[0] += 400
+    window.frame()
+    assert window.match.moves == 1 and window.note == wait
+    clock[0] += 50
+    click(window, point)
+    assert window.match.moves == 1 and window.note == wait
+    clock[0] += 1000
+    click(window, point)
+    assert window.match.game.piece_at((4, 4)) == 2 and window.note == ""
 
 @pytest.mark.parametrize("act", ["board", "Pass"])
 def test_regression_a_press_held_over_a_bots_move_does_nothing(
@@ -1416,7 +1451,7 @@ def test_regression_a_press_held_over_a_bots_move_does_nothing(
     assert window.note == "Wait: Black is a bot and moves by itself."
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
-    assert window.match.moves == 1 and window.note == ""
+    assert window.match.moves == 1
     post(pygame.MOUSEBUTTONUP, pos=pos, button=1)
     window.frame()
     assert window.match.moves == 1 and window.match.game.turn == 2
