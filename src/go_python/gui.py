@@ -37,20 +37,22 @@ INK = (43, 36, 36)
 MUTED = (118, 104, 104)
 CARD = (255, 255, 255)
 EDGE = (226, 212, 212)
+# Button borders and the gold fill both keep 3:1 or more against white
+LINE = (150, 136, 136)
+GOLD = (150, 100, 20)
 TINT = (255, 246, 228)
-CHOSEN = (246, 226, 186)
-GOLD = (186, 130, 20)
 ERROR = (176, 28, 28)
 # Fill, edge and label colour of each button style
-STYLES = {"plain": (CARD, EDGE, INK), "primary": (INK, INK, CARD),
-          "chosen": (CHOSEN, GOLD, INK), "off": (EDGE, EDGE, MUTED)}
-FONT = "notosans,opensans,dejavusans,liberationsans,arial"
+STYLES = {"plain": (CARD, LINE, INK), "primary": (INK, INK, CARD),
+          "chosen": (GOLD, GOLD, CARD), "off": (EDGE, EDGE, MUTED)}
 
 # Where the grid goes; the wood reaches PAD further out on every side
-BOARD = pygame.Rect(298, 36, 603, 603)
-PAD = 12
-LEFT, RIGHT, PANEL = 24, 938, 238
+BOARD = pygame.Rect(36, 36, 603, 603)
+PREVIEW = pygame.Rect(72, 150, 312, 312)
 HERO = pygame.Rect(108, 130, 416, 416)
+PAD = 12
+# The sidebar beside the board while a match is on
+SIDE, SIDE_W = 680, 496
 HERO_STONES = (((2, 2), 1), ((2, 6), 2), ((6, 2), 3), ((6, 6), 4),
                ((3, 2), 1), ((2, 3), 1), ((4, 4), 1), ((3, 6), 2),
                ((2, 5), 2), ((4, 5), 2), ((5, 2), 3), ((6, 3), 3),
@@ -66,8 +68,9 @@ HOW_TO_PLAY = ("Take turns placing a stone where two lines cross. Stones "
                "with no empty point next to them are captured. Your score "
                "is your stones plus the empty points only you surround. "
                "When every player passes in a row, the most points wins.")
-SEAT_HELP = ("Human: you click the board to play. Random bot: plays any "
-             "legal move. Smart bot: looks for the move that gains most.")
+SEAT_HELP = ("Black moves first. Human: you click the board to play. "
+             "Random bot: plays any legal move. Smart bot: looks for the "
+             "move that gains most.")
 
 class Screen(Enum):
     """
@@ -95,7 +98,7 @@ class Button:
 def point_at(mouse: tuple[int, int], board: pygame.Rect,
              size: int) -> tuple[int, int] | None:
     """
-    Finds the board point under the mouse. This is the whole of hover.
+    Finds the board point under the mouse.
 
     Args:
         mouse: Position of the mouse in the window
@@ -146,6 +149,17 @@ def star_points(size: int) -> list[tuple[int, int]]:
             points += [(near, mid), (mid, near), (mid, far), (far, mid)]
     return points
 
+def points(count: int) -> str:
+    """
+    Words for a number of points.
+
+    Args:
+        count: The number of points
+
+    Returns: The number followed by point or points
+    """
+    return f"{count} point{'s' * (count != 1)}"
+
 def summary(result: MatchResult, moves: int) -> tuple[str, str]:
     """
     Words for how a match ended.
@@ -154,18 +168,19 @@ def summary(result: MatchResult, moves: int) -> tuple[str, str]:
         result: How the match finished
         moves: Number of moves and passes made
 
-    Returns: A headline naming the winner(s), and a line saying why the
-    match ended
+    Returns: A short headline, and a line naming the winners and saying why
+    the match ended
     """
     names = [PLAYER_NAMES[player - 1] for player in result.winners]
     why = f"{result.reason.value.capitalize()} after {moves} moves."
     if result.reason is EndReason.ABORTED:
         return "Match left", why + " No winner."
     if len(names) > 1:
-        return ", ".join(names[:-1]) + f" and {names[-1]} tie", why
+        tied = ", ".join(names[:-1]) + f" and {names[-1]}"
+        return "It's a tie", f"{tied} share the top score. {why}"
     best, second = sorted(result.scores.values(), reverse=True)[:2]
     margin = best - second
-    return f"{names[0]} wins", f"By {margin} point{'s' * (margin != 1)}. {why}"
+    return f"{names[0]} wins", f"By {points(margin)}. {why}"
 
 #
 # The window
@@ -174,17 +189,18 @@ def summary(result: MatchResult, moves: int) -> tuple[str, str]:
 class GoGUI:
     """
     The window. The constructor only sets it up; loop() runs it, and tests
-    can drive it one frame at a time instead.
+    can drive it one frame at a time instead. The public attributes are for
+    reading; only the window's own actions change them.
     """
-    _surface: pygame.Surface
-    _clock: pygame.time.Clock
-    _fonts: dict[tuple[int, bool], pygame.font.Font]
-    running: bool
     screen: Screen
     config: GameConfig
     match: Match
-    _mouse: tuple[int, int]
     note: str
+    running: bool
+    _surface: pygame.Surface
+    _clock: pygame.time.Clock
+    _fonts: dict[int, pygame.font.Font]
+    _mouse: tuple[int, int]
     _last: tuple[int, int] | None
     _passed: frozenset[int]
     _last_ms: int
@@ -192,7 +208,8 @@ class GoGUI:
     def __init__(self, config: GameConfig | None = None) -> None:
         """
         Constructor. Opens the window without sound, so a missing audio
-        device never matters.
+        device never matters, and with pygame's own font, so it looks the
+        same on every machine.
 
         Args:
             config: The match to start at once, or None to open the menu
@@ -202,9 +219,8 @@ class GoGUI:
         pygame.display.set_caption("Go Python")
         self._surface = pygame.display.set_mode((WIDTH, HEIGHT))
         self._clock = pygame.time.Clock()
-        self._fonts = {(size, bold): pygame.font.SysFont(FONT, size, bold)
-                       for size in (14, 16, 18, 22, 28, 40, 64)
-                       for bold in (False, True)}
+        self._fonts = {size: pygame.font.Font(None, size)
+                       for size in (22, 26, 30, 36, 56, 96)}
         self.running = True
         self.screen = Screen.MENU
         self._mouse = (-1, -1)
@@ -387,12 +403,12 @@ class GoGUI:
         game = self.match.game
         if self.match.state is not MatchState.HUMAN_TURN:
             self.note = (f"Wait: {PLAYER_NAMES[game.turn - 1]} is a bot "
-                          "and moves by itself.")
+                         "and moves by itself.")
         elif pos is not None and game.piece_at(pos) is not None:
             self.note = "That point already has a stone."
         elif pos is not None and not game.legal_move(pos):
-            self.note = ("Not allowed: a stone there would be captured "
-                          "at once, or break the ko rule.")
+            self.note = ("Not allowed: a stone there would be captured at "
+                         "once, or break the ko rule.")
         else:
             player = game.turn
             self.match.play(pos)
@@ -429,25 +445,24 @@ class GoGUI:
         Returns the buttons of the current screen
         """
         if self.screen is Screen.MENU:
-            return [Button(pygame.Rect(620, 300, 200, 54), "Play",
+            return [Button(pygame.Rect(604, 300, 200, 54), "Play",
                            partial(self._setup, GameConfig()), "primary"),
-                    Button(pygame.Rect(620, 370, 200, 54), "Watch bots",
+                    Button(pygame.Rect(604, 370, 200, 54), "Watch bots",
                            partial(self._setup, WATCH)),
-                    Button(pygame.Rect(620, 440, 200, 54), "Quit",
+                    Button(pygame.Rect(604, 440, 200, 54), "Quit",
                            self._quit)]
         if self.screen is Screen.SETUP:
             return self._setup_buttons()
+        left = pygame.Rect(SIDE, 595, 240, 56)
+        right = pygame.Rect(SIDE + 248, 595, SIDE_W - 248, 56)
         if self.screen is Screen.PLAYING:
             human = self.match.state is MatchState.HUMAN_TURN
-            return [Button(pygame.Rect(RIGHT, 196, PANEL, 56), "Pass",
-                           partial(self._play, None),
+            return [Button(left, "Pass", partial(self._play, None),
                            "primary" if human else "off"),
-                    Button(pygame.Rect(RIGHT, 332, PANEL, 48),
-                           "Leave match (Esc)", self._leave)]
-        return [Button(pygame.Rect(RIGHT, 230, PANEL, 56), "Play again",
+                    Button(right, "Leave match (Esc)", self._leave)]
+        return [Button(left, "Play again",
                        partial(self._start, self.match.config), "primary"),
-                Button(pygame.Rect(RIGHT, 298, PANEL, 48), "Menu",
-                       partial(self._go, Screen.MENU))]
+                Button(right, "Menu", partial(self._go, Screen.MENU))]
 
     def _setup_buttons(self) -> list[Button]:
         """
@@ -458,36 +473,36 @@ class GoGUI:
         def chosen(on: bool) -> str:
             return "chosen" if on else "plain"
 
-        buttons = [Button(pygame.Rect(64, 204, 44, 44), "−",
+        buttons = [Button(pygame.Rect(456, 80, 44, 44), "−",
                           partial(self._set, size=config.size - 1)),
-                   Button(pygame.Rect(226, 204, 44, 44), "+",
+                   Button(pygame.Rect(622, 80, 44, 44), "+",
                           partial(self._set, size=config.size + 1))]
         for i, size in enumerate((9, 13, 19)):
-            buttons.append(Button(pygame.Rect(294 + i * 92, 204, 84, 44),
+            buttons.append(Button(pygame.Rect(690 + i * 120, 80, 112, 44),
                                   f"{size} × {size}",
                                   partial(self._set, size=size),
                                   chosen(config.size == size)))
         for i, (label, superko) in enumerate((("Simple ko", False),
                                                ("Superko", True))):
-            buttons.append(Button(pygame.Rect(64 + i * 168, 316, 160, 44),
+            buttons.append(Button(pygame.Rect(456 + i * 178, 234, 170, 44),
                                   label, partial(self._set, superko=superko),
                                   chosen(config.superko == superko)))
         for count in range(2, len(PLAYER_NAMES) + 1):
             buttons.append(Button(
-                pygame.Rect(640 + (count - 2) * 112, 204, 104, 44),
+                pygame.Rect(600 + (count - 2) * 176, 294, 168, 44),
                 f"{count} players", partial(self._seats, count),
                 chosen(len(config.seats) == count)))
         for i, seat in enumerate(config.seats):
             for j, kind in enumerate(SEAT_KINDS):
                 buttons.append(Button(
-                    pygame.Rect(752 + j * 128, 272 + i * 54, 122, 42),
+                    pygame.Rect(600 + j * 176, 390 + i * 48, 168, 40),
                     SEAT_LABELS[kind], partial(self._seat, i, kind),
                     chosen(seat == kind)))
         start = "Start game" if "human" in config.seats else "Start watching"
         return buttons + [
-            Button(pygame.Rect(812, 597, 120, 54), "Back",
+            Button(pygame.Rect(836, 597, 130, 54), "Back",
                    partial(self._go, Screen.MENU)),
-            Button(pygame.Rect(944, 597, 192, 54), start,
+            Button(pygame.Rect(978, 597, 174, 54), start,
                    partial(self._start, config), "primary")]
 
     #
@@ -509,8 +524,8 @@ class GoGUI:
             self._draw_button(button)
 
     def _text(self, text: str, size: int, pos: tuple[float, float],
-              color: tuple[int, int, int] = INK, bold: bool = False,
-              anchor: str = "topleft", width: int = 0) -> pygame.Rect:
+              color: tuple[int, int, int] = INK, anchor: str = "topleft",
+              width: int = 0) -> pygame.Rect:
         """
         Draws text.
 
@@ -519,14 +534,12 @@ class GoGUI:
             size: Font size
             pos: Where the anchor point of the text goes
             color: Text colour
-            bold: True for bold
             anchor: Which point of the text sits at pos, as a Rect name
             width: Width to wrap at, or 0 for one line
 
         Returns: Where the text was drawn
         """
-        image = self._fonts[size, bold].render(text, True, color,
-                                               wraplength=width)
+        image = self._fonts[size].render(text, True, color, wraplength=width)
         rect = image.get_rect(**{anchor: pos})
         self._surface.blit(image, rect)
         return rect
@@ -559,14 +572,14 @@ class GoGUI:
         pygame.draw.rect(self._surface, shade, button.rect, border_radius=10)
         pygame.draw.rect(self._surface, edge, button.rect, 2,
                          border_radius=10)
-        self._text(button.label, 18, button.rect.center, ink, True, "center")
+        self._text(button.label, 30, button.rect.center, ink, "center")
 
     def _draw_board(self, rect: pygame.Rect, size: int) -> None:
         """
         Draws an empty wooden board with its lines and marked points.
 
         Args:
-            rect: Where it goes
+            rect: Where the grid goes
             size: Number of points on each side
         """
         spacing = rect.width / size
@@ -614,21 +627,21 @@ class GoGUI:
         for point, player in HERO_STONES:
             self._draw_stone(center(HERO, 9, point), HERO.width / 9 * 0.47,
                              player)
-        self._text("Go Python", 64, (616, 128), bold=True)
+        self._text("Go Python", 96, (600, 136))
         self._text("The board game Go for 2 to 4 players. Play people or "
-                   "bots, or watch the bots play each other.", 22,
-                   (620, 214), MUTED, width=520)
+                   "bots, or watch the bots play each other.", 30,
+                   (604, 214), MUTED, width=540)
         for button, hint in zip(self.buttons(), MENU_HINTS, strict=True):
-            self._text(hint, 16, (button.rect.right + 20,
+            self._text(hint, 26, (button.rect.right + 20,
                                   button.rect.centery), MUTED,
-                       anchor="midleft", width=330)
-        self._text(f"Version {__version__}", 14, (WIDTH - 24, HEIGHT - 20),
-                   MUTED, anchor="bottomright")
+                       "midleft", 330)
+        self._text(f"Version {__version__}", 22, (WIDTH - 24, HEIGHT - 20),
+                   MUTED, "bottomright")
 
     def _draw_setup(self) -> None:
         """
-        Draws the setup screen: what each choice means, and any message
-        from GameConfig.
+        Draws the setup screen: a preview of the board, what each choice
+        means, and GameConfig's message under the control that caused it.
         """
         config = self.config
         if "human" in config.seats:
@@ -638,61 +651,59 @@ class GoGUI:
         else:
             title, intro = "Watch bots", ("Every seat is a bot. Press Start "
                                           "watching, then sit back.")
-        self._text(title, 40, (64, 30), bold=True)
-        self._text(intro, 18, (66, 88), MUTED)
+        self._text(title, 56, (48, 24))
+        self._text(intro, 26, (48, 76), MUTED, width=360)
+        self._draw_board(PREVIEW, config.size)
 
-        self._text("Board size", 22, (64, 140), bold=True)
-        self._text("Lines on each side. 9 × 9 is quick; 19 × 19 "
-                   "is the classic board.", 16, (64, 172), MUTED)
-        box = pygame.Rect(114, 204, 106, 44)
-        self._card(box)
-        self._text(f"{config.size} × {config.size}", 18, box.center,
-                   bold=True, anchor="center")
-
-        self._text("Ko rule", 22, (64, 284), bold=True)
-        self._text("Simple ko: no move may bring back the board as it was "
-                   "one move ago. Superko: no move may bring back any "
-                   "earlier board.", 16, (64, 372), MUTED, width=500)
-
-        card = pygame.Rect(64, 436, 500, 148)
+        card = pygame.Rect(48, 494, 360, 157)
         self._card(card)
-        self._text("New to Go?", 18, (card.x + 16, card.y + 12), bold=True)
-        self._text(HOW_TO_PLAY, 16, (card.x + 16, card.y + 40), MUTED,
+        self._text("New to Go?", 30, (card.x + 16, card.y + 14))
+        self._text(HOW_TO_PLAY, 22, (card.x + 16, card.y + 40), MUTED,
                    width=card.width - 32)
 
-        self._text("Players", 22, (640, 140), bold=True)
-        self._text("How many play, and who sits in each seat. Black moves "
-                   "first.", 16, (640, 172), MUTED)
+        self._text("Board size", 36, (456, 24))
+        self._text("Lines on each side. 9 × 9 is quick; 19 × 19 "
+                   "is the classic board.", 22, (456, 56), MUTED)
+        box = pygame.Rect(506, 80, 110, 44)
+        self._card(box, LINE, 2)
+        self._text(f"{config.size} × {config.size}", 30, box.center,
+                   anchor="center")
+        # Only the size can be refused; every other control offers valid
+        # choices only
+        self._text(self.note, 22, (456, 132), ERROR)
+
+        self._text("Ko rule", 36, (456, 160))
+        self._text("Simple ko: no move may bring back the board as it was "
+                   "one move ago. Superko: no move may bring back any "
+                   "earlier board.", 22, (456, 192), MUTED, width=696)
+
+        self._text("Players", 36, (456, 302))
+        self._text(SEAT_HELP, 22, (456, 346), MUTED, width=696)
         for i in range(len(config.seats)):
-            y = 272 + i * 54 + 21
-            self._draw_stone((656, y), 14, i + 1, on_wood=False)
-            self._text(PLAYER_NAMES[i], 18, (680, y), bold=True,
-                       anchor="midleft")
-        self._text(SEAT_HELP, 16, (640, 280 + len(config.seats) * 54),
-                   MUTED, width=496)
-        if self.note:
-            self._text(self.note, 18, (64, 624), ERROR, bold=True,
-                       anchor="midleft")
+            y = 390 + i * 48 + 20
+            self._draw_stone((470, y), 13, i + 1, on_wood=False)
+            self._text(PLAYER_NAMES[i], 30, (492, y), anchor="midleft")
 
     def _draw_match(self) -> None:
         """
-        Draws a match being played or just finished: the board, the
-        players and their scores, then the turn or the result.
+        Draws a match being played or just finished: the board on the left,
+        then the sidebar with the turn or the result, the players and their
+        scores, and what the buttons below do.
         """
         game = self.match.game
-        size = self.match.config.size
-        radius = BOARD.width / size * 0.47
-        self._draw_board(BOARD, size)
+        config = self.match.config
+        radius = BOARD.width / config.size * 0.47
+        self._draw_board(BOARD, config.size)
         for r, row in enumerate(game.grid):
             for c, player in enumerate(row):
                 if player is not None:
-                    self._draw_stone(center(BOARD, size, (r, c)), radius,
-                                     player)
+                    self._draw_stone(center(BOARD, config.size, (r, c)),
+                                     radius, player)
         if self._last is not None:
             # A dark ring on White's stone, a light ring on the others
             mark = GRID if game.piece_at(self._last) == 2 else CARD
             pygame.draw.aacircle(self._surface, mark,
-                                 center(BOARD, size, self._last),
+                                 center(BOARD, config.size, self._last),
                                  radius * 0.42, max(2, round(radius / 8)))
         hover = self.hover()
         if hover is not None:
@@ -701,27 +712,65 @@ class GoGUI:
             pygame.draw.aacircle(ghost, (*STONES[game.turn - 1], 140),
                                  (radius + 1, radius + 1), radius)
             self._surface.blit(ghost, ghost.get_rect(
-                center=center(BOARD, size, hover)))
+                center=center(BOARD, config.size, hover)))
+
+        self._draw_status()
         self._draw_players()
+        # The details follow straight after the last player's row
+        y = 182 + len(config.seats) * 64
+        ko = "superko" if config.superko else "simple ko"
+        self._text(f"{config.size} × {config.size} board · {ko} "
+                   f"· move {self.match.moves} of at most "
+                   f"{self.match.move_limit}", 22, (SIDE, y), MUTED)
+        self._text("Points: your stones plus the empty points only your "
+                   "stones surround.", 22, (SIDE, y + 24), MUTED,
+                   width=SIDE_W)
         if self.screen is Screen.PLAYING:
-            self._draw_turn()
+            caption = ("Pass skips your turn. When every player passes in "
+                       "a row, the game ends and the most points wins.")
         else:
-            self._draw_result()
+            caption = "Play again keeps the same board and players."
+        self._text(caption, 22, (SIDE, 585), MUTED, "bottomleft", SIDE_W)
+
+    def _draw_status(self) -> None:
+        """
+        Draws the top of the sidebar: whose turn it is and what to do, or
+        why a click did nothing; at the end, who won and why.
+        """
+        result = self.match.result
+        player: int | None
+        if result is None:
+            player = self.match.game.turn
+            seat = self.match.config.seats[player - 1]
+            headline = f"{PLAYER_NAMES[player - 1]} to play"
+            line = self.note or (
+                "Click a point on the board to place a stone."
+                if seat == "human" else
+                f"{SEAT_LABELS[seat]} is choosing a move…")
+            color = ERROR if self.note else MUTED
+        else:
+            headline, line = summary(result, self.match.moves)
+            color = INK
+            player = result.winners[0] if len(result.winners) == 1 else None
+        self._card(pygame.Rect(SIDE, 24, SIDE_W, 136))
+        x = SIDE + 20
+        if player is not None:
+            self._draw_stone((SIDE + 42, 66), 22, player, on_wood=False)
+            x = SIDE + 76
+        self._text(headline, 56, (x, 66), anchor="midleft")
+        self._text(line, 26, (SIDE + 20, 104), color, width=SIDE_W - 40)
 
     def _draw_players(self) -> None:
         """
-        Draws a card per player on the left: stone, name, seat, score and
-        a status line. The player to move is outlined; at the end, the
-        winners are.
+        Draws a row per player: stone, name, seat, status and score. The
+        player to move is outlined; at the end, the winners are, in gold.
         """
         game = self.match.game
-        config = self.match.config
         result = self.match.result
         scores = game.scores()
-        self._text("Players", 16, (LEFT, 22), MUTED, bold=True)
-        for i, seat in enumerate(config.seats):
+        for i, seat in enumerate(self.match.config.seats):
             player = i + 1
-            rect = pygame.Rect(LEFT, 50 + i * 98, PANEL, 88)
+            rect = pygame.Rect(SIDE, 172 + i * 64, SIDE_W, 56)
             status, color = "", INK
             if result is not None and player in result.winners:
                 self._card(rect, GOLD, 3, TINT)
@@ -733,77 +782,14 @@ class GoGUI:
                 self._card(rect)
                 if result is None and player in self._passed:
                     status, color = "Passed", MUTED
-            self._draw_stone((rect.x + 32, rect.centery), 17, player,
-                             on_wood=False)
-            self._text(PLAYER_NAMES[i], 22, (rect.x + 60, rect.y + 8),
-                       bold=True)
-            self._text(SEAT_LABELS[seat], 16, (rect.x + 60, rect.y + 38),
-                       MUTED)
-            self._text(status, 14, (rect.x + 60, rect.y + 62), color, True)
-            self._text(str(scores[player]), 28,
-                       (rect.right - 16, rect.y + 8), bold=True,
-                       anchor="topright")
-            self._text("points", 14, (rect.right - 16, rect.y + 48), MUTED,
-                       anchor="topright")
-        y = 50 + len(config.seats) * 98 + 4
-        ko = "superko" if config.superko else "simple ko"
-        self._text(f"{config.size} × {config.size} board, {ko}", 16,
-                   (LEFT, y), MUTED)
-        self._text(f"Move {self.match.moves} of at most "
-                   f"{self.match.move_limit}", 16, (LEFT, y + 24), MUTED)
-        self._text("Score: your stones plus the empty points that only "
-                   "your stones surround.", 14, (LEFT, HEIGHT - 24), MUTED,
-                   anchor="bottomleft", width=PANEL)
-
-    def _draw_turn(self) -> None:
-        """
-        Draws whose turn it is and what to do, or why a click did nothing,
-        on the right.
-        """
-        player = self.match.game.turn
-        seat = self.match.config.seats[player - 1]
-        self._card(pygame.Rect(RIGHT, 24, PANEL, 156))
-        self._draw_stone((RIGHT + 34, 64), 18, player, on_wood=False)
-        self._text(f"{PLAYER_NAMES[player - 1]} to play", 22,
-                   (RIGHT + 62, 64), bold=True, anchor="midleft")
-        if self.note:
-            doing, color = self.note, ERROR
-        elif seat == "human":
-            doing, color = "Click a point on the board to place a stone.", \
-                MUTED
-        else:
-            doing, color = f"{SEAT_LABELS[seat]} is choosing a move…", MUTED
-        self._text(doing, 16, (RIGHT + 16, 98), color, color == ERROR,
-                   width=PANEL - 32)
-        self._text("Skip your turn. When every player passes in a row, the "
-                   "game ends and the most points wins.", 14,
-                   (RIGHT, 260), MUTED, width=PANEL)
-        self._text("The faint stone shows where yours will go. The ring "
-                   "marks the last stone played.", 14,
-                   (RIGHT, HEIGHT - 24), MUTED, anchor="bottomleft",
-                   width=PANEL)
-
-    def _draw_result(self) -> None:
-        """
-        Draws who won and why the match ended, on the right.
-        """
-        result = self.match.result
-        assert result is not None
-        headline, why = summary(result, self.match.moves)
-        self._card(pygame.Rect(RIGHT, 24, PANEL, 190))
-        x = RIGHT + 16
-        if len(result.winners) == 1:
-            self._draw_stone((RIGHT + 34, 64), 18, result.winners[0],
-                             on_wood=False)
-            x = RIGHT + 62
-        rect = self._text(headline, 28, (x, 44), bold=True,
-                          width=RIGHT + PANEL - 16 - x)
-        self._text("Game over", 14, (RIGHT + 16, rect.bottom + 14), MUTED,
-                   bold=True)
-        self._text(why, 16, (RIGHT + 16, rect.bottom + 36), INK,
-                   width=PANEL - 32)
-        self._text("Play again keeps the same board and players.", 14,
-                   (RIGHT, 358), MUTED, width=PANEL)
+            y = rect.centery
+            self._draw_stone((rect.x + 30, y), 15, player, on_wood=False)
+            self._text(PLAYER_NAMES[i], 30, (rect.x + 56, y), anchor="midleft")
+            self._text(SEAT_LABELS[seat], 22, (rect.x + 136, y), MUTED,
+                       "midleft")
+            self._text(status, 22, (rect.x + 256, y), color, "midleft")
+            self._text(points(scores[player]), 30, (rect.right - 16, y),
+                       anchor="midright")
 
 def run(config: GameConfig | None = None) -> None:
     """
