@@ -32,8 +32,7 @@ def get_move(go_game: Go) -> tuple[int, int] | None:
                 "[press Enter key to pass or type 'hint' for a hint]:\n> ")
         response = input(text.format(colors[go_game.turn][1].lower()))
         if response == "hint":
-            smart = Smart("smart-bot")
-            suggested_move = smart.move(go_game, go_game.turn)
+            suggested_move = Smart().move(go_game)
             if suggested_move is None:
                 print("Pass your turn")
             else:
