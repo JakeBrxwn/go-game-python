@@ -24,10 +24,11 @@ BOT_DELAY_S = 0.5
 # Column labels: Go boards skip I, and boards over 25 go on with two letters
 COLUMNS = (*"ABCDEFGHJKLMNOPQRSTUVWXYZ", "AA", "AB", "AC", "AD", "AE")
 
-# Each player's stone. A colour is reset to the terminal's own colour, never
-# to black, so the board stays readable on dark and light backgrounds.
-STONES = ("●", "○", Fore.RED + "●" + Fore.RESET,
-          Fore.LIGHTBLUE_EX + "●" + Fore.RESET)
+# Each player's stone: a shape of its own, so colour is only a help. A colour
+# resets to the terminal's own, never to black, so the board stays readable
+# on dark and light backgrounds.
+STONES = ("●", "○", Fore.RED + "◆" + Fore.RESET,
+          Fore.LIGHTBLUE_EX + "■" + Fore.RESET)
 
 def _label(pos: tuple[int, int], side: int) -> str:
     """
@@ -55,7 +56,8 @@ def _who(player: int) -> str:
 def board_text(game: Go) -> str:
     """
     Draws the board with column letters above and below it and row numbers
-    on both sides, row 1 at the bottom.
+    on both sides, row 1 at the bottom. A two-letter column label stands in
+    two rows, read top to bottom, so every size fits in 80 columns.
 
     Args:
         game: The game to draw
@@ -63,15 +65,13 @@ def board_text(game: Go) -> str:
     Returns: The board as lines of text
     """
     side = game.side
-    width = len(COLUMNS[side - 1])
-    letters = "   " + " ".join(label.ljust(width) for label in COLUMNS[:side])
-    lines = [letters]
-    for r, row in enumerate(game.grid):
-        points = (" " * width).join(STONES[piece - 1] if piece else "·"
-                                    for piece in row)
-        lines.append(f"{side - r:>2} {points} {side - r}")
-    lines.append(letters)
-    return "\n".join(lines)
+    labels = [label.rjust(2) for label in COLUMNS[:side]]
+    letters = ["   " + " ".join(label[i] for label in labels) for i in (0, 1)]
+    letters = [line for line in letters if line.strip()]
+    rows = [f"{side - r:>2} "
+            + " ".join(STONES[piece - 1] if piece else "·" for piece in row)
+            + f" {side - r}" for r, row in enumerate(game.grid)]
+    return "\n".join(letters + rows + letters)
 
 #
 # Commands
@@ -102,8 +102,8 @@ def parse_command(text: str, side: int) -> tuple[int, int] | Command | str:
     # At most three digits, so int() never meets a huge number
     found = re.fullmatch(r"([A-Z]+) ?([0-9]{1,3})", word)
     if found is None:
-        return ("Not a move: type a column letter and a row number, like D4, "
-                "or pass, hint or quit.")
+        return ("Not a move: type a column letter then a row number, like "
+                "D4.")
     letters, number = found.groups()
     if letters == "I":
         return "There is no column I: Go boards skip it, so J follows H."
@@ -142,9 +142,8 @@ def _ask_move(match: Match) -> tuple[int, int] | Command:
         elif game.piece_at(command) is not None:
             print(f"{_label(command, game.side)} already has a stone.")
         elif not game.legal_move(command):
-            print(f"{_label(command, game.side)} is not allowed: it would "
-                  "leave your stones with no liberty or repeat the board "
-                  "(ko).")
+            print(f"{_label(command, game.side)} is not allowed: your stones "
+                  "would have no liberty, or ko forbids it.")
         else:
             return command
 
@@ -155,7 +154,7 @@ def _print_result(result: MatchResult) -> None:
     Args:
         result: How the match finished
     """
-    names = [PLAYER_NAMES[player - 1] for player in result.winners]
+    names = [_who(player) for player in result.winners]
     print(f"Game over: {result.reason.value}.")
     if not names:
         print("No winner.")
@@ -163,7 +162,7 @@ def _print_result(result: MatchResult) -> None:
         print(f"{names[0]} wins.")
     else:
         print(f"Tie between {', '.join(names[:-1])} and {names[-1]}.")
-    print("Scores: " + ", ".join(f"{PLAYER_NAMES[player - 1]} {score}"
+    print("Scores: " + ", ".join(f"{_who(player)} {score}"
                                  for player, score in result.scores.items()))
 
 def _play_match(config: GameConfig) -> None:
@@ -175,6 +174,11 @@ def _play_match(config: GameConfig) -> None:
         config: The settings of the match
     """
     match = Match(config)
+    size = config.size
+    print(f"\nBoard {size}x{size}: columns A to {COLUMNS[size - 1]}, rows 1 "
+          f"to {size}. Ko rule: {'super' if config.superko else 'simple'}.")
+    print(", ".join(f"{_who(player)} {seat}"
+                    for player, seat in enumerate(config.seats, start=1)))
     if "human" not in config.seats:
         print("Press Ctrl+C to stop watching.")
     try:
@@ -191,7 +195,7 @@ def _play_match(config: GameConfig) -> None:
                 pos = command if isinstance(command, tuple) else None
                 match.play(pos)
             print(_who(player) + (" passes." if pos is None else
-                                  f" plays {_label(pos, config.size)}."))
+                                  f" plays {_label(pos, size)}."))
     except (KeyboardInterrupt, EOFError):
         print()
     match.abort()  # a finished match keeps its result
@@ -229,12 +233,36 @@ def _menu() -> str:
                 return choice
         print("Please type 1, 2 or 3.")
 
-def _setup(defaults: tuple[str, str]) -> GameConfig:
+def _ask_seat(name: str, default: str) -> str:
+    """
+    Asks who sits in one player's seat until GameConfig accepts the answer.
+
+    Args:
+        name: The player's name
+        default: The seat Enter gives. If it is "none", the player may stay
+        out.
+
+    Returns: "human", "random" or "smart", or "none" for no player
+    """
+    kinds = ("human, random, smart or none" if default == "none"
+             else "human, random or smart")
+    while True:
+        seat = _ask(f"{name} player: {kinds}", default)
+        if seat == default == "none":
+            return seat
+        try:
+            # Two of the seat, so GameConfig judges this one answer
+            return GameConfig(seats=(seat, seat)).seats[0]
+        except ValueError as err:
+            print(err)
+
+def _setup(size: str, defaults: tuple[str, str]) -> GameConfig:
     """
     Asks for the board size, the ko rule and a seat per player. GameConfig
     checks every answer; a refused answer is asked again with its message.
 
     Args:
+        size: The board size Enter gives
         defaults: The seats Enter gives Black and White. Red and Blue
         default to none, which ends the list of players.
 
@@ -242,7 +270,7 @@ def _setup(defaults: tuple[str, str]) -> GameConfig:
     """
     print("Press Enter to keep the answer in brackets.")
     while True:
-        answer = _ask("Board size, 6 to 30", "19")
+        answer = _ask("Board size, 6 to 30", size)
         try:
             # Text that is not a number becomes 0, which GameConfig refuses
             config = GameConfig(int(answer) if answer.isdecimal() else 0)
@@ -252,20 +280,14 @@ def _setup(defaults: tuple[str, str]) -> GameConfig:
     while (ko := _ask("Ko rule, simple or super", "simple")) not in (
             "simple", "super"):
         print("Please type simple or super.")
-    while True:
-        seats: list[str] = []
-        for name, default in zip(PLAYER_NAMES, defaults + ("none", "none"),
-                                 strict=True):
-            kinds = ("human, random, smart or none" if default == "none"
-                     else "human, random or smart")
-            seat = _ask(f"{name} player: {kinds}", default)
-            if seat == "none":
-                break
-            seats.append(seat)
-        try:
-            return GameConfig(config.size, ko == "super", tuple(seats))
-        except ValueError as err:
-            print(err)
+    seats: list[str] = []
+    for name, default in zip(PLAYER_NAMES, defaults + ("none", "none"),
+                             strict=True):
+        seat = _ask_seat(name, default)
+        if seat == "none":
+            break
+        seats.append(seat)
+    return GameConfig(config.size, ko == "super", tuple(seats))
 
 def run(config: GameConfig | None = None) -> None:
     """
@@ -280,7 +302,8 @@ def run(config: GameConfig | None = None) -> None:
             _play_match(config)
             return
         while (choice := _menu()) != "quit":
-            _play_match(_setup(("smart", "random") if choice == "watch"
-                               else ("human", "smart")))
+            # Watching starts small: a 19x19 bot game takes minutes
+            _play_match(_setup("9", ("smart", "random")) if choice == "watch"
+                        else _setup("19", ("human", "smart")))
     except (EOFError, KeyboardInterrupt):
         print()
