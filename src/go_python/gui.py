@@ -710,8 +710,9 @@ class GoGUI:
 
     def _draw_players(self) -> None:
         """
-        Draws a card per player on the left: stone, name, seat and score.
-        The player to move is outlined; at the end, the winners are.
+        Draws a card per player on the left: stone, name, seat, score and
+        a status line. The player to move is outlined; at the end, the
+        winners are.
         """
         game = self._match.game
         config = self._match.config
@@ -720,31 +721,31 @@ class GoGUI:
         self._text("Players", 16, (LEFT, 22), MUTED, bold=True)
         for i, seat in enumerate(config.seats):
             player = i + 1
-            rect = pygame.Rect(LEFT, 50 + i * 92, PANEL, 80)
-            label = SEAT_LABELS[seat]
+            rect = pygame.Rect(LEFT, 50 + i * 98, PANEL, 88)
+            status, color = "", INK
             if result is not None and player in result.winners:
                 self._card(rect, GOLD, 3, TINT)
-                label, color = "Winner", GOLD
+                status, color = "Winner", GOLD
             elif result is None and game.turn == player:
                 self._card(rect, INK, 3, TINT)
-                label, color = label + " · to play", INK
+                status = "To play"
             else:
                 self._card(rect)
-                color = MUTED
                 if result is None and player in self._passed:
-                    label += " · passed"
+                    status, color = "Passed", MUTED
             self._draw_stone((rect.x + 32, rect.centery), 17, player,
                              on_wood=False)
-            self._text(PLAYER_NAMES[i], 22, (rect.x + 60, rect.y + 12),
+            self._text(PLAYER_NAMES[i], 22, (rect.x + 60, rect.y + 8),
                        bold=True)
-            self._text(label, 16, (rect.x + 60, rect.y + 46), color,
-                       bold=color != MUTED)
+            self._text(SEAT_LABELS[seat], 16, (rect.x + 60, rect.y + 38),
+                       MUTED)
+            self._text(status, 14, (rect.x + 60, rect.y + 62), color, True)
             self._text(str(scores[player]), 28,
                        (rect.right - 16, rect.y + 8), bold=True,
                        anchor="topright")
-            self._text("points", 14, (rect.right - 16, rect.y + 50), MUTED,
+            self._text("points", 14, (rect.right - 16, rect.y + 48), MUTED,
                        anchor="topright")
-        y = 50 + len(config.seats) * 92 + 6
+        y = 50 + len(config.seats) * 98 + 4
         ko = "superko" if config.superko else "simple ko"
         self._text(f"{config.size} × {config.size} board, {ko}", 16,
                    (LEFT, y), MUTED)
