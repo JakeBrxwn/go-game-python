@@ -458,13 +458,15 @@ def test_passes_with_stones_on_board_end_game() -> None:
     go.pass_turn()
     assert go.done
 
-def test_move_between_passes_keeps_game_going() -> None:
+@pytest.mark.parametrize("players", [2, 3, 4])
+def test_move_between_passes_keeps_game_going(players: int) -> None:
     """Check that passes only count when no move separates them"""
-    go = Go(19, 2)
+    go = Go(19, players)
     apply_moves(go, [(5, 5), (6, 6), (7, 7)])
     go.pass_turn()
     go.apply_move((8, 8))
-    go.pass_turn()
+    for _ in range(players - 1):
+        go.pass_turn()
     assert not go.done
 
 def test_scores_empty_board() -> None:
@@ -757,30 +759,35 @@ def test_regression_load_game_copies_the_grid() -> None:
     grid[4][4] = 2
     assert go.piece_at((4, 4)) is None
 
-def test_regression_load_game_restarts_a_finished_game() -> None:
+@pytest.mark.parametrize("players", [2, 3, 4])
+def test_regression_load_game_restarts_a_finished_game(players: int) -> None:
     """Check that loading clears the end of the last game"""
-    go = Go(9, 2)
-    go.pass_turn()
-    go.pass_turn()
+    go = Go(9, players)
+    for _ in range(players):
+        go.pass_turn()
     go.load_game(2, board_with(9, {}))
     assert not go.done
     assert go.turn == 2
     assert go.legal_move((4, 4))
 
-def test_regression_load_game_forgets_passes() -> None:
-    """Check that a pass before loading does not count afterwards"""
-    go = Go(9, 2)
-    go.pass_turn()
-    go.load_game(2, board_with(9, {}))
+@pytest.mark.parametrize("players", [2, 3, 4])
+def test_regression_load_game_forgets_passes(players: int) -> None:
+    """Check that passes before loading do not count afterwards"""
+    go = Go(9, players)
+    for _ in range(players - 1):
+        go.pass_turn()
+    go.load_game(players, board_with(9, {}))
     go.pass_turn()
     assert not go.done
 
-def test_load_game_forgets_ko() -> None:
+@pytest.mark.parametrize("players", [2, 3, 4])
+def test_load_game_forgets_ko(players: int) -> None:
     """Check that loading wipes the history, as its docstring says"""
-    go = Go(9, 2)
-    apply_moves(go, KO_SHAPE)
+    go = Go(5, players)
+    go.load_game(1, parse_board(KO_FOR_PLAYERS_1_2))
+    go.apply_move((1, 2))
     go.load_game(go.turn, go.grid)
-    assert go.legal_move((2, 1))
+    assert go.legal_move((1, 1))
 
 def test_three_player_game_ends_after_three_passes() -> None:
     """Check that two passes are not enough with three players"""
@@ -1025,6 +1032,14 @@ def test_one_player_game_ends_on_one_pass() -> None:
     go.apply_move((0, 0))
     go.pass_turn()
     assert go.done
+    assert go.scores() == {1: 4}
+    assert go.outcome == [1]
+
+def test_one_player_cannot_fill_the_last_liberty() -> None:
+    """Check that suicide is illegal with one player too"""
+    go = Go(2, 1)
+    apply_moves(go, [(0, 0), (0, 1), (1, 0)])
+    assert not go.legal_move((1, 1))
 
 @pytest.mark.parametrize("pos", [(0.5, 0), (0, 0.5), (1.0, 0), (0, 1.0),
                                  (True, 0), (0, True)])
