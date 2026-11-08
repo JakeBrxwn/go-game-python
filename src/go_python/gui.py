@@ -812,6 +812,10 @@ class GoGUI:
                                    pygame.SRCALPHA)
             pygame.draw.aacircle(ghost, (*STONES[game.turn - 1], 140),
                                  (radius + 1, radius + 1), radius)
+            # A rim darker than a stone's keeps even White at 3:1 on the wood
+            rim = pygame.Color(STONES[game.turn - 1]).lerp(GRID, 0.7)
+            pygame.draw.aacircle(ghost, rim, (radius + 1, radius + 1), radius,
+                                 max(2, round(radius / 14)))
             self._surface.blit(ghost, ghost.get_rect(
                 center=center(BOARD, config.size, hover)))
 

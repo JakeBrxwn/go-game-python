@@ -685,6 +685,21 @@ def test_hover_shows_only_on_legal_points() -> None:
     move(window, (100, 100))
     assert window.hover() is None
 
+def test_every_preview_has_a_rim_at_three_to_one() -> None:
+    """Check the preview of each player's stone has an edge with 3:1
+    contrast against the wood, read down and right from its centre, clear
+    of the lines and the star point"""
+    window = GoGUI(GameConfig(9, False, ("human",) * 4))
+    radius = BOARD.width / 9 * 0.47
+    x, y = spot(window, (4, 4))
+    for player in range(4):
+        move(window, (x, y))
+        assert window.match.game.turn == player + 1
+        edge = [pixel((x + d * 0.7071, y + d * 0.7071))
+                for d in range(round(radius * 0.85), round(radius) + 1)]
+        assert max(contrast(p, gui.WOOD) for p in edge) >= 3, (player, edge)
+        press(window, "Pass")
+
 def test_mouse_leaving_the_window_clears_the_hover() -> None:
     """Check no preview stays behind once the mouse leaves the window"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
