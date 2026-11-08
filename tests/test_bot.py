@@ -183,6 +183,8 @@ def test_random_passes_when_only_a_ko_is_left() -> None:
     ([".112.", "122.2", ".112.", ".....", "....."], (1, 3)),
     # Saves a stone in atari
     ([".....", "..2..", ".212.", ".....", "....."], (3, 2)),
+    # Takes one stone though its stone keeps a single other liberty
+    (["12...", ".12..", ".....", ".....", "....."], (0, 2)),
     # Saves a chain whose only other liberty is its own eye
     (["1.1..", "1112.", "222..", ".....", "....."], (0, 3)),
 ])
@@ -208,11 +210,18 @@ def test_smart_does_not_fill_its_eye_to_save_a_stone() -> None:
     the stone in atari next to it"""
     assert Smart().move(load(["1.1.", "21..", "2...", "...."])) != (0, 1)
 
-def test_smart_does_not_put_itself_in_atari() -> None:
+@pytest.mark.parametrize("rows, legal", [
+    # A lone stone
+    (["..22", "2222", "2222", "2222"], (0, 1)),
+    # A stone that joins its own chain, which then has one liberty left
+    (["11.2", ".222", "2222", "2222"], (1, 0)),
+])
+def test_smart_does_not_put_itself_in_atari(rows: list[str],
+                                            legal: tuple[int, int]) -> None:
     """Check Smart passes rather than play a stone that could be captured
     at once, though the move is legal"""
-    go = load(["..22", "2222", "2222", "2222"])
-    assert go.legal_move((0, 1))
+    go = load(rows)
+    assert go.legal_move(legal)
     assert Smart().move(go) is None
 
 def test_smart_does_not_take_a_ko() -> None:

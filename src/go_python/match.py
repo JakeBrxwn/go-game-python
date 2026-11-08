@@ -8,6 +8,10 @@ from enum import Enum
 from go_python.bot import Random, Smart
 from go_python.go import Go
 
+#
+# Settings
+#
+
 # Names every frontend uses for the players, in turn order
 PLAYER_NAMES = ("Black", "White", "Red", "Blue")
 SEAT_KINDS = ("human", "random", "smart")
@@ -41,6 +45,10 @@ class GameConfig:
            any(seat not in SEAT_KINDS for seat in self.seats):
             raise ValueError("seats must be 2 to 4 of "
                              + ", ".join(SEAT_KINDS))
+
+#
+# One match
+#
 
 class MatchState(Enum):
     """
@@ -231,6 +239,10 @@ class Match:
             winners = tuple(player for player, score in scores.items()
                             if score == best)
         self._result = MatchResult(reason, winners, scores)
+
+#
+# Bot series
+#
 
 @dataclass(frozen=True)
 class SeriesResult:

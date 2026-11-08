@@ -205,6 +205,15 @@ def test_winner_has_the_most_area() -> None:
     assert match.result.winners == (1,)
     assert match.result.scores == {1: 81, 2: 0}
 
+def test_one_point_ahead_wins_alone() -> None:
+    """Check a one-point lead is a win, not a tie"""
+    match = Match(GameConfig(6, False, ("human", "human")))
+    for pos in [(0, 0), (5, 5), (0, 1), None, None]:
+        match.play(pos)
+    assert match.result is not None
+    assert match.result.scores == {1: 2, 2: 1}
+    assert match.result.winners == (1,)
+
 def test_move_limit_is_three_times_the_area() -> None:
     """Check the move limit follows the board size"""
     assert Match(GameConfig(6)).move_limit == 108

@@ -18,8 +18,9 @@ BOT_KINDS = [kind for kind in SEAT_KINDS if kind != "human"]
 # The options of the commands that start one match, outermost first
 MATCH_OPTIONS = [
     click.option('-s', '--size', type=click.INT, default=19,
-                 show_default=True, help="The size of the board."),
-    click.option('--ko', type=click.Choice(['simple', 'super']),
+                 show_default=True, help="The size of the board, 6 to 30."),
+    click.option('--ko',
+                 type=click.Choice(['simple', 'super'], case_sensitive=False),
                  default='simple', show_default=True, help="The ko rule."),
     click.option('--seats', default='human,smart', show_default=True,
                  help="One per player, in turn order, separated by commas: "
@@ -84,6 +85,9 @@ def main(ctx: click.Context) -> None:
     """
     Go Python: the board game Go, for humans and bots. With no command it
     opens the game window.
+    \f
+    Args:
+        ctx: Click's context, which names the command given, if any
     """
     if ctx.invoked_subcommand is None:
         # Imported here so the terminal commands never load pygame
@@ -95,6 +99,11 @@ def main(ctx: click.Context) -> None:
 def gui_match(size: int, ko: str, seats: str) -> None:
     """
     Starts one match in the window, skipping the menu. For testing.
+    \f
+    Args:
+        size: The size of the board
+        ko: "simple" or "super"
+        seats: Seats separated by commas
     """
     config = match_config(size, ko, seats)
     from go_python import gui
@@ -105,6 +114,11 @@ def gui_match(size: int, ko: str, seats: str) -> None:
 def tui_match(size: int, ko: str, seats: str) -> None:
     """
     Plays one match in the terminal, skipping the menu. For testing.
+    \f
+    Args:
+        size: The size of the board
+        ko: "simple" or "super"
+        seats: Seats separated by commas
     """
     tui.run(match_config(size, ko, seats))
 
@@ -112,7 +126,7 @@ def tui_match(size: int, ko: str, seats: str) -> None:
 @click.option('-n', '--num-games', type=click.IntRange(min=1), default=20,
               show_default=True, help="The number of games to play.")
 @click.option('-s', '--size', type=click.INT, default=6, show_default=True,
-              help="The size of the board.")
+              help="The size of the board, 6 to 30.")
 @click.option('-1', '--player1',
               type=click.Choice(BOT_KINDS, case_sensitive=False),
               default='random', show_default=True,

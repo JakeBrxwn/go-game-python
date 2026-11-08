@@ -133,6 +133,24 @@ def test_match_commands_pass_their_settings(monkeypatch: pytest.MonkeyPatch,
     assert runs == [(app, GameConfig(9, True, ("human", "random", "smart")))]
 
 @pytest.mark.parametrize("app", ["gui", "tui"])
+def test_match_commands_take_any_letter_case(monkeypatch: pytest.MonkeyPatch,
+                                             app: str) -> None:
+    """Check --ko takes capitals, as the bot and seat choices do"""
+    runs = remember_runs(monkeypatch)
+    result = CliRunner().invoke(main, [app, "--ko", "SUPER"])
+    assert result.exit_code == 0, result.output
+    assert runs == [(app, GameConfig(19, True, ("human", "smart")))]
+
+@pytest.mark.parametrize("command", [[], ["gui"], ["tui"], ["bots"]])
+def test_help_shows_the_size_range_and_no_args(command: list[str]) -> None:
+    """Check each help page gives the board sizes and hides the docstring's
+    Args block"""
+    result = CliRunner().invoke(main, [*command, "--help"])
+    assert result.exit_code == 0
+    assert "Args:" not in result.output
+    assert command == [] or "6 to 30" in result.output
+
+@pytest.mark.parametrize("app", ["gui", "tui"])
 def test_match_commands_default_to_a_person_against_smart(
         monkeypatch: pytest.MonkeyPatch, app: str) -> None:
     """Check the defaults of the test commands"""
