@@ -75,7 +75,8 @@ def escape(window: GoGUI) -> None:
     key(window, pygame.K_ESCAPE)
 
 def leave(window: GoGUI) -> None:
-    """Leaves the match with Esc"""
+    """Leaves the match: Esc, then Esc again to confirm"""
+    escape(window)
     escape(window)
 
 #
@@ -468,6 +469,7 @@ def test_regression_a_double_click_never_reaches_the_next_screen(
     assert window.screen is Screen.SETUP and window.config == GameConfig()
     double_click(window, "Start game", frames, clock)
     assert window.screen is Screen.PLAYING and window.match.moves == 0
+    assert gui.LEAVE_ASK not in texts(window)
     leave(window)
     double_click(window, "Play again", frames, clock)
     assert window.screen is Screen.PLAYING and window.match.moves == 0
@@ -484,7 +486,7 @@ def test_regression_a_drag_between_targets_does_nothing() -> None:
         post(pygame.MOUSEBUTTONUP, pos=end, button=1)
         window.frame()
     assert window.screen is Screen.PLAYING and window.match.moves == 0
-    assert window.note == ""
+    assert window.note == "" and gui.LEAVE_ASK not in texts(window)
 
 def test_one_press_makes_one_click() -> None:
     """Check a release with no press of its own, as when a press outside the
@@ -604,6 +606,7 @@ def test_pass_and_every_player_passing_end_the_game() -> None:
     assert window.screen is Screen.PLAYING and window.match.moves == 0
     assert window.match.config == GameConfig(9, False, ("human", "human"))
     press(window, "Leave match (Esc)")
+    press(window, "Leave match (Esc)")
     assert window.match.result is not None
     assert window.match.result.reason is EndReason.ABORTED
     assert "Match left" in assert_tidy(window)
@@ -620,18 +623,53 @@ def test_a_stone_clears_the_run_of_passes() -> None:
     assert "Passed" not in assert_tidy(window)
     assert window.screen is Screen.PLAYING
 
-def test_escape_leaves_the_match_through_abort() -> None:
-    """Check Esc leaves with no winner, and Esc on the result goes home"""
+def test_escape_leaves_the_match_through_abort_when_asked_twice() -> None:
+    """Check the first Esc asks, in red, and the second leaves with no
+    winner; Esc on the result then goes home"""
     window = GoGUI(GameConfig(9, False, ("human", "smart")))
     click(window, spot(window, (2, 2)))
     window.frame()
     assert window.match.moves == 2
+    card = box_around(window, "Black to play")
+    escape(window)
+    assert window.screen is Screen.PLAYING and window.match.result is None
+    assert gui.LEAVE_ASK in assert_tidy(window)
+    assert count(card, gui.ERROR) > 100
+    # The question takes two lines: the second is drawn below the first
+    ask = next(d.rect for d in window.draw() if d.text == gui.LEAVE_ASK)
+    second = pygame.Rect(ask.x, ask.centery, ask.width, ask.height // 2)
+    assert ask.height > 30 and count(second, gui.ERROR) > 50
     escape(window)
     result = window.match.result
     assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason is EndReason.ABORTED and result.winners == ()
     escape(window)
     assert window.screen is Screen.MENU
+
+def test_anything_else_keeps_the_match_going() -> None:
+    """Check a click or another key between two asks cancels leaving, and
+    the Leave button asks the same way as Esc"""
+    window = GoGUI(GameConfig(9, False, ("human", "human")))
+    escape(window)
+    click(window, spot(window, (4, 4)))
+    assert gui.LEAVE_ASK not in texts(window)
+    escape(window)
+    key(window, pygame.K_a)
+    escape(window)
+    assert window.screen is Screen.PLAYING
+    assert gui.LEAVE_ASK in texts(window)
+    press(window, "Leave match (Esc)")
+    assert window.screen is Screen.GAME_OVER
+
+def test_a_bot_move_keeps_the_question_to_leave() -> None:
+    """Check bots moving between the two asks does not cancel leaving"""
+    window = GoGUI(GameConfig(9, False, ("smart", "random")))
+    escape(window)
+    window.frame()
+    window.frame()
+    assert window.match.moves >= 2 and gui.LEAVE_ASK in texts(window)
+    escape(window)
+    assert window.screen is Screen.GAME_OVER
 
 def test_bots_wait_their_pause(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a bot waits BOT_DELAY_MS before it moves, with Pass dimmed"""
@@ -704,7 +742,8 @@ def test_menu_and_setup_layouts_are_tidy() -> None:
 
 @pytest.mark.parametrize("size", [6, 19, 30])
 def test_the_longest_message_fits_at_every_board_size(size: int) -> None:
-    """Check the not-allowed message fits beside a board of any size"""
+    """Check the not-allowed message and the question to leave fit beside a
+    board of any size"""
     window = GoGUI(GameConfig(size, False, ("human",) * 4))
     for point in [(5, 5), (0, 1), (4, 4), (3, 3), (2, 2), (1, 0)]:
         click(window, spot(window, point))
@@ -714,6 +753,8 @@ def test_the_longest_message_fits_at_every_board_size(size: int) -> None:
     assert window.note.startswith("Not allowed")
     found = assert_tidy(window)
     assert window.note in found and found.count("Passed") == 2
+    escape(window)
+    assert gui.LEAVE_ASK in assert_tidy(window)
 
 @pytest.mark.parametrize("players", [2, 3, 4])
 def test_a_tie_of_every_player_fits_with_the_longest_reason(
@@ -763,6 +804,8 @@ def test_drawing_changes_no_state() -> None:
     click(window, spot(window, (3, 3)))
     move(window, spot(window, (4, 4)))
     assert window.note and window.hover() == (4, 4)
+    assert draw_changes_nothing(window)
+    escape(window)
     assert draw_changes_nothing(window)
     escape(window)
     assert draw_changes_nothing(window)

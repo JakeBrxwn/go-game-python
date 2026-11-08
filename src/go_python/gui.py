@@ -71,6 +71,8 @@ HOW_TO_PLAY = ("Take turns placing a stone where two lines cross. Stones "
                "with no empty point next to them are captured. Your score "
                "is your stones plus the empty points only you surround. "
                "When every player passes in a row, the most points wins.")
+LEAVE_ASK = ("Press Esc or Leave match again to leave. Anything else "
+             "keeps the match going.")
 SEAT_HELP = ("Black moves first. Human: you click the board to play. "
              "Random bot: plays any legal move. Smart bot: looks for the "
              "move that gains most.")
@@ -215,6 +217,8 @@ class GoGUI:
     _mouse: tuple[int, int]
     _down: Button | tuple[int, int] | None
     _shown_ms: int
+    _inputs: int
+    _asked: int
     _last: tuple[int, int] | None
     _passed: frozenset[int]
     _last_ms: int
@@ -241,6 +245,8 @@ class GoGUI:
         self._mouse = (-1, -1)
         self._down = None
         self._shown_ms = 0
+        self._inputs = 0
+        self._asked = -2
         self.note = ""
         self.config = config or GameConfig()
         # Never shown until a match starts; it saves a None check everywhere
@@ -290,6 +296,7 @@ class GoGUI:
             soon = pygame.time.get_ticks() - self._shown_ms < DOUBLE_CLICK_MS
             self._down = None if soon else self._target(event.pos)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self._inputs += 1
             # A click counts only if pressed and released on one target
             target = self._target(event.pos)
             if target is not None and target == self._down:
@@ -298,7 +305,10 @@ class GoGUI:
                     target.action()
                 else:
                     self._play(target)
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        elif event.type == pygame.KEYDOWN:
+            self._inputs += 1
+            if event.key != pygame.K_ESCAPE:
+                return
             if self.screen is Screen.PLAYING:
                 self._leave()
             elif self.screen is not Screen.MENU:
@@ -466,10 +476,14 @@ class GoGUI:
 
     def _leave(self) -> None:
         """
-        Leaves the match. It ends with no winner.
+        Asks to confirm leaving the match; leaves if the key press or click
+        just before this one asked too. A match left ends with no winner.
         """
-        self.match.abort()
-        self._go(Screen.GAME_OVER)
+        if self._asked == self._inputs - 1:
+            self.match.abort()
+            self._go(Screen.GAME_OVER)
+        else:
+            self._asked = self._inputs
 
     def buttons(self) -> list[Button]:
         """
@@ -779,8 +793,9 @@ class GoGUI:
 
     def _draw_status(self) -> None:
         """
-        Draws the top of the sidebar: whose turn it is and what to do, or
-        why a click did nothing; at the end, who won and why.
+        Draws the top of the sidebar: whose turn it is and what to do, why
+        a click did nothing, or how to confirm leaving; at the end, who won
+        and why.
         """
         result = self.match.result
         player: int | None
@@ -788,11 +803,12 @@ class GoGUI:
             player = self.match.game.turn
             seat = self.match.config.seats[player - 1]
             headline = f"{PLAYER_NAMES[player - 1]} to play"
-            line = self.note or (
+            asking = self._asked == self._inputs
+            line = LEAVE_ASK if asking else self.note or (
                 "Click a point on the board to place a stone."
                 if seat == "human" else
                 f"{SEAT_LABELS[seat]} is choosing a move…")
-            color = ERROR if self.note else MUTED
+            color = ERROR if asking or self.note else MUTED
         else:
             headline, line = summary(result, self.match.moves)
             color = INK
