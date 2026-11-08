@@ -34,8 +34,9 @@ BACKDROP = (249, 241, 241)
 WOOD = (207, 185, 151)
 GRID = (0, 0, 0)
 SHADOW = (166, 144, 112)
-# Stone colours in turn order, named by PLAYER_NAMES
-STONES = ((0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 0, 255))
+# Stone colours in turn order, named by PLAYER_NAMES. Red and blue are
+# softened from pure primaries and keep 3:1 against the wood and Black.
+STONES = ((0, 0, 0), (255, 255, 255), (190, 35, 35), (40, 90, 200))
 
 INK = (43, 36, 36)
 MUTED = (118, 104, 104)
@@ -188,7 +189,7 @@ def summary(result: MatchResult, moves: int) -> tuple[str, str]:
     names = [PLAYER_NAMES[player - 1] for player in result.winners]
     why = f"{result.reason.value.capitalize()} after {moves} moves."
     if result.reason is EndReason.ABORTED:
-        return "Match left", why + " No winner."
+        return "You left the match", why + " No winner."
     if len(names) > 1:
         tied = ", ".join(names[:-1]) + f" and {names[-1]}"
         return "It's a tie", f"{tied} share the top score. {why}"
@@ -520,6 +521,9 @@ class GoGUI:
         config = self.config
 
         def chosen(on: bool) -> str:
+            """
+            Returns the style of an option: chosen if on, else plain
+            """
             return "chosen" if on else "plain"
 
         buttons = [Button(pygame.Rect(456, 80, 44, 44), "−",
@@ -630,7 +634,8 @@ class GoGUI:
 
     def _draw_button(self, button: Button) -> None:
         """
-        Draws a button, a shade darker or lighter under the mouse.
+        Draws a button: under the mouse, a light one darker and a dark one
+        lighter.
 
         Args:
             button: The button
@@ -638,7 +643,7 @@ class GoGUI:
         fill, edge, ink = STYLES[button.style]
         shade = pygame.Color(fill)
         if button.style != "off" and button.rect.collidepoint(self._mouse):
-            shade = shade.lerp(MUTED, 0.15)
+            shade = shade.lerp(MUTED, 0.2 if sum(fill) > 384 else 0.5)
         pygame.draw.rect(self._surface, shade, button.rect, border_radius=10)
         pygame.draw.rect(self._surface, edge, button.rect, 2,
                          border_radius=10)
@@ -657,13 +662,12 @@ class GoGUI:
         wood = rect.inflate(2 * PAD, 2 * PAD)
         pygame.draw.rect(self._surface, WOOD, wood, border_radius=16)
         self._log.append(Drawn("box", wood))
-        width = max(1, round(spacing / 30))
         for i in range(size):
             x, y = center(rect, size, (i, i))
             pygame.draw.line(self._surface, GRID, (rect.x + spacing / 2, y),
-                             (rect.right - spacing / 2, y), width)
+                             (rect.right - spacing / 2, y))
             pygame.draw.line(self._surface, GRID, (x, rect.y + spacing / 2),
-                             (x, rect.bottom - spacing / 2), width)
+                             (x, rect.bottom - spacing / 2))
         for point in star_points(size):
             pygame.draw.aacircle(self._surface, GRID,
                                  center(rect, size, point),
@@ -795,9 +799,9 @@ class GoGUI:
         # The details follow straight after the last player's row
         y = 182 + len(config.seats) * 64
         ko = "superko" if config.superko else "simple ko"
-        self._text(f"{config.size} × {config.size} board · {ko} "
-                   f"· move {self.match.moves} of at most "
-                   f"{self.match.move_limit}", 15, (SIDE, y), MUTED)
+        self._text(f"{config.size} × {config.size} board · {ko} · "
+                   f"{self.match.moves} of at most {self.match.move_limit} "
+                   "moves played", 15, (SIDE, y), MUTED)
         self._text("Area: your stones plus the empty points only your "
                    "stones surround. One stone alone claims the whole empty "
                    "board, so early numbers swing.", 15, (SIDE, y + 24),

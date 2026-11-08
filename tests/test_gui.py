@@ -214,7 +214,7 @@ def test_points_says_point_only_for_one() -> None:
      9, "It's a tie", "Black, Red and Blue share the top score. Every "
      "player passed after 9 moves."),
     (MatchResult(EndReason.ABORTED, (), {1: 3, 2: 1}), 4,
-     "Match left", "The match was left after 4 moves. No winner."),
+     "You left the match", "The match was left after 4 moves. No winner."),
 ])
 def test_summary_names_the_winners_and_the_reason(
         result: MatchResult, moves: int, headline: str, why: str) -> None:
@@ -223,7 +223,8 @@ def test_summary_names_the_winners_and_the_reason(
 
 def test_colours_keep_three_to_one() -> None:
     """Check WCAG's 3:1 for controls: a chosen option against a plain one
-    and the backdrop, and a plain button's border"""
+    and the backdrop, a plain button's border, and the stones on the wood;
+    Red and Blue also against Black's stones"""
     assert round(contrast((0, 0, 0), (255, 255, 255))) == 21
     plain_fill, plain_edge, _ = gui.STYLES["plain"]
     chosen_fill, _, chosen_ink = gui.STYLES["chosen"]
@@ -231,6 +232,9 @@ def test_colours_keep_three_to_one() -> None:
     assert contrast(chosen_fill, gui.BACKDROP) >= 3
     assert contrast(plain_edge, gui.BACKDROP) >= 3
     assert contrast(chosen_ink, chosen_fill) >= 4.5
+    black, _, red, blue = gui.STONES
+    assert min(contrast(stone, gui.WOOD) for stone in (black, red, blue)) >= 3
+    assert min(contrast(stone, black) for stone in (red, blue)) >= 3
 
 #
 # Starting and stopping
@@ -286,9 +290,9 @@ def test_buttons_change_shade_under_the_mouse() -> None:
     dark, light = fill(play), fill(watch)
     assert dark == gui.INK and light == gui.CARD
     move(window, play.center)
-    assert fill(play) != dark
+    assert contrast(fill(play), dark) >= 1.5
     move(window, watch.center)
-    assert fill(watch) != light and fill(play) == dark
+    assert contrast(fill(watch), light) >= 1.25 and fill(play) == dark
 
 def test_play_starts_with_the_defaults_in_one_click() -> None:
     """Check Play opens setup on the defaults and Start begins at once"""
@@ -520,6 +524,18 @@ def test_stones_show_in_their_players_colours() -> None:
     assert [on_point(window, point) for point in played] == \
         list(gui.STONES)
 
+@pytest.mark.parametrize("size", [6, 9])
+def test_grid_lines_are_thin_on_small_boards(size: int) -> None:
+    """Check a line of a small board is one pixel wide, read across it
+    halfway between two points"""
+    window = GoGUI(GameConfig(size, False, ("human", "human")))
+    window.frame()
+    x, y = spot(window, (1, 1))
+    y += BOARD.width / size / 2
+    across = [sum(pixel((col, y))) < 100
+              for col in range(int(x) - 8, int(x) + 9)]
+    assert sum(across) == 1, across
+
 def test_star_points_are_drawn() -> None:
     """Check a 9 x 9 board marks its star points and only them"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
@@ -609,7 +625,7 @@ def test_pass_and_every_player_passing_end_the_game() -> None:
     press(window, "Leave match (Esc)")
     assert window.match.result is not None
     assert window.match.result.reason is EndReason.ABORTED
-    assert "Match left" in assert_tidy(window)
+    assert "You left the match" in assert_tidy(window)
     press(window, "Menu")
     assert window.screen is Screen.MENU
 
