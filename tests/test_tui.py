@@ -2,6 +2,7 @@
 Tests for the text frontend: what it accepts as a move, how it draws the
 board, and whole sessions typed through stdin.
 """
+import io
 import random
 import re
 import subprocess
@@ -384,3 +385,17 @@ def test_regression_bad_board_size_is_asked_again(
     assert out.count("size must be a whole number from 6 to 30\n") == 2
     assert out.count("Board size, 6 to 30 [19]: ") == 3
     assert " 6 · · · · · · 6" in out
+
+def test_regression_bytes_that_are_not_utf8_get_a_message(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """Check bytes that are not UTF-8, at the menu or a move prompt, get the
+    usual message instead of a crash, through the real input()"""
+    typed = b"\xff\n1\n6\n\n\n\n\n\xe9\nquit\n3\n"
+    monkeypatch.setattr(sys, "stdin",
+                        io.TextIOWrapper(io.BytesIO(typed), encoding="utf-8"))
+    tui.run()
+    out = capsys.readouterr().out
+    assert "Choose [1]: Please type 1, 2 or 3.\n" in out
+    assert "quit): " + NOT_A_MOVE + "\n" in out
+    assert "Game over: the match was left." in out

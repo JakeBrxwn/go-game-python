@@ -4,7 +4,9 @@ every turn. Points are named Go style, a column letter then a row number such
 as D4. It reads only with input(), writes only with print(), and never
 imports pygame.
 """
+import io
 import re
+import sys
 import time
 from enum import Enum
 
@@ -297,6 +299,9 @@ def run(config: GameConfig | None = None) -> None:
         config: The settings of one match to play before returning, or None
         to show the menu until the player quits
     """
+    # Bytes that are not UTF-8 become a bad answer instead of a crash
+    if isinstance(sys.stdin, io.TextIOWrapper):
+        sys.stdin.reconfigure(errors="replace")
     try:
         if config is not None:
             _play_match(config)
