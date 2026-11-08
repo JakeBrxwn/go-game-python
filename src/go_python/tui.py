@@ -262,7 +262,7 @@ def _menu() -> str:
 
 def _ask_seat(name: str, default: str, offer: tuple[str, ...]) -> str:
     """
-    Asks who sits in one player's seat until GameConfig accepts the answer.
+    Asks who sits in one player's seat until the answer is one on offer.
 
     Args:
         name: The player's name
@@ -276,20 +276,16 @@ def _ask_seat(name: str, default: str, offer: tuple[str, ...]) -> str:
     kinds = ", ".join(words[:-1]) + " or " + words[-1]
     while True:
         seat = _ask(f"{name} player: {kinds}", default).removesuffix(" bot")
-        if seat == default == "none":
+        if seat in (word.removesuffix(" bot") for word in words):
             return seat
-        try:
-            # Two of the seat, so GameConfig judges this one answer
-            return GameConfig(seats=(seat, seat)).seats[0]
-        except ValueError:
-            print(f"{name} must play: type {kinds}." if seat == "none"
-                  else f"{seat} is not a choice: type {kinds}.")
+        print(f"{name} must play: type {kinds}." if seat == "none"
+              else f"{seat} is not a choice: type {kinds}.")
 
 def _setup(size: str, defaults: tuple[str, str],
            offer: tuple[str, ...]) -> GameConfig:
     """
-    Asks for the board size, the ko rule and a seat per player. GameConfig
-    checks every answer; a refused answer is asked again with a message.
+    Asks for the board size, the ko rule and a seat per player. A refused
+    answer is asked again with a message.
 
     Args:
         size: The board size Enter gives

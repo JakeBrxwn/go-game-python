@@ -308,8 +308,8 @@ def test_keys_pressed_during_a_match_are_dropped_on_a_terminal(
 def test_bad_seat_is_refused_at_once(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
-    """Check GameConfig refuses a bad seat as soon as it is typed, and the
-    same player is asked again; Black and White may not be none"""
+    """Check a bad seat is refused as soon as it is typed, and the same
+    player is asked again; Black and White may not be none"""
     out = session(monkeypatch, capsys,
                   ["1", "6", "", "robot", "none", "random", "Smart bot",
                    "dog", "", "quit", "3"])
@@ -323,6 +323,17 @@ def test_bad_seat_is_refused_at_once(
            "dog is not a choice: type human, random bot, smart bot or none.\n" \
            f"{red}\n" in out
     assert "Black ● random, White ○ smart\n" in out
+
+def test_watch_offers_only_bots(monkeypatch: pytest.MonkeyPatch,
+                                capsys: pytest.CaptureFixture[str]) -> None:
+    """Check watch bots refuses a person, since it offers only bots"""
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    random.seed(3)
+    out = session(monkeypatch, capsys,
+                  ["2", "", "", "human", "random", "", "", "3"])
+    assert "Black player: random bot or smart bot [smart]: human\n" \
+           "human is not a choice: type random bot or smart bot.\n" in out
+    assert "Black ● random, White ○ random\n" in out
 
 @pytest.mark.parametrize("typed, rule", [
     ("", "simple"),
