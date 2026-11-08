@@ -913,16 +913,18 @@ def test_the_wood_rim_counts_as_the_nearest_edge_point() -> None:
     assert window.match.moves == 2 and window.note == ""
 
 def test_a_click_on_the_finished_board_says_the_match_is_over() -> None:
-    """Check a click on the board after the match is answered in red, just
-    above the buttons it points to"""
+    """Check a click on the board after the match is answered in red, in the
+    caption's place under the area explainer"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
     leave(window)
     click(window, spot(window, (4, 4)))
     assert window.note == "The match is over: Play again or Menu."
     assert window.note in assert_tidy(window)
-    message = next(d.rect for d in window.draw() if d.text == window.note)
+    drawn = window.draw()
+    message = next(d.rect for d in drawn if d.text == window.note)
+    area = next(d.rect for d in drawn if d.text.startswith("Area:"))
     assert count(message, gui.ERROR) > 50
-    assert 0 <= button(window, "Menu").top - message.bottom <= 16
+    assert 0 <= message.top - area.bottom <= 16
     assert window.match.game.piece_at((4, 4)) is None
 
 def test_one_press_makes_one_click() -> None:
@@ -1374,6 +1376,22 @@ def test_the_longest_message_fits_at_every_board_size(size: int) -> None:
     assert window.note in found and found.count("Passed") == 2
     escape(window)
     assert gui.LEAVE_ASK in assert_tidy(window)
+
+@pytest.mark.parametrize("size", [6, 19, 30])
+@pytest.mark.parametrize("players", [2, 3, 4])
+def test_the_caption_follows_the_details(size: int, players: int) -> None:
+    """Check the caption sits just under the area explainer, with no empty
+    band between them, and clear of the buttons, while playing and at the
+    end"""
+    window = GoGUI(GameConfig(size, False, ("human",) * players))
+    for words in ("Pass skips", "Play again keeps"):
+        assert_tidy(window)
+        drawn = window.draw()
+        area = next(d.rect for d in drawn if d.text.startswith("Area:"))
+        caption = next(d.rect for d in drawn if d.text.startswith(words))
+        assert 0 <= caption.top - area.bottom <= 16, (area, caption)
+        assert caption.bottom < window.buttons()[0].rect.top
+        leave(window)
 
 @pytest.mark.parametrize("players", [2, 3, 4])
 def test_a_tie_of_every_player_fits_with_the_longest_reason(
