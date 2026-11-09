@@ -598,8 +598,9 @@ def test_play_never_opens_a_match_of_bots() -> None:
 
 def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     """Check Watch bots seats only bots, who then play a whole match; a
-    click on their board is answered, and the answer is gone from the
-    result"""
+    click on their board is answered, the answer is gone from the result,
+    and a click on the finished board says the match is over, not that
+    only bots play"""
     random.seed(3)
     window = GoGUI()
     press(window, "Watch bots")
@@ -616,6 +617,8 @@ def test_watch_bots_presets_bot_seats_and_plays_to_the_end() -> None:
     assert window.screen is Screen.GAME_OVER and result is not None
     assert result.reason in (EndReason.PASSES, EndReason.MOVE_LIMIT)
     assert window.note == ""
+    click(window, spot(window, (4, 4)))
+    assert window.note == "The match is over: Play again or Menu."
 
 def test_setup_changes_every_setting() -> None:
     """Check size, ko rule, player count and seats all reach the match"""
@@ -1387,12 +1390,15 @@ def test_bots_keep_their_pace(monkeypatch: pytest.MonkeyPatch) -> None:
         window.frame()
     assert moves == [step // 6 for step in range(19)]
 
+@pytest.mark.parametrize("reply", [(0, 0), None])
 @pytest.mark.parametrize("act", ["board", "Pass"])
 def test_clicks_on_a_bots_turn_say_why_nothing_happens(
-        act: str, monkeypatch: pytest.MonkeyPatch) -> None:
+        act: str, reply: tuple[int, int] | None,
+        monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a click on the board or on Pass during a bot's turn is
-    explained, and the explanation stays after the bot's move until the
-    next key or press"""
+    explained, and the explanation stays after the bot places a stone or
+    passes, until the next key or press"""
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: reply)
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("random", "human")))
     if act == "board":
