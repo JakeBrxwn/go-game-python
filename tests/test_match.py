@@ -333,5 +333,5 @@ def test_only_match_changes_the_game() -> None:
     changers = re.compile(r"\.(apply_move|pass_turn|load_game)\(")
     offenders = [path.name for path in sorted(source.glob("*.py"))
                  if path.name not in ("go.py", "match.py")
-                 and changers.search(path.read_text())]
+                 and changers.search(path.read_text(encoding="utf-8"))]
     assert offenders == []
