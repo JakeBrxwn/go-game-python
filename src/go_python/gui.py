@@ -280,12 +280,18 @@ class GoGUI:
     # Running
     #
 
-    def loop(self) -> None:
+    def loop(self, close_at_end: bool = False) -> None:
         """
         Runs the one event loop until the window closes or Quit is clicked.
+
+        Args:
+            close_at_end: True to stop too once the match is over and its
+            result drawn
         """
         while self.running:
             self.frame()
+            if close_at_end and self.screen is Screen.GAME_OVER:
+                return
 
     def frame(self) -> None:
         """
@@ -975,12 +981,17 @@ class GoGUI:
             # Room for three digits keeps the labels in one column
             self._text("Area", 15, (rect.right - 60, y), MUTED, "midright")
 
-def run(config: GameConfig | None = None) -> None:
+def run(config: GameConfig | None = None, close_at_end: bool = False) -> None:
     """
     Opens the window and returns when it closes.
 
     Args:
         config: The match to start at once, or None to open the menu
+        close_at_end: True to close the window once the match is over, and
+        print how it ended, so a smoke test can see a whole match
     """
-    GoGUI(config).loop()
+    window = GoGUI(config)
+    window.loop(close_at_end)
     pygame.quit()
+    if close_at_end and window.match.result is not None:
+        print(f"Game over: {window.match.result.reason.value}.")

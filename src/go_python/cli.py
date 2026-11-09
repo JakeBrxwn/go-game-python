@@ -96,7 +96,10 @@ def main(ctx: click.Context) -> None:
 
 @main.command(name="gui")
 @match_options
-def gui_match(size: int, ko: str, seats: str) -> None:
+@click.option('--close-at-end', is_flag=True,
+              help="Close the window once the match ends, and print how it "
+                   "ended.")
+def gui_match(size: int, ko: str, seats: str, close_at_end: bool) -> None:
     """
     Starts one match in the window, skipping the menu. For testing.
     \f
@@ -104,10 +107,11 @@ def gui_match(size: int, ko: str, seats: str) -> None:
         size: The size of the board
         ko: "simple" or "super"
         seats: Seats separated by commas
+        close_at_end: True to close the window once the match ends
     """
     config = match_config(size, ko, seats)
     from go_python import gui
-    gui.run(config)
+    gui.run(config, close_at_end)
 
 @main.command(name="tui")
 @match_options
