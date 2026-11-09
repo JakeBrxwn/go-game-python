@@ -51,6 +51,8 @@ def main() -> None:
     """
     build = Path("build")
     build.mkdir(exist_ok=True)
+    # The Linux Python on CI keeps its debug symbols: 11 MB in each app
+    strip = ["--strip"] if platform.system() == "Linux" else []
     for app, (function, options) in APPS.items():
         entry = build / f"{app}.py"
         entry.write_text(f"from go_python.cli import {function}\n"
@@ -61,7 +63,7 @@ def main() -> None:
             str(entry), "--onefile", "--noconfirm", "--clean",
             "--name", binary_name(app), "--distpath", "dist",
             "--workpath", str(build / app), "--specpath", str(build),
-            "--python-option", "X utf8", *options])
+            "--python-option", "X utf8", *strip, *options])
 
 if __name__ == "__main__":
     main()
