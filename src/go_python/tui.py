@@ -10,7 +10,7 @@ import sys
 import time
 from enum import Enum
 
-from colorama import Fore
+from colorama import Fore, just_fix_windows_console
 
 from go_python.go import Go
 from go_python.match import (PLAYER_NAMES, GameConfig, Match, MatchResult,
@@ -349,6 +349,8 @@ def run(config: GameConfig | None = None) -> None:
         # LC_ALL, as it overrides LANG; one line fits 80 columns
         sys.exit("This terminal cannot show the stones: use a UTF-8 locale, "
                  "like LC_ALL=C.UTF-8.")
+    # Windows consoles print colour codes as text until told otherwise
+    just_fix_windows_console()
     # Bytes that are not UTF-8 become a bad answer instead of a crash
     if isinstance(sys.stdin, io.TextIOWrapper):
         sys.stdin.reconfigure(errors="replace")
