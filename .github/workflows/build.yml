@@ -1,0 +1,39 @@
+name: Build
+
+# Builds and smoke-tests the apps on each OS. CI calls it on every change,
+# and Release publishes what it uploads.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest Ubuntu runner, so the Linux app needs the oldest glibc
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install ".[release]"
+      - run: python scripts/freeze.py
+      - run: python scripts/smoke.py
+      - if: runner.os == 'Linux'
+        run: |
+          python -m build
+          python scripts/screenshot.py dist/go-python-screenshot.png
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7

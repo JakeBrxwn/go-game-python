@@ -64,3 +64,6 @@ jobs:
           cache-dependency-path: pyproject.toml
       - run: pip install -r requirements.txt
       - run: python -m pytest evals -s --timeout=600
+
+  package-smoke:
+    uses: ./.github/workflows/build.yml
