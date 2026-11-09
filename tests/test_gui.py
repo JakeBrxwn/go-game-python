@@ -1226,11 +1226,15 @@ def test_the_result_shows_the_winners_stone() -> None:
 def test_every_kind_of_text_has_its_colour() -> None:
     """Check headlines, names, scores and plain button labels are in ink,
     explanations, seats, details and passes muted, a winner gold, and the
-    labels of dark and gold buttons white, on every screen"""
+    labels of dark and gold buttons white, on every screen; and, read from
+    the pixels, that a white label and a muted line are drawn as recorded"""
     ink, muted, white = gui.INK, gui.MUTED, gui.CARD
     window = GoGUI()
     assert colours(window, "Go Python", gui.MENU_HINTS[0], "Play",
                    "Watch bots") == [ink, muted, white, ink]
+    drawn = {d.text: d.rect for d in window.draw() if d.kind == "text"}
+    assert count(drawn["Play"], white) > 100
+    assert count(drawn[gui.MENU_HINTS[0]], muted) > 100
     press(window, "Play")
     assert colours(window, "New game", gui.SEAT_HELP, "Black", "Simple ko",
                    "Superko", "Start game") == [ink, muted, ink, white, ink,
