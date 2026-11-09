@@ -511,10 +511,10 @@ class GoGUI:
         elif "human" not in self.match.config.seats:
             self.note = "Only bots play here. Leave match (Esc) to stop."
         elif self.match.state is not MatchState.HUMAN_TURN:
-            # Past tense, as the note outlasts the bot's move
+            # About the click, not the turn, so it holds once the bot moves
             name = PLAYER_NAMES[game.turn - 1]
-            self.note = (f"Not played: it was {name}'s turn, and {name} "
-                         "is a bot.")
+            self.note = (f"Not played: you clicked on {name}'s turn, and "
+                         f"{name} is a bot.")
         elif pos is not None and game.piece_at(pos) is not None:
             self.note = "That point already has a stone."
         elif pos is not None and not game.legal_move(pos):
