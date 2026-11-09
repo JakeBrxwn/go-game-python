@@ -1433,10 +1433,13 @@ def test_regression_the_note_stays_true_once_the_bot_has_moved(
     White in the status card, in words true while White thinks and once it
     has moved: it used to say "Wait: White is a bot and moves by itself."
     under "Black to play", then "it was White's turn" under "White to
-    play" """
+    play"; and on one line, where "you clicked on White's turn, and White
+    is a bot." wrapped to two """
     monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: (0, 0))
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
     window = GoGUI(GameConfig(9, False, ("human", "random")))
+    one_line = next(d.rect.height for d in window.draw()
+                    if d.text.startswith("Click a point"))
     click(window, spot(window, (4, 4)))
     click(window, spot(window, (2, 2)))
     note = "Not played: you clicked during White's turn (a bot)."
@@ -1451,6 +1454,8 @@ def test_regression_the_note_stays_true_once_the_bot_has_moved(
              if d.kind == "text" and card.contains(d.rect)]
     assert window.match.moves == 2 and note in lines, lines
     assert not [line for line in lines if "wait" in line.lower()], lines
+    height = next(d.rect.height for d in window.draw() if d.text == note)
+    assert height == one_line
 
 def test_a_click_while_only_bots_play_says_so() -> None:
     """Check a click on the board or the greyed Pass while only bots play
