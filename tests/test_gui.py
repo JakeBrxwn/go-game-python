@@ -1114,23 +1114,28 @@ def test_stones_have_a_shine_and_a_rim() -> None:
     assert edge[0] == gui.STONES[1] and edge[-1] == gui.WOOD
     assert min(map(sum, edge)) < sum(gui.WOOD) - 50, edge
 
-def test_white_beside_the_board_has_a_rim_and_shading() -> None:
-    """Check White's stones by the headline and in its row, on a white and
-    a tinted card, have a rim 2 px wide at 2:1 against white, and a lower
-    right darker than the upper left: White there used to look like an
-    empty ring"""
+def test_white_stones_have_a_rim_and_shading() -> None:
+    """Check White on the board, by the headline and in its row is white
+    on the upper left and shaded a fifth of the way to black on the lower
+    right; and beside the board, on a white and a tinted card, has a rim
+    2 px wide at 2:1 against white: White there used to look like an empty
+    ring"""
     window = GoGUI(GameConfig(9, False, ("human", "human")))
+    click(window, spot(window, (2, 2)))
+    click(window, spot(window, (4, 4)))
     press(window, "Pass")
-    stones = [d.rect for d in window.draw() if d.text == "White" and
+    beside = [(d.rect.centerx, d.rect.centery, d.rect.width // 2)
+              for d in window.draw() if d.text == "White" and
               d.kind == "stone"]
-    assert len(stones) == 2
-    for stone in stones:
-        x, y, r = stone.centerx, stone.centery, stone.width // 2
-        rim = [pixel((x - r + d, y)) for d in range(4)]
-        assert sum(contrast(p, gui.CARD) >= 2 for p in rim) >= 2, rim
+    assert len(beside) == 2
+    for x, y, r in [(*spot(window, (4, 4)), BOARD.width / 9 * 0.47),
+                    *beside]:
         lit, shaded = (pixel((x + s * r * 0.55, y + s * r * 0.55))
                        for s in (-1, 1))
-        assert lit == gui.CARD and contrast(shaded, lit) >= 1.4, shaded
+        assert (lit, shaded) == (gui.STONES[1], (204, 204, 204)), (x, y)
+    for x, y, r in beside:
+        rim = [pixel((x - r + d, y)) for d in range(4)]
+        assert sum(contrast(p, gui.CARD) >= 2 for p in rim) >= 2, rim
 
 def test_mouse_leaving_the_window_clears_the_hover() -> None:
     """Check no preview stays behind once the mouse leaves the window"""
