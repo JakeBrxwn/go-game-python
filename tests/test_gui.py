@@ -398,10 +398,15 @@ def test_points_says_point_only_for_one() -> None:
      "player passed after 9 moves."),
     (MatchResult(EndReason.ABORTED, (), {1: 3, 2: 1}), 4,
      "You left the match", "The match was left after 4 moves. No winner."),
+    (MatchResult(EndReason.ABORTED, (), {1: 1, 2: 0}), 1,
+     "You left the match", "The match was left after 1 move. No winner."),
+    (MatchResult(EndReason.ABORTED, (), {1: 0, 2: 0}), 0,
+     "You left the match", "The match was left after 0 moves. No winner."),
 ])
 def test_summary_names_the_winners_and_the_reason(
         result: MatchResult, moves: int, headline: str, why: str) -> None:
-    """Check each ending is told in words: wins, ties, limit and leaving"""
+    """Check each ending is told in words: wins, ties, limit and leaving,
+    with move only for one: it used to say "after 1 moves" """
     assert summary(result, moves) == (headline, why)
 
 def test_colours_keep_three_to_one() -> None:

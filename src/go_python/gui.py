@@ -193,7 +193,8 @@ def summary(result: MatchResult, moves: int) -> tuple[str, str]:
     the match ended
     """
     names = [PLAYER_NAMES[player - 1] for player in result.winners]
-    why = f"{result.reason.value.capitalize()} after {moves} moves."
+    why = (f"{result.reason.value.capitalize()} after {moves} "
+           f"move{'s' * (moves != 1)}.")
     if result.reason is EndReason.ABORTED:
         return "You left the match", why + " No winner."
     if len(names) > 1:
