@@ -34,6 +34,9 @@ has the game window and the terminal game for each OS, as single files:
 | Windows, x86-64 | `go-python-windows-x86_64.exe` | `go-python-tui-windows-x86_64.exe` |
 | macOS, Apple silicon | `go-python-macos-arm64` | `go-python-tui-macos-arm64` |
 
+On any other system, such as an Intel Mac, Linux on ARM or Windows on ARM,
+[install with pipx](#install-with-pipx) instead.
+
 The files are not signed, as signing needs paid certificates, so Windows and
 macOS warn you the first time. The steps below get past the warning.
 
@@ -92,18 +95,20 @@ sha256sum --check --ignore-missing SHA256SUMS
 ```
 
 On macOS, `shasum -a 256 go-python-macos-arm64` prints a file's hash. On
-Windows, PowerShell prints it in the lower case `SHA256SUMS` uses with
-`(Get-FileHash go-python-windows-x86_64.exe).Hash.ToLower()`. Compare it
-with the file's line in `SHA256SUMS`.
+Windows, this PowerShell command prints it in lower case, as `SHA256SUMS`
+writes it: `(Get-FileHash go-python-windows-x86_64.exe).Hash.ToLower()`.
+Compare it with the file's line in `SHA256SUMS`.
 
 ## Install with pipx
 
 [pipx](https://pipx.pypa.io/) installs Python apps in their own environment.
-With Python 3.14 and pipx installed, this gives you both commands,
-`go-python` for the window and `go-python-tui` for the terminal:
+With Python 3.14, pipx and git installed, this gives you both commands,
+`go-python` for the window and `go-python-tui` for the terminal. On
+Windows, write `--python 3.14` in place of `--python python3.14`, here and
+below.
 
 ```sh
-pipx install --python 3.14 git+https://github.com/JakeBrxwn/go-game-python.git
+pipx install --python python3.14 git+https://github.com/JakeBrxwn/go-game-python.git
 ```
 
 To install from a downloaded release instead, use the wheel, the file that
@@ -111,7 +116,7 @@ ends in `.whl`. Run this in the folder you downloaded it to, with the
 version in your file's name:
 
 ```sh
-pipx install --python 3.14 go_python-0.1.0-py3-none-any.whl
+pipx install --python python3.14 go_python-0.1.0-py3-none-any.whl
 ```
 
 ## How to play
@@ -144,7 +149,8 @@ Run `go-python`, or open the downloaded game window.
   **Leave match (Esc)** asks once to make sure, then press Esc or click it
   again to leave. If a click does nothing, a note on the right says why.
 - **Game over:** the side panel shows the winner and the score. **Play
-  again** starts the same match, and **Menu** goes back.
+  again** starts a new match with the same board and players, and **Menu**
+  goes back.
 
 ### In the terminal
 
@@ -183,7 +189,7 @@ There are two bots:
 To play against a bot, set any seat to Random bot or Smart bot in setup. To
 watch bots play, choose **Watch bots** in the menu: the window starts you
 on 9 x 9 with Smart bot as Black and Random bot as White, and you can
-change both before you start.
+change any of these before you start.
 
 To play many bot games with no display and see the totals, use the `bots`
 test command from [Development](#development).
@@ -205,8 +211,8 @@ pip install -r requirements.txt
 go-python
 ```
 
-`requirements.txt` installs the game in editable mode, so your changes to
-`src/` take effect when you next run it, along with the test tools.
+`requirements.txt` installs the game in editable mode, along with the test
+tools, so your changes to `src/` take effect when you next run it.
 
 To build the two standalone apps for your OS into `dist/`, then check them
 the way the release does:
