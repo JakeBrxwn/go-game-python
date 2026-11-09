@@ -1414,13 +1414,30 @@ def test_clicks_on_a_bots_turn_say_why_nothing_happens(
         click(window, spot(window, (4, 4)))
     else:
         press(window, "Pass")
-    wait = "Wait: Black is a bot and moves by itself."
-    assert window.match.moves == 0 and window.note == wait
+    note = "Not played: it was Black's turn, and Black is a bot."
+    assert window.match.moves == 0 and window.note == note
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
-    assert window.match.moves == 1 and window.note == wait
+    assert window.match.moves == 1 and window.note == note
     key(window, pygame.K_a)
     assert window.note == ""
+
+def test_regression_the_note_stays_true_once_the_bot_has_moved(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check a click during a bot's pause is answered in the status card
+    with a note still true once the bot has moved, so no line there tells
+    the person to wait on their own turn: it used to say "Wait: Black is a
+    bot and moves by itself." under "White to play" """
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
+    window = GoGUI(GameConfig(9, False, ("random", "human")))
+    click(window, spot(window, (4, 4)))
+    monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
+    window.frame()
+    card = box_around(window, "White to play")
+    lines = [d.text for d in window.draw()
+             if d.kind == "text" and card.contains(d.rect)]
+    assert window.note in lines
+    assert not [line for line in lines if "wait" in line.lower()], lines
 
 def test_a_click_while_only_bots_play_says_so() -> None:
     """Check a click on the board or the greyed Pass while only bots play
@@ -1440,27 +1457,28 @@ def test_a_click_while_only_bots_play_says_so() -> None:
 
 def test_regression_a_click_dropped_after_a_wait_is_not_silent(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check the Wait note outlasts the bot's move, so a second click on
-    the same point 50 ms after that move, inside the double-click window
-    and so dropped, still shows why nothing happened; the next click taken
-    plays and clears it. The dropped click used to leave no word at all."""
+    """Check the note on a click during a bot's pause outlasts the bot's
+    move, so a second click on the same point 50 ms after that move,
+    inside the double-click window and so dropped, still shows why nothing
+    happened; the next click taken plays and clears it. The dropped click
+    used to leave no word at all."""
     clock = [10 ** 6]
     monkeypatch.setattr(pygame.time, "get_ticks", lambda: clock[0])
     monkeypatch.setattr(gui, "DOUBLE_CLICK_MS", 500)
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 600)
     monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: (0, 0))
     window = GoGUI(GameConfig(9, False, ("random", "human")))
-    wait = "Wait: Black is a bot and moves by itself."
+    note = "Not played: it was Black's turn, and Black is a bot."
     point = spot(window, (4, 4))
     clock[0] += 200
     click(window, point)
-    assert window.match.moves == 0 and window.note == wait
+    assert window.match.moves == 0 and window.note == note
     clock[0] += 400
     window.frame()
-    assert window.match.moves == 1 and window.note == wait
+    assert window.match.moves == 1 and window.note == note
     clock[0] += 50
     click(window, point)
-    assert window.match.moves == 1 and window.note == wait
+    assert window.match.moves == 1 and window.note == note
     clock[0] += 1000
     click(window, point)
     assert window.match.game.piece_at((4, 4)) == 2 and window.note == ""
@@ -1479,7 +1497,8 @@ def test_regression_a_press_held_over_a_bots_move_does_nothing(
         button(window, "Pass").center
     post(pygame.MOUSEBUTTONDOWN, pos=pos, button=1)
     window.frame()
-    assert window.note == "Wait: Black is a bot and moves by itself."
+    assert window.note == \
+        "Not played: it was Black's turn, and Black is a bot."
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
     assert window.match.moves == 1
