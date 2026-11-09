@@ -26,6 +26,10 @@ dev = [
     "sgfmill>=1.1.1",
     "types-colorama>=0.4.15.12",
 ]
+release = [
+    "build>=1.6.1",
+    "pyinstaller>=6.22.3",
+]
 
 [project.scripts]
 go-python = "go_python.cli:main"
@@ -39,12 +43,12 @@ testpaths = ["tests"]
 timeout = 120
 
 [tool.mypy]
-files = ["src", "tests", "evals"]
+files = ["src", "tests", "evals", "scripts"]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = "sgfmill.*"
+module = ["sgfmill.*", "PyInstaller.*"]
 ignore_missing_imports = true
 
 [tool.ruff]
