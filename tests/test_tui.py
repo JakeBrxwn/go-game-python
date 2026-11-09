@@ -275,7 +275,7 @@ def test_menu_and_setup_explain_a_bad_answer(
                   ["9", "play", "seven", "6", "none", "simple", "", "", "",
                    "quit", "3"])
     assert "Choose [1]: 9\nPlease type 1, 2 or 3.\n" in out
-    assert "[19]: seven\nsize must be a whole number from 6 to 30\n" in out
+    assert "[19]: seven\nSize must be a whole number from 6 to 30.\n" in out
     assert "[simple]: none\nPlease type simple or superko.\n" in out
     assert "Game over: the match was left." in out
 
@@ -309,9 +309,10 @@ def test_bad_seat_is_refused_at_once(
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check a bad seat is refused as soon as it is typed, and the same
-    player is asked again; Black and White may not be none"""
+    player is asked again; Black and White may not be none. Spacing does
+    not matter: "Smart  bot" used to be refused as "smart  " """
     out = session(monkeypatch, capsys,
-                  ["1", "6", "", "robot", "none", "random", "Smart bot",
+                  ["1", "6", "", "robot", "none", "random", "Smart  bot",
                    "dog", "", "quit", "3"])
     bots = "random bot or smart bot"
     black = f"Black player: human, {bots} [human]: "
@@ -319,7 +320,7 @@ def test_bad_seat_is_refused_at_once(
     red = "Red player: human, random bot, smart bot or none [none]: "
     assert f"{black}robot\nrobot is not a choice: type human, {bots}.\n" \
            f"{black}none\nBlack must play: type human, {bots}.\n" \
-           f"{black}random\n{white}Smart bot\n{red}dog\n" \
+           f"{black}random\n{white}Smart  bot\n{red}dog\n" \
            "dog is not a choice: type human, random bot, smart bot or none.\n" \
            f"{red}\n" in out
     assert "Black ● random, White ○ smart\n" in out
@@ -460,7 +461,7 @@ def test_regression_bad_board_size_is_asked_again(
     """Check a size out of range is refused by GameConfig and asked again"""
     out = session(monkeypatch, capsys, ["1", "5", "31", "6", "", "", "",
                                         "", "quit", "3"])
-    assert out.count("size must be a whole number from 6 to 30\n") == 2
+    assert out.count("Size must be a whole number from 6 to 30.\n") == 2
     assert out.count("Board size, 6 to 30 [19]: ") == 3
     assert " 6 · · · · · · 6" in out
 
@@ -488,19 +489,21 @@ def test_regression_a_huge_board_size_gets_the_usual_message(
                         io.TextIOWrapper(io.BytesIO(typed), encoding="utf-8"))
     tui.run()
     out = capsys.readouterr().out
-    assert "[19]: size must be a whole number from 6 to 30\n" in out
+    assert "[19]: Size must be a whole number from 6 to 30.\n" in out
     assert "digits" not in out
 
 def test_regression_a_terminal_without_utf8_stops_with_one_line(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a terminal that cannot show the stones gets one line naming the
-    fix and a failing exit, before any prompt and with no traceback"""
+    fix and a failing exit, before any prompt and with no traceback. The
+    line fits 80 columns and names LC_ALL, which overrides LANG: it used to
+    be 87 columns and suggest LANG, which does nothing when LC_ALL is set"""
     screen = io.TextIOWrapper(io.BytesIO(), encoding="latin-1")
     monkeypatch.setattr(sys, "stdout", screen)
     with pytest.raises(SystemExit) as leaving:
         tui.run()
-    assert leaving.value.code == ("This terminal cannot show the stones: run "
-                                  "it with a UTF-8 locale, such as "
-                                  "LANG=C.UTF-8.")
+    assert leaving.value.code == ("This terminal cannot show the stones: use "
+                                  "a UTF-8 locale, like LC_ALL=C.UTF-8.")
+    assert len(leaving.value.code) < 80
     screen.flush()
     assert screen.buffer.getvalue() == b""

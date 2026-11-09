@@ -238,9 +238,11 @@ def _ask(question: str, default: str) -> str:
         question: The question, without the default
         default: The answer Enter gives
 
-    Returns: The answer in lower case, trimmed
+    Returns: The answer in lower case, trimmed, with each run of spaces made
+    one
     """
-    return input(f"{question} [{default}]: ").strip().lower() or default
+    return " ".join(input(f"{question} [{default}]: ").lower().split()) or \
+        default
 
 def _menu() -> str:
     """
@@ -305,7 +307,7 @@ def _setup(size: str, defaults: tuple[str, str],
                                 and len(answer) <= 3 else 0)
             break
         except ValueError as err:
-            print(err)
+            print(str(err).capitalize() + ".")
     while True:
         # "superko", "super ko" and "super" all name the same rule
         ko = _ask("Ko rule, simple or superko", "simple")
@@ -344,8 +346,9 @@ def run(config: GameConfig | None = None) -> None:
     try:
         "".join(STONES).encode(sys.stdout.encoding or "utf-8")
     except UnicodeEncodeError:
-        sys.exit("This terminal cannot show the stones: run it with a UTF-8 "
-                 "locale, such as LANG=C.UTF-8.")
+        # LC_ALL, as it overrides LANG; one line fits 80 columns
+        sys.exit("This terminal cannot show the stones: use a UTF-8 locale, "
+                 "like LC_ALL=C.UTF-8.")
     # Bytes that are not UTF-8 become a bad answer instead of a crash
     if isinstance(sys.stdin, io.TextIOWrapper):
         sys.stdin.reconfigure(errors="replace")
