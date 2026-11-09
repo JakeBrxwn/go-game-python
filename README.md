@@ -53,8 +53,9 @@ The terminal game is the same: `chmod +x go-python-tui-linux-x86_64`, then
 
 ### Windows
 
-Double-click `go-python-windows-x86_64.exe`. If Windows says "Windows
-protected your PC", click **More info**, then **Run anyway**.
+Your browser may warn that the file is not commonly downloaded: choose to
+keep it. Then double-click `go-python-windows-x86_64.exe`. If Windows says
+"Windows protected your PC", click **More info**, then **Run anyway**.
 
 Double-clicking `go-python-tui-windows-x86_64.exe` opens the terminal game
 in a console window. You can also start it from PowerShell, in the folder
@@ -90,9 +91,10 @@ and `SHA256SUMS`:
 sha256sum --check --ignore-missing SHA256SUMS
 ```
 
-On macOS, `shasum -a 256 go-python-macos-arm64` prints a file's hash, and on
-Windows, `Get-FileHash go-python-windows-x86_64.exe` in PowerShell does.
-Compare it with the file's line in `SHA256SUMS`.
+On macOS, `shasum -a 256 go-python-macos-arm64` prints a file's hash. On
+Windows, PowerShell prints it in the lower case `SHA256SUMS` uses with
+`(Get-FileHash go-python-windows-x86_64.exe).Hash.ToLower()`. Compare it
+with the file's line in `SHA256SUMS`.
 
 ## Install with pipx
 
@@ -105,7 +107,8 @@ pipx install --python 3.14 git+https://github.com/JakeBrxwn/go-game-python.git
 ```
 
 To install from a downloaded release instead, use the wheel, the file that
-ends in `.whl`:
+ends in `.whl`. Run this in the folder you downloaded it to, with the
+version in your file's name:
 
 ```sh
 pipx install --python 3.14 go_python-0.1.0-py3-none-any.whl
@@ -120,8 +123,8 @@ pipx install --python 3.14 go_python-0.1.0-py3-none-any.whl
 - A chain of stones with no empty point next to it is captured and removed.
 - Suicide is not allowed: you cannot play a stone that would leave your own
   chain with no empty point next to it, unless it captures first.
-- Ko: under simple ko you cannot remake the board as it was just before
-  your move. Under superko you cannot remake any earlier board.
+- Ko: under simple ko, no move may bring back the board as it was one move
+  ago. Under superko, no move may bring back any earlier board.
 - The game ends when every player passes in a row. The most area wins:
   your stones plus the empty points that only your stones surround. A game
   also ends after 3 x size x size moves and passes, so a 19 x 19 game stops
@@ -187,8 +190,11 @@ test command from [Development](#development).
 
 ## Build from source
 
-You need Python 3.14 and git. On Windows, run the commands in PowerShell
-and use `.venv\Scripts\activate` in place of the `source` line.
+You need Python 3.14 and git. On Windows, run the commands in PowerShell,
+with `py -3.14 -m venv .venv` in place of the `python3.14` line and
+`.venv\Scripts\Activate.ps1` in place of the `source` line. If PowerShell
+refuses to run that script, run `Set-ExecutionPolicy -Scope Process
+RemoteSigned` first; it lasts until you close the window.
 
 ```sh
 git clone https://github.com/JakeBrxwn/go-game-python.git
@@ -211,10 +217,10 @@ python scripts/freeze.py
 python scripts/smoke.py
 ```
 
-The smoke test takes about a minute: it checks the version, plays a bot game
-with no display, keeps the window playing bots for 15 seconds on SDL's
-dummy drivers, watches a whole bot match in the terminal game, and checks
-that the terminal game holds no pygame.
+The smoke test takes about a minute and needs no display, as it uses SDL's
+dummy drivers. It checks each app's version, opens the menu, plays one
+whole bot match in the window and one in the terminal game, runs the
+`bots` command, and checks that the terminal game holds no pygame.
 
 ## Development
 
@@ -241,7 +247,9 @@ mypy
   plays one in the terminal. Both take `-s` or `--size` (6 to 30),
   `--ko simple` or `--ko super`, and `--seats` with 2 to 4 seats in turn
   order, each `human`, `random` or `smart`. For example:
-  `go-python gui -s 9 --ko super --seats human,smart,random`.
+  `go-python gui -s 9 --ko super --seats human,smart,random`. With
+  `--close-at-end`, the window closes when the match ends and prints how
+  it ended, which the smoke test uses.
 - `go-python bots` plays bot games with no display and prints the totals,
   for example `go-python bots -n 20 -s 9 -1 smart -2 random`.
 
@@ -273,18 +281,21 @@ both frontends play by the same rules, and bots work the same in each.
 
 1. Set `__version__` in `src/go_python/__init__.py`, and merge that to
    `main` through a pull request.
-2. Tag the merged commit and push the tag:
+2. Tag the merged commit on `main` and push the tag:
 
    ```sh
+   git switch main
+   git pull
    git tag v0.1.0
    git push origin v0.1.0
    ```
 
 3. `.github/workflows/release.yml` checks that the tag names the version in
-   the code, builds and smoke-tests both apps on each OS, and publishes a
-   GitHub Release with the six apps, the wheel, the sdist, the screenshot
-   above and `SHA256SUMS`. A tag with a suffix, like `v0.1.0-rc.1`, makes a
-   pre-release instead.
+   the code and is on `main`, then runs the whole CI, which builds and
+   smoke-tests both apps on each OS. Only then does it publish a GitHub
+   Release with the six apps, the wheel, the sdist, the screenshot above
+   and `SHA256SUMS`. A tag like `v0.1.0-rc.1` makes a pre-release instead,
+   from any branch; no other suffix is accepted.
 
 ## Credits and licence
 
@@ -298,8 +309,9 @@ The original game was built by a team of four:
 I picked it back up to play around with it, and this version builds on
 their work. The rules now follow Go on ko and suicide, and one `Match` core
 runs every game, so the window and the terminal game both offer a menu,
-2 to 4 players, bots in any seat and watching bots play. It adds a smart
-bot, boards from 6 x 6 to 30 x 30, hints, and downloads that need no
-Python, all checked by tests, evals and CI on three operating systems.
+bots in any seat and watching bots play, and check board sizes and player
+counts the same way. The smart bot is rewritten and wins at least 90% of
+9 x 9 games against the random one, and the apps download with no Python
+needed, all checked by tests, evals and CI on three operating systems.
 
 Go Python is released under the [MIT licence](LICENSE).
