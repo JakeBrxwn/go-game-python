@@ -1419,7 +1419,7 @@ def test_clicks_on_a_bots_turn_say_why_nothing_happens(
         click(window, spot(window, (4, 4)))
     else:
         press(window, "Pass")
-    note = "Not played: you clicked on Black's turn, and Black is a bot."
+    note = "Not played: you clicked during Black's turn (a bot)."
     assert window.match.moves == 0 and window.note == note
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
@@ -1439,7 +1439,7 @@ def test_regression_the_note_stays_true_once_the_bot_has_moved(
     window = GoGUI(GameConfig(9, False, ("human", "random")))
     click(window, spot(window, (4, 4)))
     click(window, spot(window, (2, 2)))
-    note = "Not played: you clicked on White's turn, and White is a bot."
+    note = "Not played: you clicked during White's turn (a bot)."
     card = box_around(window, "White to play")
     lines = [d.text for d in window.draw()
              if d.kind == "text" and card.contains(d.rect)]
@@ -1481,7 +1481,7 @@ def test_regression_a_click_dropped_after_a_wait_is_not_silent(
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 600)
     monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: (0, 0))
     window = GoGUI(GameConfig(9, False, ("random", "human")))
-    note = "Not played: you clicked on Black's turn, and Black is a bot."
+    note = "Not played: you clicked during Black's turn (a bot)."
     point = spot(window, (4, 4))
     clock[0] += 200
     click(window, point)
@@ -1511,7 +1511,7 @@ def test_regression_a_press_held_over_a_bots_move_does_nothing(
     post(pygame.MOUSEBUTTONDOWN, pos=pos, button=1)
     window.frame()
     assert window.note == \
-        "Not played: you clicked on Black's turn, and Black is a bot."
+        "Not played: you clicked during Black's turn (a bot)."
     monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
     window.frame()
     assert window.match.moves == 1
