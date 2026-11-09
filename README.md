@@ -1,67 +1,305 @@
-# CMSC 14200 Course Project
+# Go Python
 
-Team members:
-- Marcus Longo (malongo) (GUI)
-- Aditya Singh (asingh23) (QA)
-- Daniel Fields (dfields) (TUI)
-- Jake Brown (jacobbrown) (Bot)
+Play the board game Go in a window or in a terminal: against a friend,
+against a bot, or watch bots play each other.
 
-## Run it
+![The game window mid-match: a 13 x 13 board, with each player's area beside it](https://github.com/JakeBrxwn/go-game-python/releases/latest/download/go-python-screenshot.png)
 
-Install it into a Python 3.14 environment with `pip install .`, then:
+Go Python started as a college project from when I first began my journey
+as an engineer over six years ago, and this fork gives it new life as a
+desktop app.
 
-- `go-python` opens the game window: Play, Watch bots or Quit.
-- `go-python-tui` is the same game in the terminal, typed move by move. It
-  never loads pygame.
+## Features
 
-For testing, `go-python` also has commands that skip the menu:
+- A game window with a menu, a setup screen, and each player's score as
+  the game goes.
+- A terminal game, where you type moves like `D4`. It is a separate,
+  lighter app that never loads the window code.
+- 2 to 4 players, each one a person, a random bot or a smart bot.
+- Watch bots play each other, in the window or the terminal.
+- Boards from 6 x 6 to 30 x 30.
+- The simple ko rule or superko. Suicide is never allowed.
+- Area scoring: your stones plus the empty points only you surround.
+- Hints in the terminal: type `hint` and the smart bot suggests a move.
+- Downloads for Linux, Windows and macOS that need no Python.
 
-- `go-python gui` or `go-python tui` starts one match. Options:
-  `-s/--size` (6 to 30), `--ko simple|super`, and `--seats human,smart`
-  (2 to 4 seats, each human, random or smart).
-- `go-python bots` plays bot-only games and prints the totals, for example
-  `go-python bots -n 4 -s 9 -1 smart`.
+## Download and run
 
-## Enhancements
+Each [release](https://github.com/JakeBrxwn/go-game-python/releases/latest)
+has the game window and the terminal game for each OS, as single files:
 
-Enhancement 1: We updated the GUI to play music in the background while it is running.
-The music is Glorious Morning 2 by Waterflame, used with permission:
-https://www.youtube.com/watch?v=yolbGaJD4AY
-https://www.waterflame.com/contact-info
+| OS | Game window | Terminal game |
+|---|---|---|
+| Linux, x86-64 | `go-python-linux-x86_64` | `go-python-tui-linux-x86_64` |
+| Windows, x86-64 | `go-python-windows-x86_64.exe` | `go-python-tui-windows-x86_64.exe` |
+| macOS, Apple silicon | `go-python-macos-arm64` | `go-python-tui-macos-arm64` |
 
-Enhancement 2: We added support for hints in the TUI. A user can request a hint and get a suggested move from the bot code.
+The files are not signed, as signing needs paid certificates, so Windows and
+macOS warn you the first time. The steps below get past the warning.
 
-Enhancement 3: We created a helper function in our tests that loads a board from a file on disk, and loads that board into a game.
+### Linux
 
-## Improvements
+The Linux files are built on Ubuntu 22.04, so they need glibc 2.35 or newer
+(Ubuntu 22.04, Debian 12, Fedora 36, or later). In a terminal, in the folder
+you downloaded to:
 
-### Game Logic:
+```sh
+chmod +x go-python-linux-x86_64
+./go-python-linux-x86_64
+```
 
-  #### Rubric Item 1: "[Major] Did not implement load_game at all"
-  To address this item, we implemented the load_game method in go.py, ensuring that it can load a new board into the current game as long as the board is valid.
+The terminal game is the same: `chmod +x go-python-tui-linux-x86_64`, then
+`./go-python-tui-linux-x86_64`.
 
-  #### Rubric Item 2: "grid should return a deepcopy of the board grid so that manipulating it does not affect the original game board."
-  To address this item, we modified the grid property in the Go class to ensure that it returns a deepcopy of the game board that will not affect the original board.
+### Windows
 
-  #### Rubric Item 3: "legal_move seems to be invalidly claiming that some legal moves are illegal, which is likely due to your ko rule implementation. You should only save the state of the board after all captures have concluded."
-  To address this item, we modified our apply_move method to save the state of the board after all captures have concluded, which helps to ensure that legal_move doesn't identify legal moves as illegal.
+Double-click `go-python-windows-x86_64.exe`. If Windows says "Windows
+protected your PC", click **More info**, then **Run anyway**.
 
-  #### Rubric Item 4: "Capturing should remove all connected pieces with no liberties within the territory surrounded by a single color, which requires determining these surrounded areas."
-  To address this item, we implemented proper capture logic where all connected pieces with no liberties are removed from the board. We implemented this logic in the _capture_pieces method of go.py, which first captures groups of other players' pieces without liberties before performing self capture if necessary. The method uses a helper method called _find_contigious to help identify contigious groups of pieces of a single player that must be captured.
+Double-clicking `go-python-tui-windows-x86_64.exe` opens the terminal game
+in a console window. You can also start it from PowerShell, in the folder
+you downloaded to:
 
-  #### Rubric Item 5: "scores should also take into account players' controlled territories, not just the pieces present on the board."
-  To address this item, we modified the scores method of go.py, changing it to account for players' controlled territories along with the pieces on the board. The method uses a helper
-  method called _find_contiguous to find contigious groups of empty intersections that represent a territory.
+```powershell
+.\go-python-tui-windows-x86_64.exe
+```
 
-### GUI:
-This component received two S's in Milestone 2
+### macOS
 
-### TUI:
-This component received two S's in Milestone 2
+macOS refuses to open unsigned files downloaded from the internet. In
+Terminal, in the folder you downloaded to:
 
-### Bot:
-This component received two S's in Milestone 2
+```sh
+chmod +x go-python-macos-arm64
+xattr -d com.apple.quarantine go-python-macos-arm64
+./go-python-macos-arm64
+```
 
-### QA:
-This component received two S's in Milestone 2
+`xattr -d` removes the mark macOS puts on downloaded files, which is what
+blocks them. If it says `No such xattr`, the file had no mark, so carry on.
+The terminal game takes the same three steps with
+`go-python-tui-macos-arm64`.
 
+### Check a download
+
+`SHA256SUMS`, in the same release, lists the SHA-256 hash of every file. On
+Linux, this checks every file you downloaded, in the folder that holds them
+and `SHA256SUMS`:
+
+```sh
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+On macOS, `shasum -a 256 go-python-macos-arm64` prints a file's hash, and on
+Windows, `Get-FileHash go-python-windows-x86_64.exe` in PowerShell does.
+Compare it with the file's line in `SHA256SUMS`.
+
+## Install with pipx
+
+[pipx](https://pipx.pypa.io/) installs Python apps in their own environment.
+With Python 3.14 and pipx installed, this gives you both commands,
+`go-python` for the window and `go-python-tui` for the terminal:
+
+```sh
+pipx install --python 3.14 git+https://github.com/JakeBrxwn/go-game-python.git
+```
+
+To install from a downloaded release instead, use the wheel, the file that
+ends in `.whl`:
+
+```sh
+pipx install --python 3.14 go_python-0.1.0-py3-none-any.whl
+```
+
+## How to play
+
+### The rules
+
+- Players take turns placing one stone where two lines cross, or passing.
+  Black moves first, then White, then Red and Blue in games of 3 or 4.
+- A chain of stones with no empty point next to it is captured and removed.
+- Suicide is not allowed: you cannot play a stone that would leave your own
+  chain with no empty point next to it, unless it captures first.
+- Ko: under simple ko you cannot remake the board as it was just before
+  your move. Under superko you cannot remake any earlier board.
+- The game ends when every player passes in a row. The most area wins:
+  your stones plus the empty points that only your stones surround. A game
+  also ends after 3 x size x size moves and passes, so a 19 x 19 game stops
+  at 1,083.
+
+### In the window
+
+Run `go-python`, or open the downloaded game window.
+
+- **Menu:** Play, Watch bots or Quit.
+- **Setup:** pick the board size (− and +, or 9 x 9, 13 x 13 and 19 x 19),
+  the ko rule, the number of players, and who sits in each seat: Human,
+  Random bot or Smart bot. Then click **Start game**, or **Start watching**
+  when every seat is a bot.
+- **Playing:** a faint stone follows the mouse to show where a click plays.
+  Let go of the mouse button to place it. **Pass** passes your turn.
+  **Leave match (Esc)** asks once to make sure, then press Esc or click it
+  again to leave. If a click does nothing, a note on the right says why.
+- **Game over:** the side panel shows the winner and the score. **Play
+  again** starts the same match, and **Menu** goes back.
+
+### In the terminal
+
+Run `go-python-tui`, or open the downloaded terminal game. It asks
+questions, and Enter keeps the answer in brackets.
+
+- **Menu:** type `1` to play, `2` to watch bots, or `3` to quit.
+- **Setup:** the board size, the ko rule (`simple` or `superko`), then a
+  seat for each player: `human`, `random` or `smart`. Red and Blue start as
+  `none`, which ends the list of players.
+- **Your turn:** the board is printed with column letters and row numbers.
+
+| Type | To |
+|---|---|
+| `D4` | Play at column D, row 4. Case does not matter. There is no column I, as on real boards. Boards over 25 wide go on to `AA`, `AB` and so on. |
+| `pass` | Pass your turn. |
+| `hint` | Ask the smart bot for a move. Nothing is played. |
+| `quit` | End the match with no winner. |
+
+Ctrl+C stops a match you are watching. On your turn, Ctrl+C or Ctrl+D ends
+the match with no winner, like `quit`. During setup either one goes back to
+the menu, and at the menu either one quits. The terminal needs UTF-8 to show
+the stones, which almost every terminal has.
+
+## Bot mode
+
+There are two bots:
+
+- **Random bot** plays a random legal move, but never fills its own eye and
+  never takes a ko.
+- **Smart bot** rates every move by the chains next to it: it captures,
+  saves its own stones, presses on weak enemy chains and keeps off the edge.
+  The evals hold it to winning at least 90% of 9 x 9 games against Random
+  bot.
+
+To play against a bot, set any seat to Random bot or Smart bot in setup. To
+watch bots play, choose **Watch bots** in the menu: the window starts you
+on 9 x 9 with Smart bot as Black and Random bot as White, and you can
+change both before you start.
+
+To play many bot games with no display and see the totals, use the `bots`
+test command from [Development](#development).
+
+## Build from source
+
+You need Python 3.14 and git. On Windows, run the commands in PowerShell
+and use `.venv\Scripts\activate` in place of the `source` line.
+
+```sh
+git clone https://github.com/JakeBrxwn/go-game-python.git
+cd go-game-python
+python3.14 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+go-python
+```
+
+`requirements.txt` installs the game in editable mode, so your changes to
+`src/` take effect when you next run it, along with the test tools.
+
+To build the two standalone apps for your OS into `dist/`, then check them
+the way the release does:
+
+```sh
+pip install -e ".[release]"
+python scripts/freeze.py
+python scripts/smoke.py
+```
+
+The smoke test takes about a minute: it checks the version, plays a bot game
+with no display, keeps the window playing bots for 15 seconds on SDL's
+dummy drivers, watches a whole bot match in the terminal game, and checks
+that the terminal game holds no pygame.
+
+## Development
+
+With the environment from [Build from source](#build-from-source)
+activated:
+
+```sh
+python -m pytest
+python -m pytest evals -s
+ruff check .
+mypy
+```
+
+- `python -m pytest` runs the unit tests in `tests/`, in about 10 seconds.
+- `python -m pytest evals -s` runs the evals in `evals/` and prints their
+  numbers, in about 3 minutes: the rules against
+  [sgfmill](https://github.com/mattheww/sgfmill), invariants over random
+  games, the bots' strength, and speed.
+- `ruff check .` and `mypy` are the lint and type checks.
+
+`go-python` has three commands for testing that skip the menu:
+
+- `go-python gui` starts one match in the window, and `go-python tui`
+  plays one in the terminal. Both take `-s` or `--size` (6 to 30),
+  `--ko simple` or `--ko super`, and `--seats` with 2 to 4 seats in turn
+  order, each `human`, `random` or `smart`. For example:
+  `go-python gui -s 9 --ko super --seats human,smart,random`.
+- `go-python bots` plays bot games with no display and prints the totals,
+  for example `go-python bots -n 20 -s 9 -1 smart -2 random`.
+
+Run any command with `--help` for its options.
+
+Every pull request runs `.github/workflows/ci.yml`: the lint and type
+checks, the tests on Linux, Windows and macOS, the evals, and the package
+smoke test, which builds both apps on each OS and runs `scripts/smoke.py`.
+
+## Architecture
+
+```text
+cli.py      the commands, and the only code that reads arguments
+ ├─ gui.py  the window, with pygame
+ └─ tui.py  the terminal game, with input() and print()
+     │
+match.py    one match: its settings (GameConfig), seats, turns and result,
+ │          and the only code that changes the game
+ ├─ bot.py    Random and Smart
+ └─ go.py     the rules: moves, captures, ko, scoring
+     └─ board.py  the grid of stones
+```
+
+The window and the terminal game never change a game themselves: they ask
+`Match` to play a move, pass or let a bot move, then show what it says. So
+both frontends play by the same rules, and bots work the same in each.
+
+## Release process
+
+1. Set `__version__` in `src/go_python/__init__.py`, and merge that to
+   `main` through a pull request.
+2. Tag the merged commit and push the tag:
+
+   ```sh
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+
+3. `.github/workflows/release.yml` checks that the tag names the version in
+   the code, builds and smoke-tests both apps on each OS, and publishes a
+   GitHub Release with the six apps, the wheel, the sdist, the screenshot
+   above and `SHA256SUMS`. A tag with a suffix, like `v0.1.0-rc.1`, makes a
+   pre-release instead.
+
+## Credits and licence
+
+The original game was built by a team of four:
+
+- **Marcus Longo**, the game window
+- **Aditya Singh**, testing
+- **Daniel Fields**, the terminal game
+- **Jake Brown**, the bots
+
+I picked it back up to play around with it, and this version builds on
+their work. The rules now follow Go on ko and suicide, and one `Match` core
+runs every game, so the window and the terminal game both offer a menu,
+2 to 4 players, bots in any seat and watching bots play. It adds a smart
+bot, boards from 6 x 6 to 30 x 30, hints, and downloads that need no
+Python, all checked by tests, evals and CI on three operating systems.
+
+Go Python is released under the [MIT licence](LICENSE).
