@@ -1,329 +1,986 @@
 """
-A stub implementation of a GoStub GUI.
+The Go Python window: a menu, a setup screen, the match and its result.
+The window only reads the game; every move goes through a Match.
 """
-
 import os
-import sys
-import pygame
-import pygame.gfxdraw
-import click
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+from enum import Enum, auto
+from functools import partial
+from math import dist
+from typing import Any, NamedTuple
 
-from go_python.go import Go
+from go_python import __version__
+from go_python.match import (PLAYER_NAMES, SEAT_KINDS, EndReason, GameConfig,
+                             Match, MatchResult, MatchState)
 
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
+import pygame  # noqa: E402
+import pygame.freetype  # noqa: E402
 
+#
+# Layout, colours and timing
+#
 
-def is_within_radius(test_pos: tuple[float|int, float|int],
-                     center_pos: tuple[float|int, float|int],
-                     radius: float|int) -> bool:
+WIDTH, HEIGHT = 1200, 675
+FPS = 30
+# Pause before each bot move so a person can follow the game; tests set 0
+BOT_DELAY_MS = 600
+# A press this soon after the last press taken, and this near it, is the
+# second half of a double-click, so it is ignored; tests set 0
+DOUBLE_CLICK_MS = 500
+DOUBLE_CLICK_PX = 5
+
+# The board keeps its original look: off-white backdrop, wood, black lines
+BACKDROP = (249, 241, 241)
+WOOD = (207, 185, 151)
+GRID = (0, 0, 0)
+SHADOW = (166, 144, 112)
+# Stone colours in turn order, named by PLAYER_NAMES. Red and blue are
+# softened from pure primaries and keep 3:1 against the wood and Black.
+STONES = ((0, 0, 0), (255, 255, 255), (190, 35, 35), (40, 90, 200))
+
+INK = (43, 36, 36)
+MUTED = (118, 104, 104)
+CARD = (255, 255, 255)
+EDGE = (226, 212, 212)
+# Button borders and the gold fill both keep 3:1 or more against white
+LINE = (150, 136, 136)
+GOLD = (150, 100, 20)
+TINT = (255, 246, 228)
+ERROR = (176, 28, 28)
+# Fill, edge and label colour of each button style
+STYLES = {"plain": (CARD, LINE, INK), "primary": (INK, INK, CARD),
+          "chosen": (GOLD, GOLD, CARD), "off": (EDGE, EDGE, MUTED)}
+
+# Where the grid goes; the wood reaches PAD further out on every side
+BOARD = pygame.Rect(36, 36, 603, 603)
+PREVIEW = pygame.Rect(72, 150, 312, 312)
+HERO = pygame.Rect(108, 130, 416, 416)
+PAD = 12
+# The sidebar beside the board while a match is on
+SIDE, SIDE_W = 680, 496
+HERO_STONES = (((2, 2), 1), ((2, 6), 2), ((6, 2), 3), ((6, 6), 4),
+               ((3, 2), 1), ((2, 3), 1), ((4, 4), 1), ((3, 6), 2),
+               ((2, 5), 2), ((4, 5), 2), ((5, 2), 3), ((6, 3), 3),
+               ((5, 6), 4), ((6, 5), 4), ((5, 4), 3))
+
+SEAT_LABELS = {"human": "Human", "random": "Random bot",
+               "smart": "Smart bot"}
+WATCH = GameConfig(size=9, seats=("smart", "random"))
+MENU_HINTS = ("Set up a game against people, bots or both.",
+              "Pick some bots and watch them play each other.",
+              "Close the window.")
+HOW_TO_PLAY = ("Take turns placing a stone where two lines cross. Stones "
+               "with no empty point next to them are captured. Your score "
+               "is your area: your stones plus the empty points only you "
+               "surround. When every player passes in a row, the most "
+               "area wins.")
+LEAVE_ASK = ("Press Esc or Leave match again to leave. Anything else "
+             "keeps the match going.")
+SEAT_HELP = ("Black moves first. Human: you click the board to play. "
+             "Random bot: plays any legal move. Smart bot: looks for the "
+             "move that gains most.")
+
+class Screen(Enum):
     """
-    Calculates the euclidian distance between two points and finds whether it
-    the position being tested is within some radius of the
+    What the window shows.
     """
-    x_1, y_1 = test_pos
-    x_2, y_2 = center_pos
-    return (x_1 - x_2) ** 2 + (y_1 - y_2) ** 2 <= radius ** 2
+    MENU = auto()
+    SETUP = auto()
+    PLAYING = auto()
+    GAME_OVER = auto()
 
+@dataclass(frozen=True)
+class Button:
+    """
+    A box to click. Drawing and clicks read the same list of buttons.
+    """
+    rect: pygame.Rect
+    label: str
+    action: Callable[[], None] = field(compare=False)
+    style: str = field(default="plain", compare=False)
+    # True where a quick second click means again, as on the size steps
+    repeats: bool = field(default=False, compare=False)
 
-FONT_SIZE = 36
-# Colors for player pieces, going in the following order: black, white, red,
-# green, blue, yellow, pink, cyan.
-COLORS = {1: (0, 0, 0),
-          2: (255, 255, 255),
-          3: (255, 0, 0),
-          4: (0, 255, 0),
-          5: (0, 0, 255),
-          6: (255, 255, 0),
-          7: (255, 0, 255),
-          8: (0, 255, 255)}
+class Drawn(NamedTuple):
+    """
+    One thing draw() put on the screen.
+    """
+    kind: str  # "text", "box" (a panel, button or board) or "stone"
+    rect: pygame.Rect
+    text: str = ""  # the words of a text, the player of a stone
+    color: tuple[int, int, int] | None = None  # the colour of a text
+
+#
+# Pure helpers
+#
+
+def point_at(mouse: tuple[int, int], board: pygame.Rect,
+             size: int) -> tuple[int, int] | None:
+    """
+    Finds the board point under the mouse.
+
+    Args:
+        mouse: Position of the mouse in the window
+        board: Where the board is drawn
+        size: Number of points on each side
+
+    Returns: The (row, column) nearest the mouse, or None off the board
+    """
+    spacing = board.width / size
+    row = int((mouse[1] - board.y) // spacing)
+    col = int((mouse[0] - board.x) // spacing)
+    return (row, col) if 0 <= row < size and 0 <= col < size else None
+
+def center(board: pygame.Rect, size: int,
+           point: tuple[int, int]) -> tuple[float, float]:
+    """
+    Finds where a board point is drawn.
+
+    Args:
+        board: Where the board is drawn
+        size: Number of points on each side
+        point: The (row, column) of the point
+
+    Returns: The window position of the point
+    """
+    spacing = board.width / size
+    return (board.x + (point[1] + 0.5) * spacing,
+            board.y + (point[0] + 0.5) * spacing)
+
+def star_points(size: int) -> list[tuple[int, int]]:
+    """
+    Finds the marked points of a board, as on a real Go board.
+
+    Args:
+        size: Number of points on each side
+
+    Returns: The corner points, the centre of an odd board, and the side
+    points from 15 x 15 up. Boards under 7 x 7 have none.
+    """
+    if size < 7:
+        return []
+    near, far = (2, size - 3) if size < 13 else (3, size - 4)
+    points = [(r, c) for r in (near, far) for c in (near, far)]
+    if size % 2:
+        mid = size // 2
+        points.append((mid, mid))
+        if size >= 15:
+            points += [(near, mid), (mid, near), (mid, far), (far, mid)]
+    return points
+
+def points(count: int) -> str:
+    """
+    Words for a number of points.
+
+    Args:
+        count: The number of points
+
+    Returns: The number followed by point or points
+    """
+    return f"{count} point{'s' * (count != 1)}"
+
+def summary(result: MatchResult, moves: int) -> tuple[str, str]:
+    """
+    Words for how a match ended.
+
+    Args:
+        result: How the match finished
+        moves: Number of moves and passes made
+
+    Returns: A short headline, and a line naming the winners and saying why
+    the match ended
+    """
+    names = [PLAYER_NAMES[player - 1] for player in result.winners]
+    why = (f"{result.reason.value.capitalize()} after {moves} "
+           f"move{'s' * (moves != 1)}.")
+    if result.reason is EndReason.ABORTED:
+        return "You left the match", why + " No winner."
+    if len(names) > 1:
+        tied = ", ".join(names[:-1]) + f" and {names[-1]}"
+        return "It's a tie", f"{tied} share the top score. {why}"
+    best, second = sorted(result.scores.values(), reverse=True)[:2]
+    margin = best - second
+    return f"{names[0]} wins", f"By {points(margin)}. {why}"
+
+#
+# The window
+#
 
 class GoGUI:
     """
-    A class for the fake graphical user interface implementation for a game of
-    Go.
+    The window. The constructor only sets it up; loop() runs it, and tests
+    can drive it one frame at a time instead. The public attributes are for
+    reading; only the window's own actions change them.
     """
-    ### Pygame attributes
-    width: int
-    height: int
-    border: int
-    surface: pygame.surface.Surface
-    clock: pygame.time.Clock
-    font: pygame.font.Font
+    screen: Screen
+    config: GameConfig
+    match: Match
+    _last_game: GameConfig
+    note: str
+    running: bool
+    _surface: pygame.Surface
+    _clock: pygame.time.Clock
+    _fonts: dict[int, pygame.freetype.Font]
+    _log: list[Drawn]
+    _mouse: tuple[int, int]
+    _down: Button | tuple[int, int] | None
+    _pressed: tuple[int, int]
+    _pressed_ms: int
+    _inputs: int
+    _asked: int
+    _last: tuple[int, int] | None
+    _passed: frozenset[int]
+    _last_ms: int
 
-    ### Ongoing rendering attributes
-    _piece_rad: float
-    _button_rad: float
+    def __init__(self, config: GameConfig | None = None) -> None:
+        """
+        Constructor. Opens the window without sound, so a missing audio
+        device never matters, and with the font bundled with pygame, so it
+        looks the same on every machine.
 
-    ### Precalculated rending positions
-    # Go board positions
-    _grid_dims: tuple[float, float, float, float]
-    _line_positions: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
-    _intersections: tuple[tuple[tuple[float, float], ...], ...]
-    # UI positions
-    _score_board: dict[int, tuple[float, float]]
-    _pass_position: tuple[float, float]
-    _turn_position: tuple[float, float]
-
-    ### Go attributes
-    size: int
-    players: int
-    board: Go
-    _current_tile: tuple[int, int]|None
-    _scores: dict[int, int]
-
-    def __init__(self, players: int, size: int, super_ko: bool,
-                 width: int = 1200, height: int = 675, border: int = 32) -> None:
-        if size <= 0:
-            raise ValueError("Invalid board size")
-
-        self.width = width
-        self.height = height
-        self.border = border
-        self.size = size
-        self.players = players
-        self.board = Go(size, self.players, super_ko)
-        self._scores = self.board.scores()
-
-        self._precal_gui()
-
-        # Initialize Pygame
-        pygame.init()
+        Args:
+            config: The match to start at once, or None to open the menu
+        """
+        pygame.display.init()
+        pygame.freetype.init()
         pygame.display.set_caption("Go Python")
-        self.font = pygame.font.Font(None, size=FONT_SIZE)
-        self.surface = pygame.display.set_mode((width, height))
-        self.clock = pygame.time.Clock()
+        self._surface = pygame.display.set_mode((WIDTH, HEIGHT))
+        self._clock = pygame.time.Clock()
+        # Kerning stays off: freetype's kerning spaces this font unevenly
+        self._fonts = {}
+        for size in (15, 18, 21, 25, 38, 66):
+            self._fonts[size] = pygame.freetype.Font(None, size)
+            self._fonts[size].origin = True
+        self._log = []
+        self.running = True
+        self.screen = Screen.MENU
+        self._mouse = (-1, -1)
+        self._down = None
+        # No press taken yet: as if one long ago, off the window
+        self._pressed = (-100, -100)
+        self._pressed_ms = 0
+        self._inputs = 0
+        self._asked = -2
+        # Why the last click did nothing; kept until the next key or press
+        # taken, or another screen, so a dropped press is never silent
+        self.note = ""
+        self.config = config or GameConfig()
+        # Never shown until a match starts; it saves a None check everywhere
+        self.match = Match(self.config)
+        self._last_game = GameConfig()
+        self._last = None
+        self._passed = frozenset()
+        self._last_ms = 0
+        if config is not None:
+            self._start(config)
 
-        self.event_loop()
+    #
+    # Running
+    #
 
-    def _precal_gui(self) -> None:
+    def loop(self) -> None:
         """
-        Calculate the positions and dimensions of all of the GUI elements
-        dynamically from the height and width.
+        Runs the one event loop until the window closes or Quit is clicked.
         """
-        spacing = self.height / self.size
-        board_size = self.height
+        while self.running:
+            self.frame()
 
-        # Rendering attributes
-        self._piece_rad = spacing / 2
-        self._button_rad = self.height / 8
-
-        # General grid attributes
-        self._grid_dims = ((self.width - board_size) / 2,
-                            0,
-                            board_size,
-                            board_size)
-
-        # Tile positions
-        start_x = (self.width - self.height + 2 * self._piece_rad) / 2
-        start_y = spacing / 2
-        x_positions = [c * spacing + start_x for c in range(self.size)]
-        y_positions = [r * spacing + start_y for r in range(self.size)]
-        self._line_positions = tuple([((start_x, y), (x_positions[-1], y))
-                                      for y in y_positions]
-                                     +
-                                     [((x, start_y), (x, y_positions[-1]))
-                                      for x in x_positions])
-        self._intersections = tuple(tuple((x, y) for x in x_positions)
-                                    for y in y_positions)
-
-        # Button attributes
-        self._pass_position = (self._grid_dims[0] / 2, self.height / 4)
-        self._turn_position = (self._grid_dims[0] / 2, 3 * self.height / 4)
-
-        # Scoreboard attributes
-        right_center = 3 * self._grid_dims[0] / 2 + self._grid_dims[2]
-        text_spacing = self.height / 16
-        self._score_board = {}
-        for i in range(-1, self.players + 1):
-            self._score_board[i] = (right_center, (i + 2) * text_spacing)
-
-    def _draw_labelled_circ(self, radius: float, center: tuple[float, float],
-                     label: str|None, label_color: tuple[int, int, int],
-                     rim_color: tuple[int, int, int],
-                     fill_color: tuple[int, int, int], thickness: int) -> None:
+    def frame(self) -> None:
         """
-        Draws a button with a specified rim color, fill color, thickness, and
-        label.
-
-        Parameters:
-            radius : int : radius of circle representing button or node
-            center : Tuple[int, int] : center coordinates of circle
-            label : str : textual label for button or node
-            rim_color: the color of the rim of the button
-            fill_color: the color of the inside of the button
-            thickness: the thickness of the rim of the button
-
-        Returns: nothing
+        Handles waiting events, lets a bot move, then draws.
         """
-        pygame.draw.circle(self.surface, fill_color, center, radius)
-        pygame.draw.circle(self.surface, rim_color, center, radius, thickness)
+        for event in pygame.event.get():
+            self._handle(event)
+        self._bot_turn()
+        self.draw()
+        pygame.display.flip()
+        self._clock.tick(FPS)
 
-        if label is not None:
-            label_img = self.font.render(label, True, label_color)
-            text_topleft = (center[0] - label_img.get_width() // 2,
-                            center[1] - label_img.get_height() // 2)
-            self.surface.blit(label_img, text_topleft)
-
-    def _draw_text(self, text: str, center: tuple[float|int, float|int],
-                   color: tuple[int, int, int]) -> None:
+    def _handle(self, event: pygame.event.Event) -> None:
         """
-        Draws text to the window.
+        Acts on one event. Anything not listed here is ignored.
 
-        Parameters:
-            text: The string to draw on the window
-            center: The coordinates of the center of the text
-            color: The color of the text
+        Args:
+            event: The event to act on
         """
-        label_img = self.font.render(text, True, color)
-        text_topleft = (center[0] - label_img.get_width() // 2,
-                        center[1] - label_img.get_height() // 2)
-        self.surface.blit(label_img, text_topleft)
+        if event.type == pygame.QUIT:
+            self.running = False
+        elif event.type == pygame.MOUSEMOTION:
+            self._mouse = event.pos
+        elif event.type == pygame.WINDOWLEAVE:
+            self._mouse = (-1, -1)
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self._press(event.pos)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            # A button acts only if pressed and released on it; the board
+            # plays where the mouse is let go, as its preview shows
+            down, self._down = self._down, None
+            target = self._target(event.pos)
+            if isinstance(target, Button) and target == down:
+                target.action()
+            elif isinstance(target, tuple) and isinstance(down, tuple):
+                self._play(target)
+        elif event.type == pygame.KEYDOWN:
+            self.note = ""
+            self._inputs += 1
+            if event.key != pygame.K_ESCAPE:
+                return
+            if self.screen is Screen.PLAYING:
+                self._leave()
+            elif self.screen is not Screen.MENU:
+                self._go(Screen.MENU)
 
-    def _draw_board(self, line_thickness: int) -> None:
+    def _press(self, pos: tuple[int, int]) -> None:
         """
-        Draws a Go board in the center of the window.
+        Takes a press of the left button, for its release to act on. A
+        press within DOUBLE_CLICK_MS and DOUBLE_CLICK_PX of the last one
+        taken is the second half of a double-click: the first half may have
+        changed what is under the mouse, so it is ignored, except on a
+        button that repeats, and leaves the last note up. A press taken
+        clears it; one that cannot move for a person is answered at once.
 
-        Parameter:
-            line_thickness: The thickness of lines of the Go board
+        Args:
+            pos: Where the mouse was pressed
         """
-        # Draws an off-white backdrop (regular white is too harsh)
-        self.surface.fill((249, 241, 241))
+        target = self._target(pos)
+        now = pygame.time.get_ticks()
+        if now - self._pressed_ms < DOUBLE_CLICK_MS and \
+           dist(pos, self._pressed) <= DOUBLE_CLICK_PX and \
+           not (isinstance(target, Button) and target.repeats):
+            return
+        self._pressed, self._pressed_ms = pos, now
+        self.note = ""
+        self._inputs += 1
+        if self.match.state is not MatchState.HUMAN_TURN and (
+                isinstance(target, tuple) or
+                (isinstance(target, Button) and target.style == "off")):
+            # With no person to move, the board and the greyed Pass say why
+            # at once; the release does nothing, even once a bot has moved
+            self._play(None)
+            target = None
+        self._down = target
 
-        # Draws the outline of the wooden board with rounded edges.
-        pygame.draw.rect(self.surface,
-                         (207, 185, 151),
-                         self._grid_dims,
-                         0,
-                         int(self._piece_rad))
-
-        # Draws the black dividing lines of the tiles
-        for pos_1, pos_2 in self._line_positions:
-            pygame.draw.line(self.surface,
-                             (0, 0, 0),
-                             pos_1,
-                             pos_2,
-                             line_thickness)
-
-    def _draw_pieces(self, line_thickness: int) -> None:
+    def _target(self, pos: tuple[int, int]) -> Button | tuple[int, int] | None:
         """
-        Draws the pieces of the Go board on the window in the correct location.
-        It also checks if the mouse is hovering over an intersection that
-        where a valid move can be applied. If it is, an indicator is put in that
-        intersection.
+        Finds what a click at a position would press.
 
-        Parameters:
-            line_thickness: The thickness of the rim of the valid move indicator
+        Args:
+            pos: Where the mouse is
+
+        Returns: The button there; else, during or after a match, the board
+        point there; else None
         """
-        self._current_tile = None
-        mouse_pos = pygame.mouse.get_pos()
-        for r, row in enumerate(self._intersections):
-            for c, tile_pos in enumerate(row):
-                space = self.board.piece_at((r, c))
-                if space is not None:
-                    pygame.draw.circle(self.surface,
-                                       COLORS[space],
-                                       tile_pos,
-                                       self._piece_rad)
-                elif is_within_radius(mouse_pos, tile_pos, self._piece_rad) \
-                and self.board.legal_move((r, c)):
-                    self._current_tile = (r, c)
-                    self._draw_labelled_circ(self._piece_rad, tile_pos, "?",
-                                             (0, 0, 0), (255, 255, 191),
-                                             (255, 255, 191), line_thickness)
+        for button in self.buttons():
+            if button.rect.collidepoint(pos):
+                return button
+        if self.screen in (Screen.PLAYING, Screen.GAME_OVER):
+            return self._point(pos)
+        return None
 
-    def _draw_ui(self, line_thickness: int) -> None:
+    def _point(self, pos: tuple[int, int]) -> tuple[int, int] | None:
         """
-        Draws the rest of the UI (that is, the pass button, the turn indicator,
-        and the scorebaord) to the sides of the Go board.
+        Finds the board point under the mouse in a match. The wood beyond the
+        edge points counts as the nearest edge point.
 
-        Parameters:
-            line_thickness: The thickness of the rim of the pass button and
-                turn indicator
+        Args:
+            pos: Where the mouse is
+
+        Returns: The (row, column), or None off the wood
         """
-        # Draws the pass button
-        self._draw_labelled_circ(self._button_rad,
-                                 self._pass_position,
-                                 "Pass",
-                                 (0, 0, 0),
-                                 (0, 0, 0),
-                                 (196, 2, 52),
-                                 line_thickness)
+        if not BOARD.inflate(2 * PAD, 2 * PAD).collidepoint(pos):
+            return None
+        x = min(max(pos[0], BOARD.left), BOARD.right - 1)
+        y = min(max(pos[1], BOARD.top), BOARD.bottom - 1)
+        return point_at((x, y), BOARD, self.match.config.size)
 
-        # Draws turn display
-        self._draw_labelled_circ(self._button_rad,
-                                 self._turn_position,
-                                 "Turn",
-                                 (207, 185, 151),
-                                 (207, 185, 151),
-                                 COLORS[self.board.turn],
-                                 line_thickness)
+    def _bot_turn(self) -> None:
+        """
+        Makes a bot's move once it has waited BOT_DELAY_MS, between frames.
+        """
+        if self.screen is Screen.PLAYING and \
+           self.match.state is MatchState.BOT_TURN and \
+           pygame.time.get_ticks() - self._last_ms >= BOT_DELAY_MS:
+            player = self.match.game.turn
+            self._record(player, self.match.step())
 
-        # Draw scoreboard
-        if self.board.done:
-            self._draw_text("Game Over!", self._score_board[-1], (0, 0, 0))
-        self._draw_text("Scores:", self._score_board[0], (0, 0, 0))
-        outcomes = self.board.outcome
-        for i in range(1, self.players + 1):
-            if i in outcomes:
-                score_text = f"Winner! Player {i}: {self._scores[i]}"
+    def hover(self) -> tuple[int, int] | None:
+        """
+        Finds the point a person would play by clicking where the mouse is.
+
+        Returns: A legal point on a person's turn, otherwise None
+        """
+        point = self._point(self._mouse)
+        if self.screen is Screen.PLAYING and point is not None and \
+           self.match.state is MatchState.HUMAN_TURN and \
+           self.match.game.legal_move(point):
+            return point
+        return None
+
+    #
+    # Actions
+    #
+
+    def _go(self, screen: Screen) -> None:
+        """
+        Shows another screen and clears the last message.
+
+        Args:
+            screen: The screen to show
+        """
+        self.screen = screen
+        self.note = ""
+
+    def _quit(self) -> None:
+        """
+        Ends the event loop.
+        """
+        self.running = False
+
+    def _setup(self, config: GameConfig) -> None:
+        """
+        Opens the setup screen.
+
+        Args:
+            config: The settings it starts from
+        """
+        self.config = config
+        self._go(Screen.SETUP)
+
+    def _set(self, **changes: Any) -> None:
+        """
+        Changes settings on the setup screen. GameConfig checks them; a
+        refused change keeps the old settings and shows GameConfig's message.
+
+        Args:
+            changes: The settings to change, by GameConfig field name
+        """
+        try:
+            self.config = replace(self.config, **changes)
+        except ValueError as err:
+            self.note = str(err).capitalize() + "."
+
+    def _seats(self, count: int) -> None:
+        """
+        Changes the number of players, seating a smart bot in a new seat.
+
+        Args:
+            count: The number of players wanted
+        """
+        seats = self.config.seats
+        self._set(seats=seats[:count] + ("smart",) * (count - len(seats)))
+
+    def _seat(self, index: int, kind: str) -> None:
+        """
+        Changes who sits in one seat.
+
+        Args:
+            index: The seat, from 0
+            kind: human, random or smart
+        """
+        seats = self.config.seats
+        self._set(seats=seats[:index] + (kind,) + seats[index + 1:])
+
+    def _start(self, config: GameConfig) -> None:
+        """
+        Starts a match. One with a person in it is what Play offers next.
+
+        Args:
+            config: The settings of the match
+        """
+        self.config = config
+        self.match = Match(config)
+        if "human" in config.seats:
+            self._last_game = config
+        self._last = None
+        self._passed = frozenset()
+        self._last_ms = pygame.time.get_ticks()
+        self._go(Screen.PLAYING)
+
+    def _play(self, pos: tuple[int, int] | None) -> None:
+        """
+        Makes a person's move, or says why it cannot be made.
+
+        Args:
+            pos: The point to play, or None to pass
+        """
+        game = self.match.game
+        if self.match.state is MatchState.FINISHED:
+            self.note = "The match is over: Play again or Menu."
+        elif "human" not in self.match.config.seats:
+            self.note = "Only bots play here. Leave match (Esc) to stop."
+        elif self.match.state is not MatchState.HUMAN_TURN:
+            # About the click, not the turn, so it holds once the bot moves
+            name = PLAYER_NAMES[game.turn - 1]
+            self.note = (f"Not played: you clicked during {name}'s turn "
+                         "(a bot).")
+        elif pos is not None and game.piece_at(pos) is not None:
+            self.note = "That point already has a stone."
+        elif pos is not None and not game.legal_move(pos):
+            self.note = ("Not allowed: a stone there would be captured at "
+                         "once, or break the ko rule.")
+        else:
+            player = game.turn
+            self.match.play(pos)
+            self._record(player, pos)
+
+    def _record(self, player: int, pos: tuple[int, int] | None) -> None:
+        """
+        Notes a move that was just made, and shows the result if it ended
+        the match. A stone clears the run of passes.
+
+        Args:
+            player: Who moved
+            pos: Where they played, or None for a pass
+        """
+        if pos is None:
+            self._passed |= {player}
+        else:
+            self._passed = frozenset()
+            self._last = pos
+        self._last_ms = pygame.time.get_ticks()
+        if self.match.state is MatchState.FINISHED:
+            self._go(Screen.GAME_OVER)
+
+    def _leave(self) -> None:
+        """
+        Asks to confirm leaving the match; leaves if the key or mouse press
+        just before this one asked too. A match left ends with no winner.
+        """
+        if self._asked == self._inputs - 1:
+            self.match.abort()
+            self._go(Screen.GAME_OVER)
+        else:
+            self._asked = self._inputs
+
+    def buttons(self) -> list[Button]:
+        """
+        Lists the buttons of the current screen.
+
+        Returns: The buttons, which drawing and clicks both read
+        """
+        if self.screen is Screen.MENU:
+            # Play offers the last game a person played: the defaults at
+            # first, and never a match of bots
+            return [Button(pygame.Rect(604, 300, 200, 54), "Play",
+                           partial(self._setup, self._last_game), "primary"),
+                    Button(pygame.Rect(604, 370, 200, 54), "Watch bots",
+                           partial(self._setup, WATCH)),
+                    Button(pygame.Rect(604, 440, 200, 54), "Quit",
+                           self._quit)]
+        if self.screen is Screen.SETUP:
+            return self._setup_buttons()
+        left = pygame.Rect(SIDE, 595, 240, 56)
+        right = pygame.Rect(SIDE + 248, 595, SIDE_W - 248, 56)
+        if self.screen is Screen.PLAYING:
+            human = self.match.state is MatchState.HUMAN_TURN
+            return [Button(left, "Pass", partial(self._play, None),
+                           "primary" if human else "off"),
+                    Button(right, "Leave match (Esc)", self._leave)]
+        return [Button(left, "Play again",
+                       partial(self._start, self.match.config), "primary"),
+                Button(right, "Menu", partial(self._go, Screen.MENU))]
+
+    def _setup_buttons(self) -> list[Button]:
+        """
+        Lists the buttons of the setup screen, the current choices in gold.
+
+        Returns: The size, ko rule, player and seat buttons, then Back and
+        Start
+        """
+        config = self.config
+
+        def chosen(on: bool) -> str:
+            """
+            Picks the style of an option button.
+
+            Args:
+                on: True if the option is the current setting
+
+            Returns: chosen if on, else plain
+            """
+            return "chosen" if on else "plain"
+
+        buttons = [Button(pygame.Rect(456, 80, 44, 44), "−",
+                          partial(self._set, size=config.size - 1),
+                          repeats=True),
+                   Button(pygame.Rect(622, 80, 44, 44), "+",
+                          partial(self._set, size=config.size + 1),
+                          repeats=True)]
+        for i, size in enumerate((9, 13, 19)):
+            buttons.append(Button(pygame.Rect(690 + i * 120, 80, 112, 44),
+                                  f"{size} × {size}",
+                                  partial(self._set, size=size),
+                                  chosen(config.size == size)))
+        for i, (label, superko) in enumerate((("Simple ko", False),
+                                               ("Superko", True))):
+            buttons.append(Button(pygame.Rect(456 + i * 178, 234, 170, 44),
+                                  label, partial(self._set, superko=superko),
+                                  chosen(config.superko == superko)))
+        for count in range(2, len(PLAYER_NAMES) + 1):
+            buttons.append(Button(
+                pygame.Rect(600 + (count - 2) * 176, 294, 168, 44),
+                f"{count} players", partial(self._seats, count),
+                chosen(len(config.seats) == count)))
+        for i, seat in enumerate(config.seats):
+            for j, kind in enumerate(SEAT_KINDS):
+                buttons.append(Button(
+                    pygame.Rect(600 + j * 176, 390 + i * 48, 168, 40),
+                    SEAT_LABELS[kind], partial(self._seat, i, kind),
+                    chosen(seat == kind)))
+        start = "Start game" if "human" in config.seats else "Start watching"
+        return buttons + [
+            Button(pygame.Rect(836, 597, 130, 54), "Back",
+                   partial(self._go, Screen.MENU)),
+            Button(pygame.Rect(978, 597, 174, 54), start,
+                   partial(self._start, config), "primary")]
+
+    #
+    # Drawing: reads the state and never changes it
+    #
+
+    def draw(self) -> list[Drawn]:
+        """
+        Draws the current screen.
+
+        Returns: Each text, box and stone beside the board, in the order
+        drawn, so tests can check the layout
+        """
+        self._log = []
+        self._surface.fill(BACKDROP)
+        if self.screen is Screen.MENU:
+            self._draw_menu()
+        elif self.screen is Screen.SETUP:
+            self._draw_setup()
+        else:
+            self._draw_match()
+        for button in self.buttons():
+            self._draw_button(button)
+        return self._log
+
+    def _text(self, text: str, size: int, pos: tuple[float, float],
+              color: tuple[int, int, int] = INK, anchor: str = "topleft",
+              width: int = 0) -> pygame.Rect:
+        """
+        Draws text, wrapping at the last space that fits.
+
+        Args:
+            text: The words
+            size: Font size in pixels
+            pos: Where the anchor point of the text goes
+            color: Text colour
+            anchor: Which point of the text sits at pos, as a Rect name
+            width: Width to wrap at, or 0 for one line
+
+        Returns: Where the text was drawn
+        """
+        font = self._fonts[size]
+        lines = [""]
+        for word in text.split():
+            joined = f"{lines[-1]} {word}".strip()
+            if width and lines[-1] and font.get_rect(joined).width > width:
+                lines.append(word)
             else:
-                score_text = f"Player {i}: {self._scores[i]}"
-            self._draw_text(score_text, self._score_board[i], (0, 0, 0))
+                lines[-1] = joined
+        height = font.get_sized_height(size)
+        rect = pygame.Rect(0, 0, max(font.get_rect(line).width
+                                     for line in lines), height * len(lines))
+        setattr(rect, anchor, pos)
+        for i, line in enumerate(lines):
+            font.render_to(self._surface, (rect.x, rect.y + i * height +
+                                           font.get_sized_ascender(size)),
+                           line, color)
+        if text:
+            self._log.append(Drawn("text", rect, text, color))
+        return rect
 
-    def _draw_window(self) -> None:
-        """Redraws the window."""
-        line_thickness = 5
+    def _card(self, rect: pygame.Rect, edge: tuple[int, int, int] = EDGE,
+              width: int = 1, fill: tuple[int, int, int] = CARD) -> None:
+        """
+        Draws a rounded panel.
 
-        self._draw_board(line_thickness)
+        Args:
+            rect: Where it goes
+            edge: Border colour
+            width: Border width
+            fill: Inside colour
+        """
+        pygame.draw.rect(self._surface, fill, rect, border_radius=12)
+        pygame.draw.rect(self._surface, edge, rect, width, border_radius=12)
+        self._log.append(Drawn("box", rect))
 
-        self._draw_pieces(line_thickness)
+    def _draw_button(self, button: Button) -> None:
+        """
+        Draws a button: under the mouse, a light one darker and a dark one
+        lighter.
 
-        self._draw_ui(line_thickness)
+        Args:
+            button: The button
+        """
+        fill, edge, ink = STYLES[button.style]
+        shade = pygame.Color(fill)
+        if button.style != "off" and button.rect.collidepoint(self._mouse):
+            shade = shade.lerp(MUTED, 0.2 if sum(fill) > 384 else 0.5)
+        pygame.draw.rect(self._surface, shade, button.rect, border_radius=10)
+        pygame.draw.rect(self._surface, edge, button.rect, 2,
+                         border_radius=10)
+        self._log.append(Drawn("box", button.rect))
+        self._text(button.label, 21, button.rect.center, ink, "center")
 
-    def event_loop(self) -> None:
-        """Handles user interactions and refresh rate."""
-        while True:
-            self._draw_window()
-            pygame.display.update()
+    def _draw_board(self, rect: pygame.Rect, size: int) -> None:
+        """
+        Draws an empty wooden board with its lines and marked points.
 
-            events = pygame.event.get()
-            for event in events:
+        Args:
+            rect: Where the grid goes
+            size: Number of points on each side
+        """
+        spacing = rect.width / size
+        wood = rect.inflate(2 * PAD, 2 * PAD)
+        pygame.draw.rect(self._surface, WOOD, wood, border_radius=16)
+        self._log.append(Drawn("box", wood))
+        for i in range(size):
+            x, y = center(rect, size, (i, i))
+            pygame.draw.line(self._surface, GRID, (rect.x + spacing / 2, y),
+                             (rect.right - spacing / 2, y))
+            pygame.draw.line(self._surface, GRID, (x, rect.y + spacing / 2),
+                             (x, rect.bottom - spacing / 2))
+        for point in star_points(size):
+            pygame.draw.aacircle(self._surface, GRID,
+                                 center(rect, size, point),
+                                 max(2.5, spacing / 10))
 
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+    def _draw_stone(self, pos: tuple[float, float], radius: float,
+                    player: int, on_wood: bool = True) -> None:
+        """
+        Draws a stone with a rim, a shine and, on the board, a shadow.
 
-                if event.type == pygame.MOUSEBUTTONUP and not self.board.done:
+        Args:
+            pos: Centre of the stone
+            radius: Radius of the stone
+            player: Whose stone, from 1
+            on_wood: True to draw its shadow on the board
+        """
+        color = pygame.Color(STONES[player - 1])
+        x, y = pos
+        if on_wood:
+            pygame.draw.aacircle(self._surface, SHADOW,
+                                 (x + radius / 8, y + radius / 6), radius)
+        else:
+            self._log.append(Drawn("stone", pygame.Rect(
+                x - radius, y - radius, 2 * radius, 2 * radius),
+                PLAYER_NAMES[player - 1]))
+        # A darker crescent on the lower right rounds the stone, so even
+        # White on a white card reads as a stone, not a ring
+        pygame.draw.aacircle(self._surface, color.lerp(GRID, 0.2), pos,
+                             radius)
+        pygame.draw.aacircle(self._surface, color,
+                             (x - radius / 8, y - radius / 8), radius * 0.82)
+        pygame.draw.aacircle(self._surface, color.lerp(GRID, 0.4), pos,
+                             radius, max(2, round(radius / 10)))
+        pygame.draw.aacircle(self._surface, color.lerp(CARD, 0.3),
+                             (x - radius / 3, y - radius / 3), radius / 4)
 
-                    if self._current_tile is not None:
-                        self.board.apply_move(self._current_tile)
-                        self._current_tile = None
-                        self._scores = self.board.scores()
+    def _draw_menu(self) -> None:
+        """
+        Draws the menu: a sample board, the title and what each button does.
+        """
+        self._draw_board(HERO, 9)
+        for point, player in HERO_STONES:
+            self._draw_stone(center(HERO, 9, point), HERO.width / 9 * 0.47,
+                             player)
+        self._text("Go Python", 66, (600, 136))
+        self._text("The board game Go for 2 to 4 players. Play people or "
+                   "bots, or watch the bots play each other.", 21,
+                   (604, 214), MUTED, width=540)
+        for button, hint in zip(self.buttons(), MENU_HINTS, strict=True):
+            self._text(hint, 18, (button.rect.right + 20,
+                                  button.rect.centery), MUTED,
+                       "midleft", 330)
+        self._text(f"Version {__version__}", 15, (WIDTH - 24, HEIGHT - 20),
+                   MUTED, "bottomright")
 
-                    elif is_within_radius(pygame.mouse.get_pos(),
-                                          self._pass_position,
-                                          self._button_rad):
-                        self.board.pass_turn()
+    def _draw_setup(self) -> None:
+        """
+        Draws the setup screen: a preview of the board, what each choice
+        means, and GameConfig's message under the control that caused it.
+        """
+        config = self.config
+        if "human" in config.seats:
+            ready = ("The defaults are" if config == GameConfig() else
+                     "Your last game's settings are"
+                     if config == self._last_game else "Your settings are")
+            title, intro = "New game", (f"{ready} ready: press Start game, "
+                                        "or change anything first.")
+        else:
+            title, intro = "Watch bots", ("Every seat is a bot. Press Start "
+                                          "watching, then sit back.")
+        self._text(title, 38, (48, 24))
+        self._text(intro, 18, (48, 76), MUTED, width=360)
+        self._draw_board(PREVIEW, config.size)
 
-            self.clock.tick(24)
+        card = pygame.Rect(48, 494, 360, 157)
+        self._card(card)
+        self._text("New to Go?", 21, (card.x + 16, card.y + 14))
+        self._text(HOW_TO_PLAY, 15, (card.x + 16, card.y + 40), MUTED,
+                   width=card.width - 32)
 
-@click.command()
-@click.option('-n', '--num-players', type = click.INT, default=2,
-              help = "The number of players.")
-@click.option('-s', '--size', type = click.INT, default=19,
-              help = "The size of the board.")
-@click.option('--simple-ko', is_flag = True, show_default = True,
-              default = True, help = "Starts a simple ko game.")
-@click.option('--super-ko', is_flag = True, show_default = True,
-              default = False, help = "Starts a super ko game.")
-def startGUI(num_players: int, size: int, simple_ko: bool,
-             super_ko: bool) -> None:
-    if simple_ko and not super_ko:
-        GoGUI(num_players, size, False)
-    elif not simple_ko and super_ko:
-        GoGUI(num_players, size, True)
-    else:
-        raise ValueError("A game of Go cannot be both simple ko and super ko.")
+        self._text("Board size", 25, (456, 24))
+        self._text("Lines on each side. 9 × 9 is quick; 19 × 19 "
+                   "is the classic board.", 15, (456, 56), MUTED)
+        # The size between − and +, as plain text: it is not a button
+        self._text(f"{config.size} × {config.size}", 21, (561, 102),
+                   anchor="center")
+        # Only the size can be refused; every other control offers valid
+        # choices only
+        self._text(self.note, 15, (456, 132), ERROR)
 
-if __name__ == "__main__":
-    startGUI()
+        self._text("Ko rule", 25, (456, 160))
+        self._text("Simple ko: no move may bring back the board as it was "
+                   "one move ago. Superko: no move may bring back any "
+                   "earlier board.", 15, (456, 192), MUTED, width=696)
+
+        self._text("Players", 25, (456, 302))
+        self._text(SEAT_HELP, 15, (456, 346), MUTED, width=696)
+        for i in range(len(config.seats)):
+            y = 390 + i * 48 + 20
+            self._draw_stone((470, y), 13, i + 1, on_wood=False)
+            self._text(PLAYER_NAMES[i], 21, (492, y), anchor="midleft")
+
+    def _draw_match(self) -> None:
+        """
+        Draws a match being played or just finished: the board on the left,
+        then the sidebar with the turn or the result, the players and their
+        scores, and what the buttons below do.
+        """
+        game = self.match.game
+        config = self.match.config
+        radius = BOARD.width / config.size * 0.47
+        self._draw_board(BOARD, config.size)
+        for r, row in enumerate(game.grid):
+            for c, player in enumerate(row):
+                if player is not None:
+                    self._draw_stone(center(BOARD, config.size, (r, c)),
+                                     radius, player)
+        if self._last is not None:
+            # A dark ring on White's stone, a light ring on the others
+            mark = GRID if game.piece_at(self._last) == 2 else CARD
+            pygame.draw.aacircle(self._surface, mark,
+                                 center(BOARD, config.size, self._last),
+                                 radius * 0.42, max(2, round(radius / 8)))
+        hover = self.hover()
+        if hover is not None:
+            ghost = pygame.Surface((2 * radius + 2, 2 * radius + 2),
+                                   pygame.SRCALPHA)
+            pygame.draw.aacircle(ghost, (*STONES[game.turn - 1], 140),
+                                 (radius + 1, radius + 1), radius)
+            # A rim darker than a stone's keeps even White at 3:1 on the wood
+            rim = pygame.Color(STONES[game.turn - 1]).lerp(GRID, 0.7)
+            pygame.draw.aacircle(ghost, rim, (radius + 1, radius + 1), radius,
+                                 max(2, round(radius / 14)))
+            self._surface.blit(ghost, ghost.get_rect(
+                center=center(BOARD, config.size, hover)))
+
+        self._draw_status()
+        self._draw_players()
+        # The details follow straight after the last player's row
+        y = 182 + len(config.seats) * 64
+        ko = "superko" if config.superko else "simple ko"
+        self._text(f"{config.size} × {config.size} board · {ko} · "
+                   f"{self.match.moves} of at most {self.match.move_limit} "
+                   "moves played", 15, (SIDE, y), MUTED)
+        swing = (" One stone alone claims the whole empty board, so early "
+                 "numbers swing." if self.screen is Screen.PLAYING else "")
+        area = self._text("Area: your stones plus the empty points only "
+                          "your stones surround." + swing, 15, (SIDE, y + 24),
+                          MUTED, width=SIDE_W)
+        color = MUTED
+        if self.screen is Screen.GAME_OVER:
+            caption = "Play again keeps the same board and players."
+            if self.note:
+                # A click on the finished board is answered by the buttons
+                caption, color = self.note, ERROR
+        elif "human" in config.seats:
+            caption = ("Pass skips your turn. When every player passes in "
+                       "a row, the game ends and the most area wins.")
+        else:
+            caption = ("The bots play on their own. When every player "
+                       "passes in a row, the game ends and the most area "
+                       "wins.")
+        # Straight under the explainer, so no empty band opens above it
+        self._text(caption, 15, (SIDE, area.bottom + 12), color,
+                   width=SIDE_W)
+
+    def _draw_status(self) -> None:
+        """
+        Draws the top of the sidebar: whose turn it is and what to do, why
+        a click did nothing, or how to confirm leaving; at the end, who won
+        and why.
+        """
+        result = self.match.result
+        player: int | None
+        if result is None:
+            player = self.match.game.turn
+            seat = self.match.config.seats[player - 1]
+            headline = f"{PLAYER_NAMES[player - 1]} to play"
+            asking = self._asked == self._inputs
+            line = LEAVE_ASK if asking else self.note or (
+                "Click a point on the board to place a stone."
+                if seat == "human" else
+                f"{SEAT_LABELS[seat]} is choosing a move…")
+            color = ERROR if asking or self.note else MUTED
+        else:
+            headline, line = summary(result, self.match.moves)
+            color = INK
+            player = result.winners[0] if len(result.winners) == 1 else None
+        self._card(pygame.Rect(SIDE, 24, SIDE_W, 136))
+        x = SIDE + 20
+        if player is not None:
+            self._draw_stone((SIDE + 42, 66), 22, player, on_wood=False)
+            x = SIDE + 76
+        self._text(headline, 38, (x, 66), anchor="midleft")
+        self._text(line, 18, (SIDE + 20, 104), color, width=SIDE_W - 40)
+
+    def _draw_players(self) -> None:
+        """
+        Draws a row per player: stone, name, seat, status and area. The
+        player to move is outlined; at the end, the winners are, in gold.
+        """
+        game = self.match.game
+        result = self.match.result
+        scores = game.scores()
+        for i, seat in enumerate(self.match.config.seats):
+            player = i + 1
+            rect = pygame.Rect(SIDE, 172 + i * 64, SIDE_W, 56)
+            status, color = "", INK
+            if result is not None and player in result.winners:
+                self._card(rect, GOLD, 3, TINT)
+                status, color = "Winner", GOLD
+            elif result is None and game.turn == player:
+                self._card(rect, INK, 3, TINT)
+                status = "To play"
+            else:
+                self._card(rect)
+                if result is None and player in self._passed:
+                    status, color = "Passed", MUTED
+            y = rect.centery
+            self._draw_stone((rect.x + 30, y), 15, player, on_wood=False)
+            self._text(PLAYER_NAMES[i], 21, (rect.x + 56, y), anchor="midleft")
+            self._text(SEAT_LABELS[seat], 15, (rect.x + 136, y), MUTED,
+                       "midleft")
+            self._text(status, 15, (rect.x + 256, y), color, "midleft")
+            self._text(str(scores[player]), 21, (rect.right - 16, y),
+                       anchor="midright")
+            # Room for three digits keeps the labels in one column
+            self._text("Area", 15, (rect.right - 60, y), MUTED, "midright")
+
+def run(config: GameConfig | None = None) -> None:
+    """
+    Opens the window and returns when it closes.
+
+    Args:
+        config: The match to start at once, or None to open the menu
+    """
+    GoGUI(config).loop()
+    pygame.quit()
