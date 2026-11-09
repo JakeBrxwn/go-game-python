@@ -1,0 +1,2 @@
+# The board positions tests/test_go.py reads, so the sdist's tests run
+include tests/test_positions.txt
