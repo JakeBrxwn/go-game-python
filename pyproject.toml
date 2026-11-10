@@ -28,9 +28,11 @@ dev = [
 ]
 release = [
     "build>=1.6.1",
-    # The apps bundle this pygame-ce, and THIRD_PARTY_LICENSES.txt names it
+    # The apps bundle these, and THIRD_PARTY_LICENSES.txt names them
+    "click==8.5.1",
+    "colorama==0.4.6",
     "pygame-ce==2.5.8",
-    "pyinstaller>=6.22.3",
+    "pyinstaller==6.22.3",
 ]
 
 [project.scripts]
