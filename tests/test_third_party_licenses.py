@@ -4,7 +4,6 @@ date, and its check finds what the apps hold that no entry covers.
 """
 import importlib.metadata
 import io
-import platform
 import py_compile
 import sys
 import tarfile
@@ -81,18 +80,31 @@ def test_write_names_a_repeated_text(
     monkeypatch.setattr(tpl, "fetch", lambda url: url if url == "First/a" else "zlib")
     monkeypatch.setattr(tpl, "DIGEST", tpl.write())
     text = tpl.OUTPUT.read_text(encoding="utf-8")
+    for dependency in tpl.DEPENDENCIES:
+        assert f"\n\n{tpl.entry_head(dependency)}" in text
     assert "\nFirst/a\n" in text
     assert text.count("\nzlib\n") == 1
     assert text.count("(The same text as for First, above.)") == 4
     assert not tpl.stale()
 
 def test_fetch_gives_a_text(tmp_path: Path) -> None:
-    """Check fetch gives a text with \\n line ends and without the blank
-    lines around it or the spaces that end its lines, whatever its line
-    ends were"""
+    """Check fetch reads UTF-8 and gives a text with \\n line ends and
+    without the blank lines around it or the spaces that end its lines,
+    whatever its line ends were"""
     path = tmp_path / "COPYING"
-    path.write_bytes(b" \r\n\r\nCopyright  \r\nyou may\r\n \r\n")
-    assert tpl.fetch(path.as_uri()) == "Copyright\nyou may"
+    path.write_bytes(b" \r\n\r\nCopyright \xc2\xa9 2026  \r\nyou may\r\n \r\n")
+    assert tpl.fetch(path.as_uri()) == "Copyright © 2026\nyou may"
+
+def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
+    """Check fetch gives lines a to b for #L<a>-L<b>, without the indent
+    they share, and refuses a range past the file's end"""
+    path = tmp_path / "source.c"
+    path.write_text("/*\n *  Copyright 2007 Red Hat  \n *    may use\n */\n",
+                    encoding="utf-8")
+    assert (tpl.fetch(f"{path.as_uri()}#L2-L3")
+            == "*  Copyright 2007 Red Hat\n*    may use")
+    with pytest.raises(ValueError, match="fewer lines"):
+        tpl.fetch(f"{path.as_uri()}#L3-L5")
 
 def test_fetch_refuses_a_web_page(tmp_path: Path) -> None:
     """Check fetch refuses a page, as a moved file's URL can give"""
@@ -157,16 +169,22 @@ def test_covers_what_the_apps_hold() -> None:
     # pygame-ce's folders hold only its own modules besides those named
     "pygame/libSDL3.so", "pygame/_sdl2/new_lib.dll",
     "libavif.so.16", "pygame/libavif-16.dll", "numpy", "pygame/new_font.ttf",
-    "pyi_splash",
+    "pyi_splash", "numpy-2.0.dist-info/METADATA", "libzmq.so.5",
+    "pygame/libSDL2_gfx.dll", "python3.14/lib-dynload/x/y.so",
+    # Not a standard-library module, though it starts like _ctypes
+    "_ctypes_test.pyd",
 ])
 def test_finds_what_no_entry_covers(name: str) -> None:
     """Check a new library, package, module or data file is left over"""
     assert tpl.uncovered([*HELD, name]) == [name]
 
-def test_installed_reads_each_version() -> None:
-    """Check installed gives Python's version, and each package's"""
-    assert tpl.installed("Python") == platform.python_version()
-    assert tpl.installed("click") == importlib.metadata.version("click")
+def test_installed_reads_each_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check installed gives the running Python's version, not the one in
+    VERSIONS, and each package's own"""
+    monkeypatch.setattr(tpl.platform, "python_version", lambda: "3.99.1")
+    assert tpl.installed("Python") == "3.99.1"
+    for name in ["click", "colorama"]:
+        assert tpl.installed(name) == importlib.metadata.version(name)
 
 def test_check_reads_the_apps_freeze_built(
         monkeypatch: pytest.MonkeyPatch) -> None:

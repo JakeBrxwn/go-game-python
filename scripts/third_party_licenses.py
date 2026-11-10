@@ -21,8 +21,10 @@ import hashlib
 import importlib.metadata
 import io
 import platform
+import re
 import sys
 import tarfile
+import textwrap
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -31,7 +33,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "0820908fb6aa919c86f662b31105d258997f6586949b812f86220cb5023b97ad"
+DIGEST = "91f06b627ad159bca4affdb6cd2de3f881579652e673a1438e108c4e7a430953"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -41,6 +43,21 @@ PYGAME_CE = VERSIONS["pygame-ce"]
 GH = "https://raw.githubusercontent.com"
 PG = f"{GH}/pygame-community/pygame-ce/{PYGAME_CE}/docs"
 FT = "https://gitlab.freedesktop.org/freetype/freetype/-/raw"
+SDL = f"{GH}/libsdl-org/SDL/release-2.32.10"
+# The Wayland protocols the Linux SDL2 is built with, and the lines of each
+# one's copyright notice
+WAYLAND = {
+    "cursor-shape-v1": "L4-L22", "fractional-scale-v1": "L4-L23",
+    "idle-inhibit-unstable-v1": "L5-L24",
+    "keyboard-shortcuts-inhibit-unstable-v1": "L5-L24",
+    "pointer-constraints-unstable-v1": "L5-L25",
+    "primary-selection-unstable-v1": "L4-L23",
+    "relative-pointer-unstable-v1": "L5-L25", "tablet-unstable-v2": "L5-L27",
+    "text-input-unstable-v3": "L5-L29", "viewporter": "L5-L24",
+    "wayland": "L5-L28", "xdg-activation-v1": "L5-L25",
+    "xdg-decoration-unstable-v1": "L4-L23", "xdg-output-unstable-v1": "L5-L24",
+    "xdg-shell": "L5-L29", "xdg-toplevel-icon-v1": "L5-L25",
+}
 # The source of the parts under the LGPL, which HEADER gives
 SOURCES = {
     f"pygame-ce {PYGAME_CE}": "https://files.pythonhosted.org/packages/source/p/"
@@ -64,8 +81,9 @@ class Dependency:
         website: Where its source is published
         where: Where it is in the apps, for the reader
         texts: URLs of its licence texts, pinned to the versions bundled. A
-            URL ending in #NAME is a tarball's, and the text is the file NAME
-            in its top folder.
+            URL ending in #L<a>-L<b> gives lines a to b of the file, for a
+            notice inside a source file. A URL ending in another #NAME is a
+            tarball's, and the text is the file NAME in its top folder.
         files: What it is in the apps, as patterns for PurePosixPath's
             full_match: * stays within one folder and ** spans any. A Python
             package or module with no files of its own is its bare name.
@@ -102,8 +120,9 @@ DEPENDENCIES = [
         ("libssl*", "libcrypto*")),
     Dependency(
         "zlib", "Zlib", "https://zlib.net/",
-        "The Linux apps, version 1.2.11. Its notice ends the README below.",
-        (f"{GH}/madler/zlib/v1.2.11/README",),
+        "The Linux apps (1.2.11), and built into libpng16-16.dll on Windows "
+        "(1.3.1). Its notice ends each README below.",
+        (f"{GH}/madler/zlib/v1.2.11/README", f"{GH}/madler/zlib/v1.3.1/README"),
         ("libz.so*",)),
     Dependency(
         "libffi", "MIT", "https://sourceware.org/libffi/",
@@ -178,18 +197,18 @@ DEPENDENCIES = [
          "pygame/pygame_icon*.bmp")),
     Dependency(
         "SDL2", "Zlib", "https://www.libsdl.org/",
-        "The window apps. It is built with HIDAPI, under the original HIDAPI "
-        "licence that is the second text below, and with math code whose "
-        "notice is: Copyright (C) 1993 by Sun Microsystems, Inc. All rights "
-        "reserved. Developed at SunPro, a Sun Microsystems, Inc. business. "
-        "Permission to use, copy, modify, and distribute this software is "
-        "freely granted, provided that this notice is preserved.",
-        (f"{GH}/libsdl-org/SDL/release-2.32.10/LICENSE.txt",
-         f"{GH}/libsdl-org/SDL/release-2.32.10/src/hidapi/LICENSE-orig.txt"),
+        "The window apps. After its licence come the notices of code it is "
+        "built with: HIDAPI, yuv2rgb and Sun's math code, then on Linux "
+        "edid-parse.c and the Wayland protocols.",
+        (f"{SDL}/LICENSE.txt", f"{SDL}/src/hidapi/LICENSE-orig.txt",
+         f"{SDL}/src/video/yuv2rgb/LICENSE", f"{SDL}/src/libm/e_atan2.c#L3-L8",
+         f"{SDL}/src/video/x11/edid-parse.c#L2-L20",
+         *(f"{SDL}/wayland-protocols/{name}.xml#{lines}"
+           for name, lines in WAYLAND.items())),
         ("**/libSDL2-2*", "**/SDL2.dll")),
     Dependency(
         "SDL2_image", "Zlib", "https://github.com/libsdl-org/SDL_image",
-        "The window apps. It holds QOI, below, and on macOS nanosvg, under "
+        "The window apps. It holds QOI, below, and nanosvg, under "
         "the zlib licence: Copyright (c) 2013-14 Mikko Mononen "
         "memon@inside.org.",
         (f"{GH}/libsdl-org/SDL_image/release-2.8.12/LICENSE.txt",),
@@ -218,10 +237,14 @@ DEPENDENCIES = [
         "The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 "
         "as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this "
         "software are copyright © 2021, 2023 and 2026 The FreeType Project "
-        "(www.freetype.org). All rights reserved.",
+        "(www.freetype.org). All rights reserved. For each version, the "
+        "last two texts are the licences of its BDF and PCF font drivers.",
         tuple(f"{FT}/{tag}/{name}"
-              for tag in ["VER-2-14-3", "VER-2-13-2", "VER-2-11-1"]
-              for name in ["LICENSE.TXT", "docs/FTL.TXT"]),
+              for tag, bdf in [("VER-2-14-3", "L99-L144"),
+                               ("VER-2-13-2", "L99-L144"),
+                               ("VER-2-11-1", "L95-L140")]
+              for name in ["LICENSE.TXT", "docs/FTL.TXT", f"src/bdf/README#{bdf}",
+                           "src/pcf/README#L66-L88"]),
         ("**/libfreetype*", "**/freetype.dll")),
     Dependency(
         "HarfBuzz", "MIT-Modern-Variant", "https://harfbuzz.github.io/",
@@ -244,6 +267,11 @@ DEPENDENCIES = [
         (f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/LICENSE.md",
          f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/README.ijg"),
         ("**/libjpeg*",)),
+    Dependency(
+        "MinGW-w64 winpthreads", "MIT AND BSD-3-Clause", "https://www.mingw-w64.org/",
+        "The Windows window app, built into libjpeg-62.dll with MinGW-w64 v5, "
+        "whose text below is the same in each v5 release.",
+        (f"{GH}/mirror/mingw-w64/v5.0.4/mingw-w64-libraries/winpthreads/COPYING",)),
     Dependency(
         "libpng", "libpng-2.0", "http://www.libpng.org/pub/png/libpng.html",
         "The window apps, version 1.6.58.",
@@ -331,7 +359,7 @@ DEPENDENCIES = [
         "source (see Source code, above), which a font editor such as "
         "FontForge opens. GNU FreeFont's editable sources, from 2005 on, "
         "are at https://download.savannah.gnu.org/releases/freefont/.",
-        ("https://www.gnu.org/licenses/gpl-3.0.txt",),
+        (f"{GH}/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3",),
         ("pygame/freesansbold.ttf",)),
     Dependency(
         "click", "BSD-3-Clause", "https://palletsprojects.com/p/click/",
@@ -375,10 +403,10 @@ with your library, then either:
 
 - install Go Python from its wheel or sdist with pip, as README.md shows,
   and install your pygame-ce into the same environment; or
-- rebuild the apps: in Go Python's source at the release's tag, run
-  pip install ".[release]", install your pygame-ce over the one it
-  installed, and run python scripts/freeze.py. The apps it writes to dist/
-  use your version.
+- rebuild the apps: in Go Python's source at the release's tag, from
+  https://github.com/JakeBrxwn/go-game-python, run pip install ".[release]",
+  install your pygame-ce over the one it installed, and run
+  python scripts/freeze.py. The apps it writes to dist/ use your version.
 """
 RULE = "-" * 80
 
@@ -401,20 +429,24 @@ def fetch(url: str) -> str:
     Fetches a licence text.
 
     Args:
-        url: Where it is: a file, or a tarball's URL ending in #NAME for the
-            file NAME in the tarball's top folder
+        url: Where it is: a file, a file's URL ending in #L<a>-L<b> for its
+            lines a to b, or a tarball's URL ending in #NAME for the file NAME
+            in the tarball's top folder
 
-    Returns: The text, without trailing whitespace on any line
+    Returns: The text, without trailing whitespace on any line, and without
+        the indent its lines share if it is a range of lines
 
     Raises:
-        ValueError: If the URL gave a web page, not a text
+        ValueError: If the URL gave a web page, not a text, or the file has
+            fewer lines than the range
         KeyError: If the tarball has no such file
     """
     address, _, name = url.partition("#")
+    lines = re.fullmatch(r"L(\d+)-L(\d+)", name)
     request = urllib.request.Request(address, headers={"User-Agent": "go-python"})
     with urllib.request.urlopen(request, timeout=60) as response:
         data: bytes = response.read()
-    if name:
+    if name and not lines:
         with tarfile.open(fileobj=io.BytesIO(data)) as tarball:
             top = tarball.getnames()[0].split("/")[0]
             file = tarball.extractfile(f"{top}/{name}")
@@ -424,6 +456,12 @@ def fetch(url: str) -> str:
     text = data.decode("utf-8")
     if text.lstrip().lower().startswith(("<!doctype", "<html")):
         raise ValueError(f"{url} gave a web page")
+    if lines:
+        first, last = int(lines[1]), int(lines[2])
+        chunk = text.splitlines()[first - 1:last]
+        if len(chunk) != last - first + 1:
+            raise ValueError(f"{url} has fewer lines than that")
+        text = textwrap.dedent("\n".join(chunk))
     return "\n".join(line.rstrip() for line in text.splitlines()).strip("\n")
 
 def digest(text: str) -> str:
@@ -498,9 +536,8 @@ def bundled(app: str) -> list[str]:
         if kind == "z":
             modules = reader.open_embedded_archive(name).toc
             names += sorted({module.split(".")[0] for module in modules} - own)
-        # Not options, nor the standard library's or the app's own modules
-        # and scripts
-        elif kind != "o" and not (kind in "mMs" and name.split(".")[0] in own):
+        # Not the standard library's or the app's own modules and scripts
+        elif not (kind in "mMs" and name.split(".")[0] in own):
             names.append(name.replace("\\", "/"))
     return names
 

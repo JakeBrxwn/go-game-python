@@ -33,10 +33,10 @@ with your library, then either:
 
 - install Go Python from its wheel or sdist with pip, as README.md shows,
   and install your pygame-ce into the same environment; or
-- rebuild the apps: in Go Python's source at the release's tag, run
-  pip install ".[release]", install your pygame-ce over the one it
-  installed, and run python scripts/freeze.py. The apps it writes to dist/
-  use your version.
+- rebuild the apps: in Go Python's source at the release's tag, from
+  https://github.com/JakeBrxwn/go-game-python, run pip install ".[release]",
+  install your pygame-ce over the one it installed, and run
+  python scripts/freeze.py. The apps it writes to dist/ use your version.
 
 --------------------------------------------------------------------------------
 Python | PSF-2.0
@@ -1487,8 +1487,9 @@ Text from: https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.9/LICEN
 --------------------------------------------------------------------------------
 zlib | Zlib
 Website: https://zlib.net/
-In the apps: The Linux apps, version 1.2.11. Its notice ends the README below.
+In the apps: The Linux apps (1.2.11), and built into libpng16-16.dll on Windows (1.3.1). Its notice ends each README below.
 Text from: https://raw.githubusercontent.com/madler/zlib/v1.2.11/README
+Text from: https://raw.githubusercontent.com/madler/zlib/v1.3.1/README
 --------------------------------------------------------------------------------
 
 ZLIB DATA COMPRESSION LIBRARY
@@ -1602,6 +1603,124 @@ If you use the zlib library in a product, we would appreciate *not* receiving
 lengthy legal documents to sign.  The sources are provided for free but without
 warranty of any kind.  The library has been entirely written by Jean-loup
 Gailly and Mark Adler; it does not include third-party code.
+
+If you redistribute modified sources, we would appreciate that you include in
+the file ChangeLog history information documenting your changes.  Please read
+the FAQ for more information on the distribution of modified source versions.
+
+ZLIB DATA COMPRESSION LIBRARY
+
+zlib 1.3.1 is a general purpose data compression library.  All the code is
+thread safe.  The data format used by the zlib library is described by RFCs
+(Request for Comments) 1950 to 1952 in the files
+http://tools.ietf.org/html/rfc1950 (zlib format), rfc1951 (deflate format) and
+rfc1952 (gzip format).
+
+All functions of the compression library are documented in the file zlib.h
+(volunteer to write man pages welcome, contact zlib@gzip.org).  A usage example
+of the library is given in the file test/example.c which also tests that
+the library is working correctly.  Another example is given in the file
+test/minigzip.c.  The compression library itself is composed of all source
+files in the root directory.
+
+To compile all files and run the test program, follow the instructions given at
+the top of Makefile.in.  In short "./configure; make test", and if that goes
+well, "make install" should work for most flavors of Unix.  For Windows, use
+one of the special makefiles in win32/ or contrib/vstudio/ .  For VMS, use
+make_vms.com.
+
+Questions about zlib should be sent to <zlib@gzip.org>, or to Gilles Vollant
+<info@winimage.com> for the Windows DLL version.  The zlib home page is
+http://zlib.net/ .  Before reporting a problem, please check this site to
+verify that you have the latest version of zlib; otherwise get the latest
+version and check whether the problem still exists or not.
+
+PLEASE read the zlib FAQ http://zlib.net/zlib_faq.html before asking for help.
+
+Mark Nelson <markn@ieee.org> wrote an article about zlib for the Jan.  1997
+issue of Dr.  Dobb's Journal; a copy of the article is available at
+https://marknelson.us/posts/1997/01/01/zlib-engine.html .
+
+The changes made in version 1.3.1 are documented in the file ChangeLog.
+
+Unsupported third party contributions are provided in directory contrib/ .
+
+zlib is available in Java using the java.util.zip package. Follow the API
+Documentation link at: https://docs.oracle.com/search/?q=java.util.zip .
+
+A Perl interface to zlib and bzip2 written by Paul Marquess <pmqs@cpan.org>
+can be found at https://github.com/pmqs/IO-Compress .
+
+A Python interface to zlib written by A.M. Kuchling <amk@amk.ca> is
+available in Python 1.5 and later versions, see
+http://docs.python.org/library/zlib.html .
+
+zlib is built into tcl: http://wiki.tcl.tk/4610 .
+
+An experimental package to read and write files in .zip format, written on top
+of zlib by Gilles Vollant <info@winimage.com>, is available in the
+contrib/minizip directory of zlib.
+
+
+Notes for some targets:
+
+- For Windows DLL versions, please see win32/DLL_FAQ.txt
+
+- For 64-bit Irix, deflate.c must be compiled without any optimization. With
+  -O, one libpng test fails. The test works in 32 bit mode (with the -n32
+  compiler flag). The compiler bug has been reported to SGI.
+
+- zlib doesn't work with gcc 2.6.3 on a DEC 3000/300LX under OSF/1 2.1 it works
+  when compiled with cc.
+
+- On Digital Unix 4.0D (formerly OSF/1) on AlphaServer, the cc option -std1 is
+  necessary to get gzprintf working correctly. This is done by configure.
+
+- zlib doesn't work on HP-UX 9.05 with some versions of /bin/cc. It works with
+  other compilers. Use "make test" to check your compiler.
+
+- gzdopen is not supported on RISCOS or BEOS.
+
+- For PalmOs, see http://palmzlib.sourceforge.net/
+
+
+Acknowledgments:
+
+  The deflate format used by zlib was defined by Phil Katz.  The deflate and
+  zlib specifications were written by L.  Peter Deutsch.  Thanks to all the
+  people who reported problems and suggested various improvements in zlib; they
+  are too numerous to cite here.
+
+Copyright notice:
+
+ (C) 1995-2024 Jean-loup Gailly and Mark Adler
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  Jean-loup Gailly        Mark Adler
+  jloup@gzip.org          madler@alumni.caltech.edu
+
+If you use the zlib library in a product, we would appreciate *not* receiving
+lengthy legal documents to sign.  The sources are provided for free but without
+warranty of any kind.  The library has been entirely written by Jean-loup
+Gailly and Mark Adler; it does not include third-party code.  We make all
+contributions to and distributions of this project solely in our personal
+capacity, and are not conveying any rights to any intellectual property of
+any third parties.
 
 If you redistribute modified sources, we would appreciate that you include in
 the file ChangeLog history information documenting your changes.  Please read
@@ -3396,9 +3515,28 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --------------------------------------------------------------------------------
 SDL2 | Zlib
 Website: https://www.libsdl.org/
-In the apps: The window apps. It is built with HIDAPI, under the original HIDAPI licence that is the second text below, and with math code whose notice is: Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved. Developed at SunPro, a Sun Microsystems, Inc. business. Permission to use, copy, modify, and distribute this software is freely granted, provided that this notice is preserved.
+In the apps: The window apps. After its licence come the notices of code it is built with: HIDAPI, yuv2rgb and Sun's math code, then on Linux edid-parse.c and the Wayland protocols.
 Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/LICENSE.txt
 Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/src/hidapi/LICENSE-orig.txt
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/src/video/yuv2rgb/LICENSE
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/src/libm/e_atan2.c#L3-L8
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/src/video/x11/edid-parse.c#L2-L20
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/cursor-shape-v1.xml#L4-L22
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/fractional-scale-v1.xml#L4-L23
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/idle-inhibit-unstable-v1.xml#L5-L24
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/keyboard-shortcuts-inhibit-unstable-v1.xml#L5-L24
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/pointer-constraints-unstable-v1.xml#L5-L25
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/primary-selection-unstable-v1.xml#L4-L23
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/relative-pointer-unstable-v1.xml#L5-L25
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/tablet-unstable-v2.xml#L5-L27
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/text-input-unstable-v3.xml#L5-L29
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/viewporter.xml#L5-L24
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/wayland.xml#L5-L28
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/xdg-activation-v1.xml#L5-L25
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/xdg-decoration-unstable-v1.xml#L4-L23
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/xdg-output-unstable-v1.xml#L5-L24
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/xdg-shell.xml#L5-L29
+Text from: https://raw.githubusercontent.com/libsdl-org/SDL/release-2.32.10/wayland-protocols/xdg-toplevel-icon-v1.xml#L5-L25
 --------------------------------------------------------------------------------
 
 Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
@@ -3429,10 +3567,382 @@ freely, subject to the following restrictions:
  long as the copyright notice in the source files
  remains intact.
 
+Copyright (c) 2016, Adrien Descamps
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of yuv2rgb nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+* Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+*
+* Developed at SunPro, a Sun Microsystems, Inc. business.
+* Permission to use, copy, modify, and distribute this
+* software is freely granted, provided that this notice
+* is preserved.
+
+* Copyright 2007 Red Hat, Inc.
+*
+* Permission is hereby granted, free of charge, to any person obtaining a
+* copy of this software and associated documentation files (the "Software"),
+* to deal in the Software without restriction, including without limitation
+* on the rights to use, copy, modify, merge, publish, distribute, sub
+* license, and/or sell copies of the Software, and to permit persons to whom
+* the Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice (including the next
+* paragraph) shall be included in all copies or substantial portions of the
+* Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.  IN NO EVENT SHALL
+* THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+* IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Copyright 2018 The Chromium Authors
+Copyright 2023 Simon Ser
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2022 Kenny Levinsen
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2015 Samsung Electronics Co., Ltd
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2017 Red Hat Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2014      Jonas Ådahl
+Copyright © 2015      Red Hat Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2015, 2016 Red Hat
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+(The same text as for SDL2, above.)
+
+Copyright 2014 © Stephen "Lyude" Chandler Paul
+Copyright 2015-2016 © Red Hat, Inc.
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Copyright © 2012, 2013 Intel Corporation
+Copyright © 2015, 2016 Jan Arne Petersen
+Copyright © 2017, 2018 Red Hat, Inc.
+Copyright © 2018       Purism SPC
+
+Permission to use, copy, modify, distribute, and sell this
+software and its documentation for any purpose is hereby granted
+without fee, provided that the above copyright notice appear in
+all copies and that both that copyright notice and this permission
+notice appear in supporting documentation, and that the name of
+the copyright holders not be used in advertising or publicity
+pertaining to distribution of the software without specific,
+written prior permission.  The copyright holders make no
+representations about the suitability of this software for any
+purpose.  It is provided "as is" without express or implied
+warranty.
+
+THE COPYRIGHT HOLDERS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS
+SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS, IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
+
+Copyright © 2013-2016 Collabora, Ltd.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2008-2011 Kristian Høgsberg
+Copyright © 2010-2011 Intel Corporation
+Copyright © 2012-2013 Collabora, Ltd.
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT.  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Copyright © 2020 Aleix Pol Gonzalez &lt;aleixpol@kde.org&gt;
+Copyright © 2020 Carlos Garnacho &lt;carlosg@gnome.org&gt;
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2018 Simon Ser
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+(The same text as for SDL2, above.)
+
+Copyright © 2008-2013 Kristian Høgsberg
+Copyright © 2013      Rafael Antognolli
+Copyright © 2013      Jasper St. Pierre
+Copyright © 2010-2013 Intel Corporation
+Copyright © 2015-2017 Samsung Electronics Co., Ltd
+Copyright © 2015-2017 Red Hat Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Copyright © 2023-2024 Matthias Klumpp
+Copyright ©      2024 David Edmundson
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
 --------------------------------------------------------------------------------
 SDL2_image | Zlib
 Website: https://github.com/libsdl-org/SDL_image
-In the apps: The window apps. It holds QOI, below, and on macOS nanosvg, under the zlib licence: Copyright (c) 2013-14 Mikko Mononen memon@inside.org.
+In the apps: The window apps. It holds QOI, below, and nanosvg, under the zlib licence: Copyright (c) 2013-14 Mikko Mononen memon@inside.org.
 Text from: https://raw.githubusercontent.com/libsdl-org/SDL_image/release-2.8.12/LICENSE.txt
 --------------------------------------------------------------------------------
 
@@ -3617,13 +4127,19 @@ Text from: https://raw.githubusercontent.com/libsdl-org/SDL_ttf/release-2.24.0/L
 --------------------------------------------------------------------------------
 FreeType | FTL
 Website: https://freetype.org/
-In the apps: The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this software are copyright © 2021, 2023 and 2026 The FreeType Project (www.freetype.org). All rights reserved.
+In the apps: The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this software are copyright © 2021, 2023 and 2026 The FreeType Project (www.freetype.org). All rights reserved. For each version, the last two texts are the licences of its BDF and PCF font drivers.
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/LICENSE.TXT
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/docs/FTL.TXT
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/src/bdf/README#L99-L144
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/src/pcf/README#L66-L88
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-13-2/LICENSE.TXT
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-13-2/docs/FTL.TXT
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-13-2/src/bdf/README#L99-L144
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-13-2/src/pcf/README#L66-L88
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-11-1/LICENSE.TXT
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-11-1/docs/FTL.TXT
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-11-1/src/bdf/README#L95-L140
+Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-11-1/src/pcf/README#L66-L88
 --------------------------------------------------------------------------------
 
 FREETYPE LICENSES
@@ -3844,6 +4360,77 @@ Legal Terms
 
 --- end of FTL.TXT ---
 
+License
+*******
+
+Copyright (C) 2001-2002 by Francesco Zappa Nardelli
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*** Portions of the driver (that is, bdflib.c and bdf.h):
+
+Copyright 2000 Computing Research Labs, New Mexico State University
+Copyright 2001-2002, 2011 Francesco Zappa Nardelli
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE COMPUTING RESEARCH LAB OR NEW MEXICO STATE UNIVERSITY BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT
+OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+License
+*******
+
+Copyright (C) 2000 by Francesco Zappa Nardelli
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 FREETYPE LICENSES
 -----------------
 
@@ -4061,6 +4648,10 @@ Legal Terms
 
 --- end of FTL.TXT ---
 
+(The same text as for FreeType, above.)
+
+(The same text as for FreeType, above.)
+
 FREETYPE LICENSES
 -----------------
 
@@ -4103,6 +4694,10 @@ builds) is in the public domain.
 
 
 --- end of LICENSE.TXT ---
+
+(The same text as for FreeType, above.)
+
+(The same text as for FreeType, above.)
 
 (The same text as for FreeType, above.)
 
@@ -4610,6 +5205,71 @@ TO DO
 =====
 
 Please send bug reports, offers of help, etc. to jpeg-info@jpegclub.org.
+
+--------------------------------------------------------------------------------
+MinGW-w64 winpthreads | MIT AND BSD-3-Clause
+Website: https://www.mingw-w64.org/
+In the apps: The Windows window app, built into libjpeg-62.dll with MinGW-w64 v5, whose text below is the same in each v5 release.
+Text from: https://raw.githubusercontent.com/mirror/mingw-w64/v5.0.4/mingw-w64-libraries/winpthreads/COPYING
+--------------------------------------------------------------------------------
+
+Copyright (c) 2011 mingw-w64 project
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+/*
+ * Parts of this library are derived by:
+ *
+ * Posix Threads library for Microsoft Windows
+ *
+ * Use at own risk, there is no implied warranty to this code.
+ * It uses undocumented features of Microsoft Windows that can change
+ * at any time in the future.
+ *
+ * (C) 2010 Lockless Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *  * Neither the name of Lockless Inc. nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AN
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 --------------------------------------------------------------------------------
 libpng | libpng-2.0
@@ -7107,13 +7767,13 @@ freely, subject to the following restrictions:
 FreeSans font | GPL
 Website: https://savannah.gnu.org/projects/freefont/
 In the apps: The window apps' text, as pygame/freesansbold.ttf. Copyright 2002 Free Software Foundation. Its licence names the GNU General Public License with no version, and version 3 follows. Its source is the font file itself, also at src_py/freesansbold.ttf in pygame-ce's source (see Source code, above), which a font editor such as FontForge opens. GNU FreeFont's editable sources, from 2005 on, are at https://download.savannah.gnu.org/releases/freefont/.
-Text from: https://www.gnu.org/licenses/gpl-3.0.txt
+Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3
 --------------------------------------------------------------------------------
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
- Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
  Everyone is permitted to copy and distribute verbatim copies
  of this license document, but changing it is not allowed.
 
@@ -7757,7 +8417,7 @@ the "copyright" line and a pointer to where the full notice is found.
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Also add information on how to contact you by electronic and paper mail.
 
@@ -7776,14 +8436,14 @@ might be different; for a GUI interface, you would use an "about box".
   You should also get your employer (if you work as a programmer) or school,
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU GPL, see
-<https://www.gnu.org/licenses/>.
+<http://www.gnu.org/licenses/>.
 
   The GNU General Public License does not permit incorporating your program
 into proprietary programs.  If your program is a subroutine library, you
 may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
-<https://www.gnu.org/licenses/why-not-lgpl.html>.
+<http://www.gnu.org/philosophy/why-not-lgpl.html>.
 
 --------------------------------------------------------------------------------
 click | BSD-3-Clause
