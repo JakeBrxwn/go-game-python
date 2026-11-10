@@ -41,6 +41,16 @@ def test_file_is_up_to_date() -> None:
     order"""
     assert not tpl.stale()
 
+def test_reads_a_checkout_with_crlf_line_ends(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Check the file is still up to date with the \\r\\n line ends git can
+    check it out with on Windows"""
+    crlf = tmp_path / "licences.txt"
+    text = tpl.OUTPUT.read_text(encoding="utf-8")
+    crlf.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+    monkeypatch.setattr(tpl, "OUTPUT", crlf)
+    assert not tpl.stale()
+
 def test_finds_a_changed_text(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Check a cut licence text makes the file out of date, though every head
@@ -148,9 +158,10 @@ def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
         tpl.fetch(f"{tarball.as_uri()}#LICENSE")
 
 def test_lists_what_an_app_holds(tmp_path: Path) -> None:
-    """Check bundled lists files, data, links, non-standard packages and
-    PyInstaller's modules and scripts, but not options or the standard
-    library's or the app's own modules and scripts"""
+    """Check bundled lists files, even one named like a standard-library
+    module, data, links, non-standard packages and PyInstaller's modules and
+    scripts, but not options or the standard library's or the app's own
+    modules and scripts"""
     writers = pytest.importorskip("PyInstaller.archive.writers")
     source = tmp_path / "module.py"
     source.write_text("x = 1\n", encoding="utf-8")
@@ -164,6 +175,7 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
     app = tmp_path / "app"
     writers.CArchiveWriter(str(app), [
         ("libx.so.1", str(source), False, "b"),
+        ("sqlite3.dll", str(source), False, "b"),
         ("data\\file.txt", str(source), False, "x"),
         ("link.so", "libx.so.1", False, "n"),
         ("PYZ.pyz", str(pyz), False, "z"),
@@ -174,9 +186,9 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("pyi_rth_inspect", str(source), False, "s"),
         ("go-python-tui", str(source), False, "s"),
     ], "libpython3.14.so")
-    assert tpl.bundled(str(app)) == ["libx.so.1", "data/file.txt", "link.so",
-                                     "colorama", "pyimod01_archive",
-                                     "pyi_rth_inspect"]
+    assert tpl.bundled(str(app)) == ["libx.so.1", "sqlite3.dll",
+                                     "data/file.txt", "link.so", "colorama",
+                                     "pyimod01_archive", "pyi_rth_inspect"]
 
 def test_covers_what_the_apps_hold() -> None:
     """Check every name from the release apps is covered"""
@@ -186,6 +198,8 @@ def test_covers_what_the_apps_hold() -> None:
     # A package's own .pyd is not Python's
     "numpy/_core/_multiarray_umath.cp314-win_amd64.pyd",
     "_cffi_backend.cp314-win_amd64.pyd",
+    # Nor is SQLite, which Python for Windows ships beside _sqlite3.pyd
+    "sqlite3.dll",
     # pygame-ce's folders hold only its own modules besides those named
     "pygame/libSDL3.so", "pygame/_sdl2/new_lib.dll",
     "libavif.so.16", "pygame/libavif-16.dll", "numpy", "pygame/new_font.ttf",
@@ -259,8 +273,10 @@ def test_check_fails_on_an_uncovered_file(
     monkeypatch.setattr(tpl, "bundled", lambda app: HELD)
     tpl.check(["ok-app"])
     assert "ok ok-app is covered" in capsys.readouterr().out
-    monkeypatch.setattr(tpl, "bundled", lambda app: [*HELD, "libnew.so.1"])
-    with pytest.raises(SystemExit, match=r"bad-app .*\['libnew.so.1'\]"):
+    monkeypatch.setattr(tpl, "bundled",
+                        lambda app: [*HELD, "libnew.so.1", "libnext.so.2"])
+    with pytest.raises(SystemExit,
+                       match=r"bad-app .*\['libnew.so.1', 'libnext.so.2'\]"):
         tpl.check(["bad-app"])
 
 @pytest.mark.parametrize("step", [1, -1])
