@@ -30,10 +30,13 @@ jobs:
       - run: python scripts/freeze.py
       # Unbuffered, so the log times each check
       - run: python -u scripts/smoke.py
+      # Every file in the apps must have its licence in THIRD_PARTY_LICENSES.txt
+      - run: python scripts/third_party_licenses.py check
       - if: runner.os == 'Linux'
         run: |
           python -m build
           python scripts/screenshot.py dist/go-python-screenshot.png
+          cp THIRD_PARTY_LICENSES.txt dist/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-${{ matrix.os }}

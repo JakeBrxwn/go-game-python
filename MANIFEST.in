@@ -1,5 +1,6 @@
 # What the sdist's tests read and import beyond src/ and tests/*.py, so they
-# run: the board positions for tests/test_go.py, and the scripts the release
-# tests check
+# run: the board positions for tests/test_go.py, and the scripts and licence
+# list the release tests check
 include tests/test_positions.txt
 include scripts/*.py
+include THIRD_PARTY_LICENSES.txt
