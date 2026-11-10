@@ -2,6 +2,8 @@
 Checks scripts/smoke.py fails broken apps. Small Python programs stand in
 for the apps, so these tests need no build.
 """
+import importlib
+import platform
 import re
 import sys
 from pathlib import Path
@@ -58,6 +60,13 @@ def app(code: str) -> list[str]:
     Returns: The command
     """
     return [sys.executable, "-c", code]
+
+def test_imports_where_no_app_is_released(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the smoke test, and so these tests, load on a machine with no
+    release name, as the sdist's tests run anywhere"""
+    monkeypatch.setattr(platform, "machine", lambda: "riscv64")
+    importlib.reload(smoke)
 
 def test_finished_takes_every_end_but_leaving() -> None:
     """Check a match the player left never counts as played to its end"""

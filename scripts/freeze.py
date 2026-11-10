@@ -63,8 +63,8 @@ def main() -> None:
         # The launcher ignores signals: Ctrl+C already reaches the game from
         # the terminal, and passed on as well, it arrives twice and can quit
         # the game from its own Ctrl+C handling. So to stop an app, signal its
-    # process group, as a terminal does: a signal to the
-    # launcher alone no longer reaches the game.
+        # process group, as a terminal does: a signal to the launcher alone
+        # no longer reaches the game.
         PyInstaller.__main__.run([
             str(entry), "--onefile", "--noconfirm", "--clean",
             "--name", binary_name(app), "--distpath", "dist",

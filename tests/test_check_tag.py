@@ -2,6 +2,7 @@
 Checks scripts/check_tag.py releases only the tags it should.
 """
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -69,13 +70,17 @@ def commit(*parents: str) -> str:
     return git("commit-tree", "--no-gpg-sign", "-m", "test", tree,
                *(arg for parent in parents for arg in ("-p", parent)))
 
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 def test_main_asks_git_if_the_tag_is_on_main(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check main() releases a final version only when origin/main holds
     the checked-out commit, and refuses it when git cannot tell"""
     # Git hooks and git rebase -x set GIT_DIR, which would point every git
-    # command here, main()'s too, at the repo under test
+    # command here, main()'s too, at the repo under test. A stand-in shows
+    # it is ignored.
+    elsewhere = tmp_path / "hook-git-dir"
+    monkeypatch.setenv("GIT_DIR", str(elsewhere))
     for name in [name for name in os.environ if name.startswith("GIT_")]:
         monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
@@ -95,3 +100,4 @@ def test_main_asks_git_if_the_tag_is_on_main(
     git("update-ref", "-d", "refs/remotes/origin/main")
     with pytest.raises(SystemExit, match="is not on main"):
         check_tag.main()
+    assert not elsewhere.exists()
