@@ -90,10 +90,12 @@ def test_write_names_a_repeated_text(
 def test_fetch_gives_a_text(tmp_path: Path) -> None:
     """Check fetch reads UTF-8 and gives a text with \\n line ends and
     without the blank lines around it or the spaces that end its lines,
-    whatever its line ends were"""
+    whatever its line ends were. A first line's indent, as in a centred
+    title, stays"""
     path = tmp_path / "COPYING"
-    path.write_bytes(b" \r\n\r\nCopyright \xc2\xa9 2026  \r\nyou may\r\n \r\n")
-    assert tpl.fetch(path.as_uri()) == "Copyright © 2026\nyou may"
+    path.write_bytes(b" \r\n\r\n   LICENCE\r\n"
+                     b"Copyright \xc2\xa9 2026  \r\nyou may\r\n \r\n")
+    assert tpl.fetch(path.as_uri()) == "   LICENCE\nCopyright © 2026\nyou may"
 
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     """Check fetch gives lines a to b for #L<a>-L<b>, without the indent
@@ -114,12 +116,14 @@ def test_fetch_refuses_a_web_page(tmp_path: Path) -> None:
         tpl.fetch(path.as_uri())
 
 def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
-    """Check fetch takes #NAME from the tarball's top folder, not a file of
-    the same name further down"""
+    """Check fetch takes #NAME from the tarball's top folder, the first
+    member's, not a file of the same name further down or in a later
+    folder"""
     tarball = tmp_path / "project-1.0.tar.gz"
     with tarfile.open(tarball, "w:gz") as archive:
         for name, text in [("project-1.0/doc/COPYING", b"not this"),
-                           ("project-1.0/COPYING", b"this\n")]:
+                           ("project-1.0/COPYING", b"this\n"),
+                           ("other/COPYING", b"nor this")]:
             info = tarfile.TarInfo(name)
             info.size = len(text)
             archive.addfile(info, io.BytesIO(text))
@@ -171,6 +175,7 @@ def test_covers_what_the_apps_hold() -> None:
     "libavif.so.16", "pygame/libavif-16.dll", "numpy", "pygame/new_font.ttf",
     "pyi_splash", "numpy-2.0.dist-info/METADATA", "libzmq.so.5",
     "pygame/libSDL2_gfx.dll", "python3.14/lib-dynload/x/y.so",
+    "Python.framework/Versions/3.14/lib/libtcl9.0.dylib",
     # Not a standard-library module, though it starts like _ctypes
     "_ctypes_test.pyd",
 ])

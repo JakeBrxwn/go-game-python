@@ -105,8 +105,10 @@ DEPENDENCIES = [
         ("base_library.zip", "libpython3*", "python3*.dll",
          # Only the standard library's: a package's own is not Python's
          *(f"{module}.*pyd" for module in sorted(sys.stdlib_module_names)),
-         "python3.*/lib-dynload/*", "Python", "Python.framework/**",
-         "_sysconfigdata_*")),
+         "python3.*/lib-dynload/*", "Python", "Python.framework/Python",
+         "Python.framework/Resources", "Python.framework/Versions/Current",
+         "Python.framework/Versions/3.*/Python",
+         "Python.framework/Versions/3.*/Resources/Info.plist", "_sysconfigdata_*")),
     Dependency(
         "HACL*", "MIT", "https://github.com/hacl-star/hacl-star",
         "All apps, built into Python's hash modules.",
