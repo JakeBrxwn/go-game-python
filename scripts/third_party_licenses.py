@@ -306,7 +306,8 @@ DEPENDENCIES = [
                         "hb-ot-layout-base-table.hh#L2-L24"]),
          f"{GH}/unicode-org/icu/release-78.1/LICENSE#L1-L39",
          f"{GH}/unicode-org/icu/release-72-1/icu4c/LICENSE#L1-L46"),
-        ("**/libharfbuzz*",)),
+        # Not libharfbuzz-subset, which holds another notice
+        ("**/libharfbuzz.*", "**/libharfbuzz-????????.so*")),
     Dependency(
         "Brotli", "MIT", "https://github.com/google/brotli",
         "The Linux and macOS window apps, version 1.2.0.",
@@ -545,10 +546,12 @@ def fetch(url: str) -> str:
         raise ValueError(f"{url} gave a web page")
     if lines:
         first, last = int(lines[1]), int(lines[2])
-        chunk = text.splitlines()[first - 1:last]
+        # bytes split only at line ends, as GitHub numbers lines; str also
+        # splits at form feeds
+        chunk = data.splitlines()[first - 1:last]
         if len(chunk) != last - first + 1:
             raise ValueError(f"{url} has fewer lines than that")
-        text = textwrap.dedent("\n".join(chunk))
+        text = textwrap.dedent(b"\n".join(chunk).decode("utf-8"))
     return "\n".join(line.rstrip() for line in text.splitlines()).strip("\n")
 
 def digest(text: str) -> str:

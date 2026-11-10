@@ -32,6 +32,8 @@ HELD = [
     "Python", "Python.framework/Versions/3.14/Resources/Info.plist",
     "pygame/.dylibs/libz.1.3.1.zlib-ng.dylib", "libzstd.1.dylib",
     "pygame/_sdl2/audio.cpython-314-darwin.so",
+    "pygame_ce.libs/libharfbuzz-672f7280.so.0.61430.0",
+    "pygame/.dylibs/libharfbuzz.0.dylib",
 ]
 
 def test_file_is_up_to_date() -> None:
@@ -98,20 +100,30 @@ def test_fetch_gives_a_text(tmp_path: Path) -> None:
     assert tpl.fetch(path.as_uri()) == "   LICENCE\nCopyright © 2026\nyou may"
 
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
-    """Check fetch gives lines a to b for #L<a>-L<b>, without the indent
-    they share, and refuses a range past the file's end"""
-    path = tmp_path / "source.c"
-    path.write_text("/*\n *  Copyright 2007 Red Hat  \n *    may use\n */\n",
-                    encoding="utf-8")
-    assert (tpl.fetch(f"{path.as_uri()}#L2-L3")
-            == "*  Copyright 2007 Red Hat\n*    may use")
+    """Check fetch gives lines a to b for #L<a>-L<b>, numbered at line ends
+    only, as GitHub does, without the indent they share but keeping each
+    line's own, and refuses a range past the file's end"""
+    path = tmp_path / "source.xml"
+    path.write_bytes(b"<copyright>\x0c\n  Copyright 2007 Red Hat  \r\n"
+                     b"  1. You may use\n     it freely\n</copyright>\n")
+    assert (tpl.fetch(f"{path.as_uri()}#L2-L4")
+            == "Copyright 2007 Red Hat\n1. You may use\n   it freely")
     with pytest.raises(ValueError, match="fewer lines"):
-        tpl.fetch(f"{path.as_uri()}#L3-L5")
+        tpl.fetch(f"{path.as_uri()}#L4-L6")
 
-def test_fetch_refuses_a_web_page(tmp_path: Path) -> None:
+def test_fetch_refuses_a_text_not_in_utf8(tmp_path: Path) -> None:
+    """Check fetch fails on a text it cannot read, rather than drop bytes"""
+    path = tmp_path / "COPYING"
+    path.write_bytes(b"Copyright \xa9 2026")
+    with pytest.raises(UnicodeDecodeError):
+        tpl.fetch(path.as_uri())
+
+@pytest.mark.parametrize("page", ["  <!DOCTYPE html><html>Not found</html>",
+                                  "<HTML><body>Not found</body></HTML>"])
+def test_fetch_refuses_a_web_page(tmp_path: Path, page: str) -> None:
     """Check fetch refuses a page, as a moved file's URL can give"""
     path = tmp_path / "COPYING"
-    path.write_text("  <!DOCTYPE html><html>Not found</html>", encoding="utf-8")
+    path.write_text(page, encoding="utf-8")
     with pytest.raises(ValueError, match="web page"):
         tpl.fetch(path.as_uri())
 
@@ -178,6 +190,14 @@ def test_covers_what_the_apps_hold() -> None:
     "Python.framework/Versions/3.14/lib/libtcl9.0.dylib",
     # Not a standard-library module, though it starts like _ctypes
     "_ctypes_test.pyd",
+    # Each pattern stays as narrow as its project: other projects, folders
+    # and versions are left over
+    "click_plugins", "pygame_ce.libs/libopenjp2-1a2b3c4d.so.2.5.0",
+    "pygame_ce.libs/libssl-1a2b3c4d.so.3", "pkg/_ssl.cp314-win_amd64.pyd",
+    "Python.framework/Versions/3.14/Resources/libtcl9.0.dylib",
+    "pygame_ce.libs/libharfbuzz-subset-1a2b3c4d.so.0",
+    "pygame/.dylibs/libz.1.3.1.dylib", "pygame/libwildmidi-2.dll",
+    "libgccjit.so.0", "libpython2.7.so.1.0", "MSVCP140.dll",
 ])
 def test_finds_what_no_entry_covers(name: str) -> None:
     """Check a new library, package, module or data file is left over"""
