@@ -73,7 +73,11 @@ def test_main_asks_git_if_the_tag_is_on_main(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check main() releases a final version only when origin/main holds
-    the checked-out commit"""
+    the checked-out commit, and refuses it when git cannot tell"""
+    # Git hooks and git rebase -x set GIT_DIR, which would point every git
+    # command here, main()'s too, at the repo under test
+    for name in [name for name in os.environ if name.startswith("GIT_")]:
+        monkeypatch.delenv(name)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(check_tag, "__version__", "0.1.0")
     monkeypatch.setattr(sys, "argv", ["check_tag.py", "v0.1.0"])
@@ -84,5 +88,10 @@ def test_main_asks_git_if_the_tag_is_on_main(
     check_tag.main()
     assert capsys.readouterr().out == "prerelease=false\n"
     git("update-ref", "HEAD", commit(main))
+    with pytest.raises(SystemExit, match="is not on main"):
+        check_tag.main()
+    # A checkout with no origin/main, so merge-base fails
+    git("update-ref", "HEAD", main)
+    git("update-ref", "-d", "refs/remotes/origin/main")
     with pytest.raises(SystemExit, match="is not on main"):
         check_tag.main()
