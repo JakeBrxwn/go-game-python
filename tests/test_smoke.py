@@ -5,6 +5,7 @@ for the apps, so these tests need no build.
 import importlib
 import platform
 import re
+import signal
 import sys
 from pathlib import Path
 
@@ -122,6 +123,24 @@ def test_check_can_interrupt_the_launcher() -> None:
                 interrupt_launcher=True)
     with pytest.raises(SystemExit, match="exit 0"):
         smoke.check(app(MATCH), smoke.FINISHED, interrupt_launcher=True)
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Windows has no SIGINT to send one process")
+def test_main_lets_the_apps_take_ctrl_c(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check main undoes an ignored Ctrl+C, as `smoke.py &` starts with, so
+    the apps it starts can take it"""
+    for name in ["check", "check_running", "check_no_pygame", "binary_name"]:
+        monkeypatch.setattr(smoke, name, lambda *args, **kwargs: "")
+    before = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        smoke.main()
+        child = smoke.start(app(
+            "import signal; print(signal.getsignal(signal.SIGINT))"))
+        output, _ = child.communicate(timeout=10)
+    finally:
+        signal.signal(signal.SIGINT, before)
+    assert "default_int_handler" in output
 
 def test_check_running_passes_a_menu_that_quits_when_asked(
         capsys: pytest.CaptureFixture[str]) -> None:

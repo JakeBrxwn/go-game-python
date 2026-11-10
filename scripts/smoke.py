@@ -168,6 +168,9 @@ def main() -> None:
     tui = str(Path("dist", binary_name("go-python-tui") + suffix))
     # Windows has no SIGINT to send one process
     posix = sys.platform != "win32"
+    # Run with Ctrl+C ignored, as `python scripts/smoke.py &` is, the apps
+    # would ignore it too, and interrupt_launcher would pass any launcher
+    signal.signal(signal.SIGINT, signal.default_int_handler)
     check([gui, "--version"], re.escape(f"go-python, version {__version__}"))
     check([gui, "bots", "-n", "1", "-s", "6"], "Average moves:")
     check_running([gui])
