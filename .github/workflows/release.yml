@@ -1,8 +1,8 @@
 name: Release
 
 # Pushing a tag like v0.1.0 tests the code, then publishes the apps, the wheel
-# and the sdist to a GitHub Release. A tag like v0.1.0-rc.1 makes a
-# pre-release, which need not be on main.
+# and the sdist to a GitHub Release. The tag is v plus __version__. A version
+# like 0.1.0rc1 makes a pre-release, which need not be on main.
 on:
   push:
     tags: ["v*"]
@@ -26,12 +26,14 @@ jobs:
         run: |
           version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/go_python/__init__.py)
           [ -n "$version" ] || { echo "::error::No __version__ found"; exit 1; }
-          suffix=${TAG#"v$version"}
-          if [ -z "$suffix" ]; then
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG must be v$version"
+            exit 1
+          elif [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             git merge-base --is-ancestor HEAD origin/main ||
               { echo "::error::$TAG is not on main"; exit 1; }
-          elif ! [[ $suffix =~ ^-rc\.[1-9][0-9]*$ ]]; then
-            echo "::error::Tag $TAG must be v$version or v$version-rc.N"
+          elif ! [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[1-9][0-9]*$ ]]; then
+            echo "::error::Version $version must be like 0.1.0, or 0.1.0rc1"
             exit 1
           fi
           echo "Releasing $version as $TAG"
@@ -62,6 +64,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          if [[ $TAG == *-* ]]; then prerelease=true; else prerelease=false; fi
+          if [[ $TAG == *rc* ]]; then prerelease=true; else prerelease=false; fi
           gh release create "$TAG" dist/* --verify-tag --generate-notes \
-            --title "Go Python $TAG" --prerelease="$prerelease"
+            --target "$GITHUB_SHA" --title "Go Python $TAG" \
+            --prerelease="$prerelease"

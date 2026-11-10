@@ -224,9 +224,10 @@ python scripts/smoke.py
 ```
 
 The smoke test takes about a minute and needs no display, as it uses SDL's
-dummy drivers. It checks each app's version, opens the menu, plays one
-whole bot match in the window and one in the terminal game, runs the
-`bots` command, and checks that the terminal game holds no pygame.
+dummy drivers. It checks each app's version, opens the menu and, except on
+Windows, checks it quits when asked. It plays one whole bot match in the
+window and one in the terminal game, runs the `bots` command, and checks
+that the terminal game holds no pygame.
 
 ## Development
 
@@ -296,12 +297,15 @@ both frontends play by the same rules, and bots work the same in each.
    git push origin v0.1.0
    ```
 
-3. `.github/workflows/release.yml` checks that the tag names the version in
-   the code and is on `main`, then runs the whole CI, which builds and
-   smoke-tests both apps on each OS. Only then does it publish a GitHub
-   Release with the six apps, the wheel, the sdist, the screenshot above
-   and `SHA256SUMS`. A tag like `v0.1.0-rc.1` makes a pre-release instead,
-   from any branch; no other suffix is accepted.
+3. `.github/workflows/release.yml` checks that the tag is `v` followed by
+   the version in the code, and is on `main`. Then it runs the whole CI,
+   which builds and smoke-tests both apps on each OS. Only then does it
+   publish a GitHub Release with the six apps, the wheel, the sdist, the
+   screenshot above and `SHA256SUMS`.
+
+For a pre-release, set a version like `0.1.0rc1` and push the tag
+`v0.1.0rc1` from any branch. Its files carry that version, so pip never
+mistakes it for `0.1.0`.
 
 ## Credits and licence
 
