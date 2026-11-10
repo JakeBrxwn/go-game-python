@@ -15,7 +15,9 @@ To upgrade a project in VERSIONS, change it there and where it is pinned:
 the release extra in pyproject.toml, or python-version in
 .github/workflows/build.yml for Python. Then look up the versions of the
 libraries it bundles (pygame-ce's are in its buildconfig), update the entries
-below, run write, and set DIGEST.
+below, run write, and set DIGEST. Check each library's source too: code it
+builds in from other holders often carries a notice of its own, which goes in
+as a #L<a>-L<b> text.
 """
 import hashlib
 import importlib.metadata
@@ -33,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "91f06b627ad159bca4affdb6cd2de3f881579652e673a1438e108c4e7a430953"
+DIGEST = "6850bacb1835f1110fd931e7c53928089edcf7ecae0a4f23aa6905688e6e5f49"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -44,6 +46,7 @@ GH = "https://raw.githubusercontent.com"
 PG = f"{GH}/pygame-community/pygame-ce/{PYGAME_CE}/docs"
 FT = "https://gitlab.freedesktop.org/freetype/freetype/-/raw"
 SDL = f"{GH}/libsdl-org/SDL/release-2.32.10"
+SDL_IMAGE = f"{GH}/libsdl-org/SDL_image/release-2.8.12"
 # The Wayland protocols the Linux SDL2 is built with, and the lines of each
 # one's copyright notice
 WAYLAND = {
@@ -97,11 +100,18 @@ class Dependency:
 
 DEPENDENCIES = [
     Dependency(
-        "Python", "PSF-2.0", "https://www.python.org/",
+        "Python", "PSF-2.0 AND MIT AND HPND", "https://www.python.org/",
         f"All apps, version {PYTHON}. The licence page below also covers the "
-        "code Python holds, such as expat, libmpdec on Linux and mimalloc. "
+        "code Python holds, such as libmpdec on Linux and mimalloc. Then come "
+        "the licence of the expat 2.9.0 in the macOS apps, and the notices of "
+        "Python's files by other holders: tarfile, logging, platform, the "
+        "Unicode object, getopt, the locale module and, on Windows, _winapi. "
         "The libraries it is built with have their own entries.",
-        (f"{GH}/python/cpython/v{PYTHON}/Doc/license.rst",),
+        tuple(f"{GH}/python/cpython/v{PYTHON}/{name}" for name in [
+            "Doc/license.rst", "Modules/expat/COPYING", "Lib/tarfile.py#L4-L26",
+            "Lib/logging/__init__.py#L1-L15", "Lib/platform.py#L93-L109",
+            "Objects/unicodeobject.c#L14-L36", "Python/getopt.c#L6-L20",
+            "Modules/_localemodule.c#L2-L8", "Modules/_winapi.c#L7-L30"]),
         ("base_library.zip", "libpython3*", "python3*.dll",
          # Only the standard library's: a package's own is not Python's
          *(f"{module}.*pyd" for module in sorted(sys.stdlib_module_names)),
@@ -122,9 +132,12 @@ DEPENDENCIES = [
         ("libssl*", "libcrypto*")),
     Dependency(
         "zlib", "Zlib", "https://zlib.net/",
-        "The Linux apps (1.2.11), and built into libpng16-16.dll on Windows "
-        "(1.3.1). Its notice ends each README below.",
-        (f"{GH}/madler/zlib/v1.2.11/README", f"{GH}/madler/zlib/v1.3.1/README"),
+        "The Linux apps (1.2.11). On Windows it is built into the apps' "
+        "loader (1.3.2) and libpng16-16.dll (1.3.1), and into freetype.dll "
+        "(1.1.4) and SDL2_ttf.dll (1.3) as FreeType's own copies. Its notice "
+        "ends each README below.",
+        tuple(f"{GH}/madler/zlib/v{version}/README"
+              for version in ["1.2.11", "1.3.2", "1.3.1", "1.1.4", "1.3"]),
         ("libz.so*",)),
     Dependency(
         "libffi", "MIT", "https://sourceware.org/libffi/",
@@ -154,24 +167,44 @@ DEPENDENCIES = [
          f"{GH}/tukaani-project/xz/v5.2.3/COPYING"),
         ("liblzma*",)),
     Dependency(
-        "Zstandard", "BSD-3-Clause", "https://facebook.github.io/zstd/",
+        "Zstandard", "BSD-3-Clause AND MIT AND BSD-2-Clause",
+        "https://facebook.github.io/zstd/",
         "The Linux apps (1.4.8) and the macOS apps (1.5.7), and built into "
-        "Python's _zstd module on Windows (1.5.7).",
+        "Python's _zstd module on Windows (1.5.7). After the licences come "
+        "the notices of code in it by other holders: Yuta Mori's divsufsort; "
+        "the legacy format decoders, in 1.5.7 then 1.4.8, on Linux and macOS "
+        "only; and Tino Reichardt's threading code, on Windows, under the "
+        "licence above.",
         (f"{GH}/facebook/zstd/v1.4.8/LICENSE",
-         f"{GH}/facebook/zstd/v1.5.7/LICENSE"),
+         f"{GH}/facebook/zstd/v1.5.7/LICENSE",
+         f"{GH}/facebook/zstd/v1.5.7/lib/dictBuilder/divsufsort.c#L3-L24",
+         f"{GH}/facebook/zstd/v1.5.7/lib/legacy/zstd_v05.c#L621-L646",
+         f"{GH}/facebook/zstd/v1.4.8/lib/legacy/zstd_v05.c#L676-L701",
+         f"{GH}/facebook/zstd/v1.5.7/lib/common/threading.c#L2-L3"),
         ("libzstd*",)),
     Dependency(
         "libuuid (util-linux)", "BSD-3-Clause",
         "https://github.com/util-linux/util-linux",
-        "The Linux apps. Copyright (C) 1996, 1997, 1998, 1999 Theodore Ts'o.",
+        "The Linux apps. Copyright (C) 1996, 1997, 1998, 1999 Theodore Ts'o. "
+        "The last text is the notice of Philip Prindeville's predefined.c.",
         (f"{GH}/util-linux/util-linux/v2.37.2/libuuid/COPYING",
          f"{GH}/util-linux/util-linux/v2.37.2/Documentation/licenses"
-         "/COPYING.BSD-3-Clause"),
+         "/COPYING.BSD-3-Clause",
+         f"{GH}/util-linux/util-linux/v2.37.2/libuuid/src/predefined.c#L4-L31"),
         ("libuuid*",)),
     Dependency(
-        "GCC runtime libraries", "GPL-3.0-or-later WITH GCC-exception-3.1",
-        "https://gcc.gnu.org/", "The Linux window app.",
-        (f"{GH}/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.RUNTIME",),
+        "GCC runtime libraries", "GPL-3.0-or-later WITH GCC-exception-3.1 AND "
+        "LGPL-2.1-or-later AND MIT AND HPND-sell-variant", "https://gcc.gnu.org/",
+        "The Linux window app: libstdc++ and libgcc_s from GCC 12. The "
+        "runtime library exception, first, adds to the GPL that follows it, "
+        "and libgcc_s's soft-float code is under the LGPL after that. Then "
+        "come the notices of code in libstdc++ by other holders: fast_float, "
+        "and Hewlett-Packard's and Silicon Graphics' STL.",
+        tuple(f"{GH}/gcc-mirror/gcc/releases/gcc-12.3.0/{name}" for name in [
+            "COPYING.RUNTIME", "COPYING3", "COPYING.LIB",
+            "libstdc++-v3/src/c++17/fast_float/fast_float.h#L15-L39",
+            "libstdc++-v3/src/c++98/tree.cc#L27-L48",
+            "libstdc++-v3/src/c++98/strstream.cc#L26-L35"]),
         ("libgcc_s.so*", "libstdc++.so*")),
     Dependency(
         "Microsoft C runtime", "Microsoft distributable code",
@@ -190,36 +223,42 @@ DEPENDENCIES = [
         "pygame-ce", "LGPL-2.1-or-later", "https://pyga.me/",
         f"The window apps, version {PYGAME_CE}. After the LGPL come the "
         "licences pygame-ce gives for code in its own modules: SDL_gfx, "
-        "sse2neon and NumPy.",
+        "sse2neon and NumPy, then the notice of Donald W. Gillies' bit "
+        "count, which its Windows mask module holds.",
         (f"{PG}/LGPL.txt", f"{PG}/licenses/LICENSE.sdl_gfx.txt",
          f"{PG}/licenses/LICENSE.sse2neon-h.txt",
-         f"{PG}/licenses/LICENSE.numpy.txt"),
+         f"{PG}/licenses/LICENSE.numpy.txt",
+         f"{GH}/pygame-community/pygame-ce/{PYGAME_CE}/src_c/bitmask.c#L44-L46"),
         ("pygame", "pygame/*.cpython-*.so", "pygame/*.pyd",
          "pygame/_sdl2/*.cpython-*.so", "pygame/_sdl2/*.pyd",
          "pygame/pygame_icon*.bmp")),
     Dependency(
-        "SDL2", "Zlib", "https://www.libsdl.org/",
+        "SDL2", "Zlib AND BSD-3-Clause AND MIT", "https://www.libsdl.org/",
         "The window apps. After its licence come the notices of code it is "
         "built with: HIDAPI, yuv2rgb and Sun's math code, then on Linux "
-        "edid-parse.c and the Wayland protocols.",
+        "edid-parse.c, imKStoUCS.c, the Wayland protocols, and Qt's touch, "
+        "surface and window manager protocols, which its Qt touch code is "
+        "generated from and which share the last text.",
         (f"{SDL}/LICENSE.txt", f"{SDL}/src/hidapi/LICENSE-orig.txt",
          f"{SDL}/src/video/yuv2rgb/LICENSE", f"{SDL}/src/libm/e_atan2.c#L3-L8",
          f"{SDL}/src/video/x11/edid-parse.c#L2-L20",
+         f"{SDL}/src/events/imKStoUCS.c#L2-L24",
          *(f"{SDL}/wayland-protocols/{name}.xml#{lines}"
-           for name, lines in WAYLAND.items())),
+           for name, lines in WAYLAND.items()),
+         f"{GH}/qt/qtwayland/v5.4.0/src/extensions/touch-extension.xml#L4-L36"),
         ("**/libSDL2-2*", "**/SDL2.dll")),
     Dependency(
-        "SDL2_image", "Zlib", "https://github.com/libsdl-org/SDL_image",
-        "The window apps. It holds QOI, below, and nanosvg, under "
-        "the zlib licence: Copyright (c) 2013-14 Mikko Mononen "
-        "memon@inside.org.",
-        (f"{GH}/libsdl-org/SDL_image/release-2.8.12/LICENSE.txt",),
+        "SDL2_image", "Zlib AND HPND", "https://github.com/libsdl-org/SDL_image",
+        "The window apps. It holds QOI, below, and after its licence come "
+        "the notices of nanosvg and of its GIF code, from XPaint.",
+        (f"{SDL_IMAGE}/LICENSE.txt", f"{SDL_IMAGE}/src/nanosvg.h#L2-L25",
+         f"{SDL_IMAGE}/src/IMG_gif.c#L30-L37"),
         ("**/libSDL2_image*", "**/SDL2_image.dll")),
     Dependency(
         "QOI", "MIT", "https://github.com/phoboslab/qoi",
-        "The window apps, built into SDL2_image.",
-        (f"{GH}/phoboslab/qoi/ffb2d2cb74a1de60819b21b939f7209aa53e91c1"
-         "/LICENSE",)),
+        "The window apps, built into SDL2_image. The text is the notice in "
+        "the qoi.h it is built from.",
+        (f"{SDL_IMAGE}/src/qoi.h#L10-L27",)),
     Dependency(
         "SDL2_mixer", "Zlib", "https://github.com/libsdl-org/SDL_mixer",
         "The window apps. It holds Timidity, whose licence is the second "
@@ -235,26 +274,38 @@ DEPENDENCIES = [
         (f"{GH}/libsdl-org/SDL_ttf/release-2.24.0/LICENSE.txt",),
         ("**/libSDL2_ttf*", "**/SDL2_ttf.dll")),
     Dependency(
-        "FreeType", "FTL", "https://freetype.org/",
+        "FreeType", "FTL AND MIT AND MIT-open-group", "https://freetype.org/",
         "The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 "
         "as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this "
         "software are copyright © 2021, 2023 and 2026 The FreeType Project "
-        "(www.freetype.org). All rights reserved. For each version, the "
-        "last two texts are the licences of its BDF and PCF font drivers.",
+        "(www.freetype.org). All rights reserved. For each version, after "
+        "the FTL come the licences of its BDF and PCF font drivers, then the "
+        "notices of its pcfutil.c and fthash.c.",
         tuple(f"{FT}/{tag}/{name}"
               for tag, bdf in [("VER-2-14-3", "L99-L144"),
                                ("VER-2-13-2", "L99-L144"),
                                ("VER-2-11-1", "L95-L140")]
               for name in ["LICENSE.TXT", "docs/FTL.TXT", f"src/bdf/README#{bdf}",
-                           "src/pcf/README#L66-L88"]),
+                           "src/pcf/README#L66-L88", "src/pcf/pcfutil.c#L3-L23",
+                           "src/base/fthash.c#L10-L30"]),
         ("**/libfreetype*", "**/freetype.dll")),
     Dependency(
-        "HarfBuzz", "MIT-Modern-Variant", "https://harfbuzz.github.io/",
+        "HarfBuzz", "MIT-Modern-Variant AND MIT AND ISC AND Unicode-3.0 AND "
+        "Unicode-DFS-2016", "https://harfbuzz.github.io/",
         "The window apps: 14.3.0 on Linux and macOS, and 8.1.1 in "
-        "SDL2_ttf.dll on Windows, whose texts are the same. Its Microsoft "
-        "USE data has the second licence.",
+        "SDL2_ttf.dll on Windows, whose COPYING is the same. Its Microsoft "
+        "USE data has the second licence. Then come, for each version, the "
+        "notices of its fasthash, hb-ucd.cc and BASE table code, whose "
+        "holders COPYING does not name, and last the licences of its Unicode "
+        "data: Unicode-3.0 for 14.3.0, and Unicode-DFS-2016 for 8.1.1.",
         (f"{GH}/harfbuzz/harfbuzz/14.3.0/COPYING",
-         f"{GH}/harfbuzz/harfbuzz/14.3.0/src/ms-use/COPYING"),
+         f"{GH}/harfbuzz/harfbuzz/14.3.0/src/ms-use/COPYING",
+         *(f"{GH}/harfbuzz/harfbuzz/{tag}/src/{name}"
+           for tag, algs in [("14.3.0", "L423-L443"), ("8.1.1", "L259-L279")]
+           for name in [f"hb-algs.hh#{algs}", "hb-ucd.cc#L2-L14",
+                        "hb-ot-layout-base-table.hh#L2-L24"]),
+         f"{GH}/unicode-org/icu/release-78.1/LICENSE#L1-L39",
+         f"{GH}/unicode-org/icu/release-72-1/icu4c/LICENSE#L1-L46"),
         ("**/libharfbuzz*",)),
     Dependency(
         "Brotli", "MIT", "https://github.com/google/brotli",
@@ -280,10 +331,16 @@ DEPENDENCIES = [
         (f"{GH}/pnggroup/libpng/v1.6.58/LICENSE",),
         ("**/libpng*",)),
     Dependency(
-        "LibTIFF", "libtiff", "https://libtiff.gitlab.io/libtiff/",
-        "The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows.",
+        "LibTIFF", "libtiff AND MIT", "https://libtiff.gitlab.io/libtiff/",
+        "The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. "
+        "Then come the notices of its files by other holders: LogLuv, in "
+        "both versions, and PixarLog, old-style JPEG and the hash set, in "
+        "4.7.2.",
         ("https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/LICENSE.md",
-         "https://gitlab.com/libtiff/libtiff/-/raw/v4.2.0/COPYRIGHT"),
+         "https://gitlab.com/libtiff/libtiff/-/raw/v4.2.0/COPYRIGHT",
+         *(f"https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/libtiff/{name}"
+           for name in ["tif_luv.c#L2-L22", "tif_pixarlog.c#L2-L22",
+                        "tif_ojpeg.c#L26-L37", "tif_hash_set.c#L8-L26"])),
         ("**/libtiff*",)),
     Dependency(
         "libwebp", "BSD-3-Clause", "https://chromium.googlesource.com/webm/libwebp",
@@ -293,21 +350,29 @@ DEPENDENCIES = [
          f"{GH}/webmproject/libwebp/v1.0.3/COPYING"),
         ("**/libwebp*", "**/libsharpyuv*")),
     Dependency(
-        "Ogg and Vorbis", "BSD-3-Clause", "https://xiph.org/",
+        "Ogg and Vorbis", "BSD-3-Clause AND TU-Berlin-1.0", "https://xiph.org/",
         "The window apps: Ogg 1.3.6 and Vorbis 1.3.7 on Linux and macOS, "
-        "and Ogg 1.3.5 on Windows.",
+        "and Ogg 1.3.5 on Windows. Vorbis's LPC code has the TU Berlin "
+        "notice that is the last text.",
         (f"{GH}/xiph/ogg/v1.3.6/COPYING", f"{GH}/xiph/vorbis/v1.3.7/COPYING",
-         f"{GH}/xiph/ogg/v1.3.5/COPYING"),
+         f"{GH}/xiph/ogg/v1.3.5/COPYING", f"{GH}/xiph/vorbis/v1.3.7/lib/lpc.c#L25-L41"),
         ("**/libogg*", "**/libvorbis*")),
     Dependency(
         "Opus and opusfile", "BSD-3-Clause", "https://opus-codec.org/",
         "The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, "
-        "and Opus 1.4 and opusfile 0.13 on Windows. The last text is the one "
-        "SDL2_mixer ships opusfile 0.13 with.",
+        "and Opus 1.4 and opusfile 0.13 on Windows. The fourth text is the "
+        "one SDL2_mixer ships opusfile 0.13 with. The rest are the notices of "
+        "Opus files whose holders its COPYING does not name: Google, Koen Vos "
+        "and Vidyo on every OS, Cisco and John Ridges on Linux and Windows, "
+        "and Arm in 1.6.1.",
         (f"{GH}/xiph/opus/v1.6.1/COPYING", f"{GH}/xiph/opusfile/v0.12/COPYING",
          f"{GH}/xiph/opus/v1.4/COPYING",
          f"{GH}/libsdl-org/SDL_mixer/release-2.8.2/VisualC/external/optional"
-         "/x64/LICENSE.opusfile.txt"),
+         "/x64/LICENSE.opusfile.txt",
+         *(f"{GH}/xiph/opus/v1.6.1/{name}" for name in [
+             "src/mapping_matrix.c#L1-L25", "silk/LPC_fit.c#L2-L25",
+             "silk/NSQ.h#L2-L26", "silk/x86/NSQ_sse4_1.c#L1-L25",
+             "celt/x86/pitch_sse.h#L1-L30", "src/opus.c#L1-L26"])),
         ("**/libopus*",)),
     Dependency(
         "FLAC", "BSD-3-Clause", "https://xiph.org/flac/",
@@ -325,20 +390,38 @@ DEPENDENCIES = [
         (f"{GH}/FluidSynth/fluidsynth/v2.5.7/LICENSE",),
         ("**/libfluidsynth*",)),
     Dependency(
-        "libsndfile", "LGPL-2.1-or-later", "https://libsndfile.github.io/libsndfile/",
-        "The Linux and macOS window apps, version 1.2.2.",
-        (f"{GH}/libsndfile/libsndfile/1.2.2/COPYING",),
+        "libsndfile", "LGPL-2.1-or-later AND TU-Berlin-1.0 AND Apache-2.0",
+        "https://libsndfile.github.io/libsndfile/",
+        "The Linux and macOS window apps, version 1.2.2. It holds GSM 06.10, "
+        "whose notice is the second text, and Apple's ALAC, whose notice is "
+        "the third, under the Apache License 2.0 that is the last.",
+        (f"{GH}/libsndfile/libsndfile/1.2.2/COPYING",
+         f"{GH}/libsndfile/libsndfile/1.2.2/src/GSM610/COPYRIGHT",
+         f"{GH}/libsndfile/libsndfile/1.2.2/src/ALAC/alac_decoder.c#L2-L19",
+         f"{GH}/openssl/openssl/openssl-3.0.2/LICENSE.txt"),
         ("**/libsndfile*",)),
     Dependency(
         "WavPack", "BSD-3-Clause", "https://www.wavpack.com/",
-        "The window apps: 5.9.0 on Linux and macOS, and 5.6.0 on Windows.",
-        (f"{GH}/dbry/WavPack/5.9.0/COPYING", f"{GH}/dbry/WavPack/5.6.0/COPYING"),
+        "The window apps: 5.9.0 on Linux and macOS, and 5.6.0 on Windows, "
+        "which also holds LoRd_MuldeR's Unicode file name code, whose notice "
+        "is the last text.",
+        (f"{GH}/dbry/WavPack/5.9.0/COPYING", f"{GH}/dbry/WavPack/5.6.0/COPYING",
+         f"{GH}/dbry/WavPack/5.6.0/cli/win32_unicode_support.c#L1-L28"),
         ("**/libwavpack*",)),
     Dependency(
-        "libxmp", "MIT", "https://xmp.sourceforge.net/",
-        "The window apps: 4.7.2 on Linux and macOS, and 4.6.3 on Windows.",
-        (f"{GH}/libxmp/libxmp/libxmp-4.7.2/docs/COPYING",
-         f"{GH}/libxmp/libxmp/libxmp-4.6.3/docs/COPYING"),
+        "libxmp", "MIT AND ISC", "https://xmp.sourceforge.net/",
+        "The window apps: 4.7.2 on Linux and macOS, and 4.6.3 on Windows. "
+        "After each version's licence come the notices of code in it by "
+        "other authors: in 4.7.2, ProWizard, lhasa, miniz, and Alice Rowan's "
+        "and Stephen J Leary's code; in 4.6.3, built without ProWizard and "
+        "the depackers, miniz, Alice Rowan's and Stephen J Leary's.",
+        (*(f"{GH}/libxmp/libxmp/libxmp-4.7.2/{name}" for name in [
+            "docs/COPYING", "src/loaders/prowizard/LICENSE.txt",
+            "docs/CREDITS#L200-L214", "src/depackers/miniz_zip.c#L3-L24",
+            "src/depackers/arc.c#L2-L20", "src/loaders/abk_load.c#L3-L21"]),
+         *(f"{GH}/libxmp/libxmp/libxmp-4.6.3/{name}" for name in [
+             "docs/COPYING", "src/miniz_tinfl.c#L3-L23", "src/loaders/lzw.c#L2-L20",
+             "src/loaders/xmf_load.c#L2-L20", "src/loaders/abk_load.c#L3-L21"])),
         ("**/libxmp*",)),
     Dependency(
         "PortMidi", "MIT", "https://github.com/PortMidi/portmidi",
@@ -365,8 +448,10 @@ DEPENDENCIES = [
         ("pygame/freesansbold.ttf",)),
     Dependency(
         "click", "BSD-3-Clause", "https://palletsprojects.com/p/click/",
-        f"All apps, version {VERSIONS['click']}.",
-        (f"{GH}/pallets/click/{VERSIONS['click']}/LICENSE.txt",),
+        f"All apps, version {VERSIONS['click']}. Its parser holds code from "
+        "Python's optparse, whose notice is the second text.",
+        (f"{GH}/pallets/click/{VERSIONS['click']}/LICENSE.txt",
+         f"{GH}/python/cpython/v{PYTHON}/Lib/optparse.py#L38-L66"),
         ("click", "click-*.dist-info/**")),
     Dependency(
         "colorama", "BSD-3-Clause", "https://github.com/tartley/colorama",
