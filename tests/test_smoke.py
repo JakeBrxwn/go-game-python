@@ -66,6 +66,7 @@ def test_imports_where_no_app_is_released(
     """Check the smoke test, and so these tests, load on a machine with no
     release name, as the sdist's tests run anywhere"""
     monkeypatch.setattr(platform, "machine", lambda: "riscv64")
+    importlib.reload(sys.modules["freeze"])
     importlib.reload(smoke)
 
 def test_finished_takes_every_end_but_leaving() -> None:
