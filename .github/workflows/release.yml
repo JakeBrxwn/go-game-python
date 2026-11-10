@@ -14,6 +14,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      prerelease: ${{ steps.tag.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -21,29 +23,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: The tag must name the version in the code
+        id: tag
         env:
           TAG: ${{ github.ref_name }}
-        run: |
-          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/go_python/__init__.py)
-          [ -n "$version" ] || { echo "::error::No __version__ found"; exit 1; }
-          if [ "$TAG" != "v$version" ]; then
-            echo "::error::Tag $TAG must be v$version"
-            exit 1
-          elif [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            git merge-base --is-ancestor HEAD origin/main ||
-              { echo "::error::$TAG is not on main"; exit 1; }
-          elif ! [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[1-9][0-9]*$ ]]; then
-            echo "::error::Version $version must be like 0.1.0, or 0.1.0rc1"
-            exit 1
-          fi
-          echo "Releasing $version as $TAG"
+          # go_python/__init__.py holds only the version, so the runner's
+          # own Python can import it without installing anything
+          PYTHONPATH: src
+        run: python3 scripts/check_tag.py "$TAG" >> "$GITHUB_OUTPUT"
 
   ci:
     needs: check
     uses: ./.github/workflows/ci.yml
 
   publish:
-    needs: ci
+    needs: [check, ci]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -63,8 +56,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.check.outputs.prerelease }}
         run: |
-          if [[ $TAG == *rc* ]]; then prerelease=true; else prerelease=false; fi
           gh release create "$TAG" dist/* --verify-tag --generate-notes \
             --target "$GITHUB_SHA" --title "Go Python $TAG" \
-            --prerelease="$prerelease"
+            --prerelease="$PRERELEASE"
