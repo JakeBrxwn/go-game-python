@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 
 from freeze import binary_name
-from PyInstaller.archive.readers import CArchiveReader
 
 from go_python import __version__
 from go_python.match import EndReason
@@ -138,6 +137,9 @@ def check_no_pygame(path: str) -> None:
     Raises:
         SystemExit: If it holds pygame
     """
+    # Imported here so tests/test_smoke.py runs without PyInstaller
+    from PyInstaller.archive.readers import CArchiveReader
+
     # The app's files, and the modules in its zipped Python archive
     archive = CArchiveReader(path)
     names = list(archive.toc)

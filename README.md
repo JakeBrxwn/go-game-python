@@ -241,7 +241,7 @@ ruff check .
 mypy
 ```
 
-- `python -m pytest` runs the unit tests in `tests/`, in about 10 seconds.
+- `python -m pytest` runs the unit tests in `tests/`, in about 20 seconds.
 - `python -m pytest evals -s` runs the evals in `evals/` and prints their
   numbers, in about 3 minutes: the rules against
   [sgfmill](https://github.com/mattheww/sgfmill), invariants over random

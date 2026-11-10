@@ -12,8 +12,6 @@ Run it from the repo root after pip install ".[release]":
 import platform
 from pathlib import Path
 
-import PyInstaller.__main__
-
 SYSTEMS = {"Linux": "linux", "Windows": "windows", "Darwin": "macos"}
 MACHINES = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "arm64",
             "aarch64": "arm64"}
@@ -49,6 +47,9 @@ def main() -> None:
     """
     Builds both apps, writing PyInstaller's work files to build/.
     """
+    # Imported here so the smoke test's tests can name the apps without it
+    import PyInstaller.__main__
+
     build = Path("build")
     build.mkdir(exist_ok=True)
     # The Linux Python on CI keeps its debug symbols: 11 MB in each app
