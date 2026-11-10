@@ -91,6 +91,28 @@ def test_check_fails_a_broken_app(code: str, why: str) -> None:
     with pytest.raises(SystemExit, match=why):
         smoke.check(app(code), smoke.FINISHED)
 
+# A match lasting past the launcher's interrupt, which Ctrl+C ends early
+MATCH = f"""
+import time
+try:
+    time.sleep(1.5)
+except KeyboardInterrupt:
+    print("Game over: the match was left.")
+    raise SystemExit(0)
+print({FINISHED!r})
+"""
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Windows has no SIGINT to send one process")
+def test_check_can_interrupt_the_launcher() -> None:
+    """Check interrupt_launcher sends the app Ctrl+C's signal: a launcher
+    that passed it on would end the match early"""
+    smoke.check(app("import signal; signal.signal(signal.SIGINT, "
+                    "signal.SIG_IGN)\n" + MATCH), smoke.FINISHED,
+                interrupt_launcher=True)
+    with pytest.raises(SystemExit, match="exit 0"):
+        smoke.check(app(MATCH), smoke.FINISHED, interrupt_launcher=True)
+
 def test_check_running_passes_a_menu_that_quits_when_asked(
         capsys: pytest.CaptureFixture[str]) -> None:
     """Check a menu that stays open, then quits when asked, passes"""

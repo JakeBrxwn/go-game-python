@@ -226,8 +226,10 @@ python scripts/smoke.py
 The smoke test takes about a minute and needs no display, as it uses SDL's
 dummy drivers. It checks each app's version, opens the menu and, except on
 Windows, checks it quits when asked. It plays one whole bot match in the
-window and one in the terminal game, runs the `bots` command, and checks
-that the terminal game holds no pygame.
+window and one in the terminal game, and except on Windows, sends Ctrl+C's
+signal to each app's launcher midway, which must not pass it on: the game
+gets Ctrl+C from the terminal already. It also runs the `bots` command and
+checks that the terminal game holds no pygame.
 
 ## Development
 

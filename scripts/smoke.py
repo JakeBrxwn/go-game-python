@@ -9,6 +9,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from freeze import binary_name
@@ -76,7 +77,8 @@ def stop(app: subprocess.Popen[str]) -> tuple[int | None, str]:
     output, _ = app.communicate()
     return None, output
 
-def check(args: list[str], expect: str, stdin: str = "") -> None:
+def check(args: list[str], expect: str, stdin: str = "",
+          interrupt_launcher: bool = False) -> None:
     """
     Runs an app to its end and checks it succeeded and printed some text.
 
@@ -84,11 +86,18 @@ def check(args: list[str], expect: str, stdin: str = "") -> None:
         args: The app and its arguments
         expect: A regular expression the output must match
         stdin: What to type into the app
+        interrupt_launcher: True to send Ctrl+C's signal, SIGINT, to the
+        one-file app's launcher alone after MENU_S, which must not pass it on
 
     Raises:
         SystemExit: If the app failed, timed out or printed something else
     """
     app = start(args)
+    if interrupt_launcher:
+        # The terminal sends Ctrl+C to the game too, so a launcher that
+        # passed it on would make the game see it twice
+        time.sleep(MENU_S)
+        os.kill(app.pid, signal.SIGINT)
     try:
         output, _ = app.communicate(stdin, timeout=TIMEOUT_S)
         ended = f"exit {app.returncode}"
@@ -155,14 +164,16 @@ def main() -> None:
     """
     Runs every check.
     """
+    # Windows has no SIGINT to send one process
+    posix = sys.platform != "win32"
     check([GUI, "--version"], re.escape(f"go-python, version {__version__}"))
     check([GUI, "bots", "-n", "1", "-s", "6"], "Average moves:")
     check_running([GUI])
     check([GUI, "gui", "-s", "6", "--seats", "random,random",
-           "--close-at-end"], FINISHED)
+           "--close-at-end"], FINISHED, interrupt_launcher=posix)
     check([TUI, "--version"],
           re.escape(f"go-python-tui, version {__version__}"))
-    check([TUI], FINISHED, stdin=WATCH)
+    check([TUI], FINISHED, stdin=WATCH, interrupt_launcher=posix)
     check_no_pygame(TUI)
 
 if __name__ == "__main__":

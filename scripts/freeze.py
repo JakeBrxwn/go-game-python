@@ -59,12 +59,16 @@ def main() -> None:
         entry.write_text(f"from go_python.cli import {function}\n"
                          f"{function}()\n", encoding="utf-8")
         # UTF-8 mode, as a frozen app ignores PYTHONUTF8: without it, output
-        # piped on Windows is cp1252, which cannot show the stones
+        # piped on Windows is cp1252, which cannot show the stones.
+        # The launcher ignores signals: Ctrl+C already reaches the game from
+        # the terminal, and passed on as well, it arrives twice and can quit
+        # the game from its own Ctrl+C handling.
         PyInstaller.__main__.run([
             str(entry), "--onefile", "--noconfirm", "--clean",
             "--name", binary_name(app), "--distpath", "dist",
             "--workpath", str(build / app), "--specpath", str(build),
-            "--python-option", "X utf8", *strip, *options])
+            "--python-option", "X utf8", "--bootloader-ignore-signals",
+            *strip, *options])
 
 if __name__ == "__main__":
     main()
