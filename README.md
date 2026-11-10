@@ -43,8 +43,8 @@ macOS warn you the first time. The steps below get past the warning.
 ### Linux
 
 The Linux files are built on Ubuntu 22.04, so they need glibc 2.35 or newer
-(Ubuntu 22.04, Debian 12, Fedora 36, or later). In a terminal, in the folder
-you downloaded to:
+(Ubuntu 22.04, Debian 12, Fedora 36, or later); on older systems, install
+with pipx. In a terminal, in the folder you downloaded to:
 
 ```sh
 chmod +x go-python-linux-x86_64
