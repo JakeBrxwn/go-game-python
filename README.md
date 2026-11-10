@@ -196,7 +196,9 @@ test command from [Development](#development).
 
 ## Build from source
 
-You need Python 3.14 and git. On Windows, run the commands in PowerShell,
+You need Python 3.14 and git. On Debian or Ubuntu, also install Python's
+venv module with `sudo apt install python3.14-venv`, which those systems
+leave out. On Windows, run the commands in PowerShell,
 with `py -3.14 -m venv .venv` in place of the `python3.14` line and
 `.venv\Scripts\Activate.ps1` in place of the `source` line. If PowerShell
 refuses to run that script, run `Set-ExecutionPolicy -Scope Process
@@ -214,9 +216,10 @@ go-python
 `requirements.txt` installs the game in editable mode, along with the test
 tools, so your changes to `src/` take effect when you next run it.
 
-To build the two standalone apps for your OS into `dist/`, then check them
-the way the release does. On Linux, this also needs binutils
-(`sudo apt install binutils` or `sudo dnf install binutils`):
+Building the standalone apps needs binutils on Linux, so install it first
+if you lack it: `sudo apt install binutils` or `sudo dnf install binutils`.
+To build the two apps for your OS into `dist/`, then check them the way the
+release does:
 
 ```sh
 pip install -e ".[release]"
