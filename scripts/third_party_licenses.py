@@ -424,7 +424,7 @@ def fetch(url: str) -> str:
     text = data.decode("utf-8")
     if text.lstrip().lower().startswith(("<!doctype", "<html")):
         raise ValueError(f"{url} gave a web page")
-    return "\n".join(line.rstrip() for line in text.strip("\n").splitlines())
+    return "\n".join(line.rstrip() for line in text.splitlines()).strip("\n")
 
 def digest(text: str) -> str:
     """

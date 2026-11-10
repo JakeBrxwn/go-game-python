@@ -87,10 +87,11 @@ def test_write_names_a_repeated_text(
     assert not tpl.stale()
 
 def test_fetch_gives_a_text(tmp_path: Path) -> None:
-    """Check fetch gives a text without the blank lines around it or the
-    spaces that end its lines"""
+    """Check fetch gives a text with \\n line ends and without the blank
+    lines around it or the spaces that end its lines, whatever its line
+    ends were"""
     path = tmp_path / "COPYING"
-    path.write_text("\nCopyright  \nyou may\n\n", encoding="utf-8")
+    path.write_bytes(b" \r\n\r\nCopyright  \r\nyou may\r\n \r\n")
     assert tpl.fetch(path.as_uri()) == "Copyright\nyou may"
 
 def test_fetch_refuses_a_web_page(tmp_path: Path) -> None:
