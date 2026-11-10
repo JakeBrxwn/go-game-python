@@ -49,8 +49,8 @@ jobs:
       - if: runner.os == 'Linux'
         run: |
           pip install --force-reinstall --no-deps dist/go_python-*.whl
-          go-python --version
-          go-python-tui --version
+          go-python --version | grep -x "go-python, version .*"
+          go-python-tui --version | grep -x "go-python-tui, version .*"
           pip install pytest pytest-timeout
           mkdir "$RUNNER_TEMP/sdist"
           tar -xzf dist/go_python-*.tar.gz -C "$RUNNER_TEMP/sdist"
