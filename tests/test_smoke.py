@@ -128,19 +128,24 @@ def test_check_can_interrupt_the_launcher() -> None:
                     reason="Windows has no SIGINT to send one process")
 def test_main_lets_the_apps_take_ctrl_c(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check main undoes an ignored Ctrl+C, as `smoke.py &` starts with, so
-    the apps it starts can take it"""
-    for name in ["check", "check_running", "check_no_pygame", "binary_name"]:
-        monkeypatch.setattr(smoke, name, lambda *args, **kwargs: "")
+    """Check main undoes an ignored Ctrl+C, as `smoke.py &` starts with,
+    before its first check, so every app it starts can take it"""
+    seen = []
+
+    def probe(*args: object, **kwargs: object) -> None:
+        child = smoke.start(app(
+            "import signal; print(signal.getsignal(signal.SIGINT))"))
+        seen.append(child.communicate(timeout=10)[0])
+    for name in ["check", "check_running", "check_no_pygame"]:
+        monkeypatch.setattr(smoke, name, probe)
+    monkeypatch.setattr(smoke, "binary_name", lambda name: name)
     before = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         smoke.main()
-        child = smoke.start(app(
-            "import signal; print(signal.getsignal(signal.SIGINT))"))
-        output, _ = child.communicate(timeout=10)
     finally:
         signal.signal(signal.SIGINT, before)
-    assert "default_int_handler" in output
+    assert len(seen) == 7
+    assert all("default_int_handler" in output for output in seen)
 
 def test_check_running_passes_a_menu_that_quits_when_asked(
         capsys: pytest.CaptureFixture[str]) -> None:
