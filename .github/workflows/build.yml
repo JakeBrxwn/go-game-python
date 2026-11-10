@@ -28,12 +28,20 @@ jobs:
           cache-dependency-path: pyproject.toml
       - run: pip install ".[release]"
       - run: python scripts/freeze.py
-      - run: python scripts/smoke.py
+      # Unbuffered, so the log times each check
+      - run: python -u scripts/smoke.py
       - if: runner.os == 'Linux'
         run: |
           python -m build
           python scripts/screenshot.py dist/go-python-screenshot.png
-      # The sdist must hold everything its own tests need
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      # The sdist must hold everything its own tests need. After the upload,
+      # so what this installs cannot touch the release files.
       - if: runner.os == 'Linux'
         run: |
           pip install pytest pytest-timeout
@@ -41,9 +49,3 @@ jobs:
           tar -xzf dist/go_python-*.tar.gz -C "$RUNNER_TEMP/sdist"
           cd "$RUNNER_TEMP"/sdist/go_python-*
           python -m pytest -q -p no:cacheprovider
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: dist-${{ matrix.os }}
-          path: dist/
-          if-no-files-found: error
-          retention-days: 7

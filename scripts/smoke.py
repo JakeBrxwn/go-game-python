@@ -17,9 +17,6 @@ from freeze import binary_name
 from go_python import __version__
 from go_python.match import EndReason
 
-SUFFIX = ".exe" if sys.platform == "win32" else ""
-GUI = str(Path("dist", binary_name("go-python") + SUFFIX))
-TUI = str(Path("dist", binary_name("go-python-tui") + SUFFIX))
 # SDL's dummy drivers: a window and sound that need no display or speaker
 ENV = os.environ | {"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"}
 # Longer than the slowest 6x6 bot match, 108 moves at 0.6 s each
@@ -164,17 +161,22 @@ def main() -> None:
     """
     Runs every check.
     """
+    # Named here, not on import, so tests/test_smoke.py runs on machines
+    # with no release name
+    suffix = ".exe" if sys.platform == "win32" else ""
+    gui = str(Path("dist", binary_name("go-python") + suffix))
+    tui = str(Path("dist", binary_name("go-python-tui") + suffix))
     # Windows has no SIGINT to send one process
     posix = sys.platform != "win32"
-    check([GUI, "--version"], re.escape(f"go-python, version {__version__}"))
-    check([GUI, "bots", "-n", "1", "-s", "6"], "Average moves:")
-    check_running([GUI])
-    check([GUI, "gui", "-s", "6", "--seats", "random,random",
+    check([gui, "--version"], re.escape(f"go-python, version {__version__}"))
+    check([gui, "bots", "-n", "1", "-s", "6"], "Average moves:")
+    check_running([gui])
+    check([gui, "gui", "-s", "6", "--seats", "random,random",
            "--close-at-end"], FINISHED, interrupt_launcher=posix)
-    check([TUI, "--version"],
+    check([tui, "--version"],
           re.escape(f"go-python-tui, version {__version__}"))
-    check([TUI], FINISHED, stdin=WATCH, interrupt_launcher=posix)
-    check_no_pygame(TUI)
+    check([tui], FINISHED, stdin=WATCH, interrupt_launcher=posix)
+    check_no_pygame(tui)
 
 if __name__ == "__main__":
     main()
