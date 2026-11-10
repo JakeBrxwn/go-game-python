@@ -102,14 +102,18 @@ def test_fetch_gives_a_text(tmp_path: Path) -> None:
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     """Check fetch gives lines a to b for #L<a>-L<b>, numbered at line ends
     only, as GitHub does, without the indent they share but keeping each
-    line's own, and refuses a range past the file's end"""
+    line's own, and refuses a range backwards or past the file's end"""
     path = tmp_path / "source.xml"
-    path.write_bytes(b"<copyright>\x0c\n  Copyright 2007 Red Hat  \r\n"
+    path.write_bytes(b"<copyright>\x0c\n  Copyright \xc2\xa9 2007 Red Hat  \r\n"
                      b"  1. You may use\n     it freely\n</copyright>\n")
     assert (tpl.fetch(f"{path.as_uri()}#L2-L4")
-            == "Copyright 2007 Red Hat\n1. You may use\n   it freely")
+            == "Copyright © 2007 Red Hat\n1. You may use\n   it freely")
+    assert tpl.fetch(f"{path.as_uri()}#L5-L5") == "</copyright>"
     with pytest.raises(ValueError, match="fewer lines"):
         tpl.fetch(f"{path.as_uri()}#L4-L6")
+    for backwards in ["#L4-L2", "#L3-L2", "#L0-L2"]:
+        with pytest.raises(ValueError, match="not a range"):
+            tpl.fetch(path.as_uri() + backwards)
 
 def test_fetch_refuses_a_text_not_in_utf8(tmp_path: Path) -> None:
     """Check fetch fails on a text it cannot read, rather than drop bytes"""
@@ -198,6 +202,25 @@ def test_covers_what_the_apps_hold() -> None:
     "pygame_ce.libs/libharfbuzz-subset-1a2b3c4d.so.0",
     "pygame/.dylibs/libz.1.3.1.dylib", "pygame/libwildmidi-2.dll",
     "libgccjit.so.0", "libpython2.7.so.1.0", "MSVCP140.dll",
+    # Projects whose names start like a covered one's
+    "pygame_gui", "click_plugins-1.1.1.dist-info/METADATA", "SDL2_gfx.dll",
+    "pythoncom314.dll", "pygame/SDL3_image.dll", "pygame/SDL3_mixer.dll",
+    "pygame/SDL3_ttf.dll", "pygame_ce.libs/libSDL3_image-1a2b3c4d.so.0.2.4",
+    "pygame_ce.libs/libSDL3_mixer-1a2b3c4d.so.0.1.0",
+    "pygame_ce.libs/libSDL3_ttf-1a2b3c4d.so.0.2.2",
+    "pygame/libharfbuzz-subset-0.dll",
+    "pygame/.dylibs/libharfbuzz-subset.0.dylib",
+    "pygame/.dylibs/libspng.0.dylib", "libossp-uuid-16.dll",
+    "pygame/libout123-0.dll",
+    # A library the apps hold only at the top, from the build machine, is
+    # left over in a package's folder, or in another platform's form
+    "pygame_ce.libs/libbz2-1a2b3c4d.so.1.0.8",
+    "pygame_ce.libs/libcrypto-1a2b3c4d.so.3",
+    "pygame_ce.libs/libffi-1a2b3c4d.so.8",
+    "pygame_ce.libs/libuuid-1a2b3c4d.so.1.3.0",
+    "pygame/.dylibs/liblzma.5.dylib", "pygame/.dylibs/libzstd.1.5.7.dylib",
+    "libgcc_s-1a2b3c4d.so.1", "libgcc_s.1.1.dylib", "libstdc++-1a2b3c4d.so.6",
+    "libstdc++.6.dylib", "libz.1.dylib",
 ])
 def test_finds_what_no_entry_covers(name: str) -> None:
     """Check a new library, package, module or data file is left over"""
@@ -240,14 +263,18 @@ def test_check_fails_on_an_uncovered_file(
     with pytest.raises(SystemExit, match=r"bad-app .*\['libnew.so.1'\]"):
         tpl.check(["bad-app"])
 
+@pytest.mark.parametrize("step", [1, -1])
 @pytest.mark.parametrize("project", list(tpl.VERSIONS))
 def test_check_fails_on_another_version(
-        monkeypatch: pytest.MonkeyPatch, project: str) -> None:
-    """Check check refuses a build with a version the file is not for"""
+        monkeypatch: pytest.MonkeyPatch, project: str, step: int) -> None:
+    """Check check refuses a build with a version the file is not for, even
+    one patch release newer or older"""
+    head, _, patch = tpl.VERSIONS[project].rpartition(".")
+    other = f"{head}.{int(patch) + step}"
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", lambda name: (
-        "9.9.9" if name == project else tpl.VERSIONS[name]))
-    with pytest.raises(SystemExit, match=f"{project} is 9.9.9"):
+        other if name == project else tpl.VERSIONS[name]))
+    with pytest.raises(SystemExit, match=f"{project} is {other}"):
         tpl.check(["app"])
 
 def test_check_fails_on_a_stale_file(monkeypatch: pytest.MonkeyPatch) -> None:

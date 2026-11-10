@@ -35,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "6850bacb1835f1110fd931e7c53928089edcf7ecae0a4f23aa6905688e6e5f49"
+DIGEST = "94e8c197aecde532ac85ba402e92c0e381832246de3969a58d621d0387fe89a5"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -361,7 +361,8 @@ DEPENDENCIES = [
     Dependency(
         "Opus and opusfile", "BSD-3-Clause", "https://opus-codec.org/",
         "The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, "
-        "and Opus 1.4 and opusfile 0.13 on Windows. The fourth text is the "
+        "and on Windows opusfile 0.13 and an Opus 14 commits past 1.4 "
+        "(1.4-14-ge6fd7f5), with 1.4's COPYING. The fourth text is the "
         "one SDL2_mixer ships opusfile 0.13 with. The rest are the notices of "
         "Opus files whose holders its COPYING does not name: Google, Koen Vos "
         "and Vidyo on every OS, Cisco and John Ridges on Linux and Windows, "
@@ -525,8 +526,8 @@ def fetch(url: str) -> str:
         the indent its lines share if it is a range of lines
 
     Raises:
-        ValueError: If the URL gave a web page, not a text, or the file has
-            fewer lines than the range
+        ValueError: If the URL gave a web page, not a text, or its range
+            runs backwards or past the file's end
         KeyError: If the tarball has no such file
     """
     address, _, name = url.partition("#")
@@ -546,6 +547,8 @@ def fetch(url: str) -> str:
         raise ValueError(f"{url} gave a web page")
     if lines:
         first, last = int(lines[1]), int(lines[2])
+        if not 0 < first <= last:
+            raise ValueError(f"{url} is not a range of lines")
         # bytes split only at line ends, as GitHub numbers lines; str also
         # splits at form feeds
         chunk = data.splitlines()[first - 1:last]

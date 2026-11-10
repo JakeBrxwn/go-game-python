@@ -7938,7 +7938,7 @@ Carsten Bormann
 --------------------------------------------------------------------------------
 Opus and opusfile | BSD-3-Clause
 Website: https://opus-codec.org/
-In the apps: The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, and Opus 1.4 and opusfile 0.13 on Windows. The fourth text is the one SDL2_mixer ships opusfile 0.13 with. The rest are the notices of Opus files whose holders its COPYING does not name: Google, Koen Vos and Vidyo on every OS, Cisco and John Ridges on Linux and Windows, and Arm in 1.6.1.
+In the apps: The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, and on Windows opusfile 0.13 and an Opus 14 commits past 1.4 (1.4-14-ge6fd7f5), with 1.4's COPYING. The fourth text is the one SDL2_mixer ships opusfile 0.13 with. The rest are the notices of Opus files whose holders its COPYING does not name: Google, Koen Vos and Vidyo on every OS, Cisco and John Ridges on Linux and Windows, and Arm in 1.6.1.
 Text from: https://raw.githubusercontent.com/xiph/opus/v1.6.1/COPYING
 Text from: https://raw.githubusercontent.com/xiph/opusfile/v0.12/COPYING
 Text from: https://raw.githubusercontent.com/xiph/opus/v1.4/COPYING
