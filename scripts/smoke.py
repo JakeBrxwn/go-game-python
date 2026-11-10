@@ -26,6 +26,8 @@ ENV = os.environ | {"SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"}
 TIMEOUT_S = 300
 # How long the menu must stay open to show it started
 MENU_S = 5
+# How long an app may take to quit once asked
+QUIT_S = 10
 # How a match that was played to its end, not left, is reported
 FINISHED = "Game over: (" + "|".join(
     re.escape(reason.value) for reason in EndReason
@@ -34,33 +36,46 @@ FINISHED = "Game over: (" + "|".join(
 # quit at the menu once the match ends
 WATCH = "2\n6\n\n\n\n\n3\n"
 
-def run(args: list[str], stdin: str, timeout: float) -> tuple[int | None, str]:
+def start(args: list[str]) -> subprocess.Popen[str]:
     """
-    Runs an app until it ends or the time is up, then stops it.
+    Starts an app with its output captured.
 
     Args:
         args: The app and its arguments
-        stdin: What to type into the app
-        timeout: Seconds to wait for it to end
 
-    Returns: Its exit code, or None if it was still running, and its output
+    Returns: The running app
     """
-    # A session of its own, so the kill below also reaches the child process
-    # a one-file app runs in. Windows ignores it and uses taskkill /T.
-    app = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT, encoding="utf-8",
-                           errors="replace", env=ENV, start_new_session=True)
-    try:
-        output, _ = app.communicate(stdin, timeout=timeout)
-        return app.returncode, output
-    except subprocess.TimeoutExpired:
-        if sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
-                           capture_output=True)
-        else:
+    # A session of its own, so stop() also reaches the child process a
+    # one-file app runs in. Windows ignores it and uses taskkill /T.
+    return subprocess.Popen(args, stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            encoding="utf-8", errors="replace", env=ENV,
+                            start_new_session=True)
+
+def stop(app: subprocess.Popen[str]) -> tuple[int | None, str]:
+    """
+    Asks a running app to quit, as closing its window does, and kills it if
+    it has not quit after QUIT_S. Windows can only kill it.
+
+    Args:
+        app: The app
+
+    Returns: Its exit code, or None if it was killed, and its output
+    """
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(app.pid)],
+                       capture_output=True)
+    else:
+        # SDL turns it into a quit event, and the one-file app then deletes
+        # its unpacked files
+        os.killpg(app.pid, signal.SIGTERM)
+        try:
+            output, _ = app.communicate(timeout=QUIT_S)
+            return app.returncode, output
+        except subprocess.TimeoutExpired:
             os.killpg(app.pid, signal.SIGKILL)
-        output, _ = app.communicate()
-        return None, output
+    output, _ = app.communicate()
+    return None, output
 
 def check(args: list[str], expect: str, stdin: str = "") -> None:
     """
@@ -74,29 +89,44 @@ def check(args: list[str], expect: str, stdin: str = "") -> None:
     Raises:
         SystemExit: If the app failed, timed out or printed something else
     """
-    code, output = run(args, stdin, TIMEOUT_S)
-    if code != 0 or not re.search(expect, output):
-        ended = (f"still running after {TIMEOUT_S} s" if code is None
-                 else f"exit {code}")
+    app = start(args)
+    try:
+        output, _ = app.communicate(stdin, timeout=TIMEOUT_S)
+        ended = f"exit {app.returncode}"
+        passed = app.returncode == 0 and re.search(expect, output) is not None
+    except subprocess.TimeoutExpired:
+        _, output = stop(app)
+        ended, passed = f"still running after {TIMEOUT_S} s", False
+    if not passed:
         sys.exit(f"FAIL {' '.join(args)}: {ended}, wanted {expect!r}\n{output}")
     print("ok", *args)
 
 def check_running(args: list[str]) -> None:
     """
     Starts an app that waits for a person, and checks it is still running
-    after MENU_S, then stops it.
+    after MENU_S. Then, except on Windows, checks it quits when asked, which
+    a hung app cannot.
 
     Args:
         args: The app and its arguments
 
     Raises:
-        SystemExit: If the app ended by itself
+        SystemExit: If the app ended by itself, or did not quit when asked
     """
-    code, output = run(args, "", MENU_S)
-    if code is not None:
-        sys.exit(f"FAIL {' '.join(args)}: ended by itself with exit {code}"
-                 f"\n{output}")
-    print("ok", *args, f"(still open after {MENU_S} s)")
+    app = start(args)
+    try:
+        output, _ = app.communicate("", timeout=MENU_S)
+        sys.exit(f"FAIL {' '.join(args)}: ended by itself with exit "
+                 f"{app.returncode}\n{output}")
+    except subprocess.TimeoutExpired:
+        code, output = stop(app)
+    if sys.platform == "win32":
+        print("ok", *args, f"(still open after {MENU_S} s)")
+    elif code != 0:
+        sys.exit(f"FAIL {' '.join(args)}: did not quit when asked: "
+                 f"{'killed' if code is None else f'exit {code}'}\n{output}")
+    else:
+        print("ok", *args, f"(still open after {MENU_S} s, quit when asked)")
 
 def check_no_pygame(path: str) -> None:
     """
