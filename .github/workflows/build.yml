@@ -40,10 +40,14 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-      # The sdist must hold everything its own tests need. After the upload,
-      # so what this installs cannot touch the release files.
+          # So re-running a failed job can upload again
+          overwrite: true
+      # The published wheel must work, and the sdist must hold everything its
+      # own tests need: install the wheel, then run the sdist's tests on it.
+      # After the upload, so what this installs cannot touch the release files.
       - if: runner.os == 'Linux'
         run: |
+          pip install --force-reinstall --no-deps dist/go_python-*.whl
           pip install pytest pytest-timeout
           mkdir "$RUNNER_TEMP/sdist"
           tar -xzf dist/go_python-*.tar.gz -C "$RUNNER_TEMP/sdist"
