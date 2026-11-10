@@ -324,6 +324,7 @@ runs every game, so the window and the terminal game both offer a menu,
 bots in any seat and watching bots play, and check board sizes and player
 counts the same way. The smart bot is rewritten and wins at least 90% of
 9 x 9 games against the random one, and the apps download with no Python
-needed, all checked by tests, evals and CI on three operating systems.
+needed. Tests and builds run on three operating systems on every change,
+and evals check the rules and the bots.
 
 Go Python is released under the [MIT licence](LICENSE).
