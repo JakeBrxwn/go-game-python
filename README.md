@@ -215,7 +215,8 @@ go-python
 tools, so your changes to `src/` take effect when you next run it.
 
 To build the two standalone apps for your OS into `dist/`, then check them
-the way the release does:
+the way the release does. On Linux, this also needs binutils
+(`sudo apt install binutils` or `sudo dnf install binutils`):
 
 ```sh
 pip install -e ".[release]"
@@ -243,7 +244,7 @@ ruff check .
 mypy
 ```
 
-- `python -m pytest` runs the unit tests in `tests/`, in about 20 seconds.
+- `python -m pytest` runs the unit tests in `tests/`, in about 30 seconds.
 - `python -m pytest evals -s` runs the evals in `evals/` and prints their
   numbers, in about 3 minutes: the rules against
   [sgfmill](https://github.com/mattheww/sgfmill), invariants over random
