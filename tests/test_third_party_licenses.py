@@ -9,6 +9,7 @@ import py_compile
 import sys
 import tarfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -62,13 +63,16 @@ def test_finds_a_changed_text(
     monkeypatch.setattr(tpl, "OUTPUT", changed)
     assert tpl.stale()
 
+@pytest.mark.parametrize("change", [
+    {"name": "Renamed"}, {"licence": "MIT-0"}, {"website": "https://example.org/"},
+    {"where": "Elsewhere"}, {"texts": ("https://example.org/LICENSE",)}])
 @pytest.mark.parametrize("at", [0, 20, -1])
-def test_finds_a_changed_entry(
-        monkeypatch: pytest.MonkeyPatch, at: int) -> None:
-    """Check an entry whose head changed, first, in the middle or last, makes
-    the file out of date"""
+def test_finds_a_changed_entry(monkeypatch: pytest.MonkeyPatch, at: int,
+                               change: dict[str, Any]) -> None:
+    """Check an entry whose name, licence, website, place in the apps or text
+    URLs changed, first, in the middle or last, makes the file out of date"""
     dependencies = list(tpl.DEPENDENCIES)
-    dependencies[at] = dataclasses.replace(dependencies[at], where="Elsewhere")
+    dependencies[at] = dataclasses.replace(dependencies[at], **change)
     monkeypatch.setattr(tpl, "DEPENDENCIES", dependencies)
     assert tpl.stale()
 
