@@ -127,12 +127,13 @@ def test_finds_a_removed_entry(
 def test_write_names_a_repeated_text(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Check write prints a text once, names the first entry that had it
-    where it comes again, and gives the digest that makes the file current,
-    though a text holds lines shaped like an entry's head: a rule, a name
-    and licence, a line, and a rule"""
+    where it comes again, in that entry or a later one, and gives the digest
+    that makes the file current, though a text holds lines shaped like an
+    entry's head: a rule, a name and licence, a line, and a rule"""
     monkeypatch.setattr(tpl, "OUTPUT", tmp_path / "licences.txt")
     monkeypatch.setattr(tpl, "DEPENDENCIES", [
-        tpl.Dependency(name, "Zlib", "site", "here", (f"{name}/a", f"{name}/b"))
+        tpl.Dependency(name, "Zlib", "site", "here",
+                       (f"{name}/a", f"{name}/b", f"{name}/c"))
         for name in ["First", "Second", "Third"]])
     monkeypatch.setattr(tpl, "fetch", lambda url: (
         f"{url}\n{tpl.RULE}\nA | B\nC\n{tpl.RULE}" if url == "First/a"
@@ -143,19 +144,21 @@ def test_write_names_a_repeated_text(
         assert f"\n\n{tpl.entry_head(dependency)}" in text
     assert "\nFirst/a\n" in text
     assert text.count("\nzlib\n") == 1
-    assert text.count("(The same text as for First, above.)") == 4
+    assert text.count("(The same text as for First, above.)") == 7
     assert not tpl.stale()
 
 def test_fetch_gives_a_text(tmp_path: Path) -> None:
     """Check fetch reads UTF-8 and gives a text with \\n line ends and
     without the blank lines around it or the spaces that end its lines,
     whatever its line ends were. Its lines keep their indent, even one they
-    all share, as in a centred title, and the blank lines between them"""
+    all share, as in a centred title, and the blank lines between them. A
+    form feed ends a line, as str.splitlines reads it, so a page break on a
+    line of its own is two blank lines"""
     path = tmp_path / "COPYING"
     path.write_bytes(b" \r\n\r\n     LICENCE\r\n\r\n"
-                     b"  Copyright \xc2\xa9 2026  \r\n  you may\r\n \r\n")
+                     b"  Copyright \xc2\xa9 2026  \r\n\x0c\r\n  you may\r\n \r\n")
     assert (tpl.fetch(path.as_uri())
-            == "     LICENCE\n\n  Copyright © 2026\n  you may")
+            == "     LICENCE\n\n  Copyright © 2026\n\n\n  you may")
 
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     """Check fetch gives lines a to b for #L<a>-L<b>, numbered at line ends
@@ -261,7 +264,7 @@ def test_covers_what_the_apps_hold() -> None:
     # Nor is SQLite, which Python for Windows ships beside _sqlite3.pyd
     "sqlite3.dll",
     # pygame-ce's folders hold only its own modules besides those named
-    "pygame/libSDL3.so", "pygame/_sdl2/new_lib.dll",
+    "pygame/libSDL3.so", "pygame/_sdl2/new_lib.dll", "pygame/_sdl2/SDL2.dll",
     "libavif.so.16", "pygame/libavif-16.dll", "numpy", "pygame/new_font.ttf",
     "pyi_splash", "numpy-2.0.dist-info/METADATA", "libzmq.so.5",
     "pygame/libSDL2_gfx.dll", "python3.14/lib-dynload/x/y.so",
@@ -286,6 +289,9 @@ def test_covers_what_the_apps_hold() -> None:
     "pygame/.dylibs/libharfbuzz-subset.0.dylib",
     "pygame/.dylibs/libspng.0.dylib", "libossp-uuid-16.dll",
     "pygame/libout123-0.dll", "libwebm-1a2b3c4d.so.1",
+    # Another package's copy of a library pygame-ce has, as Pillow ships
+    "pillow.libs/libjpeg-1a2b3c4d.so.62.4.0", "PIL/.dylibs/libtiff.6.dylib",
+    "PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
     # A zip the app adds is not Python's base library
     "data.zip",
     # A library the apps hold only at the top, from the build machine, is
@@ -301,6 +307,14 @@ def test_covers_what_the_apps_hold() -> None:
 def test_finds_what_no_entry_covers(name: str) -> None:
     """Check a new library, package, module or data file is left over"""
     assert tpl.uncovered([*HELD, name]) == [name]
+
+def test_patterns_start_at_the_top() -> None:
+    """Check each pattern covers a name only where the apps hold it: the
+    same name in another package's folder is left over"""
+    for dependency in tpl.DEPENDENCIES:
+        for pattern in dependency.files:
+            name = pattern.replace("*", "0").replace("?", "0")
+            assert tpl.uncovered([name, f"pkg/{name}"]) == [f"pkg/{name}"]
 
 def test_installed_reads_each_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check installed gives the running Python's version, not the one in
@@ -326,19 +340,20 @@ def test_check_reads_the_apps_freeze_built(
     assert read == [str(Path("dist", tpl.binary_name("go-python") + suffix)),
                     str(Path("dist", tpl.binary_name("go-python-tui") + suffix))]
 
+@pytest.mark.parametrize("new", [["libnew.so.1"],
+                                 ["libnew.so.1", "libnext.so.2"]])
 def test_check_fails_on_an_uncovered_file(
-        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Check check passes covered apps and names the file in one that is not"""
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        new: list[str]) -> None:
+    """Check check passes covered apps and names the files in one that is
+    not, even a single file"""
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", tpl.VERSIONS.get)
     monkeypatch.setattr(tpl, "bundled", lambda app: HELD)
     tpl.check(["ok-app"])
     assert "ok ok-app is covered" in capsys.readouterr().out
-    monkeypatch.setattr(tpl, "bundled",
-                        lambda app: [*HELD, "libnew.so.1", "libnext.so.2"])
-    with pytest.raises(SystemExit,
-                       match=r"bad-app .*\['libnew.so.1', 'libnext.so.2'\]"):
+    monkeypatch.setattr(tpl, "bundled", lambda app: [*HELD, *new])
+    with pytest.raises(SystemExit, match=f"bad-app .*{re.escape(str(new))}"):
         tpl.check(["bad-app"])
 
 @pytest.mark.parametrize("change", ["newer", "older", "longer", "post", "local"])

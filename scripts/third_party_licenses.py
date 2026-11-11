@@ -72,6 +72,21 @@ SOURCES = {
     "libsndfile 1.2.2": "https://github.com/libsndfile/libsndfile/releases/"
                         "download/1.2.2/libsndfile-1.2.2.tar.xz",
 }
+# Where pygame-ce's libraries are: the top, where PyInstaller copies them,
+# and its folders on Linux, Windows and macOS. Another package's copy of one
+# is not pygame-ce's, so it is left over
+PYGAME_LIBS = ("", "pygame_ce.libs/", "pygame/", "pygame/.dylibs/")
+
+def in_pygame(*names: str) -> tuple[str, ...]:
+    """
+    Gives patterns for libraries that come with pygame-ce.
+
+    Args:
+        names: The libraries' names, as patterns
+
+    Returns: Each name in each of PYGAME_LIBS
+    """
+    return tuple(folder + name for name in names for folder in PYGAME_LIBS)
 
 @dataclass(frozen=True)
 class Dependency:
@@ -250,14 +265,14 @@ DEPENDENCIES = [
          *(f"{SDL}/wayland-protocols/{name}.xml#{lines}"
            for name, lines in WAYLAND.items()),
          f"{GH}/qt/qtwayland/v5.4.0/src/extensions/touch-extension.xml#L4-L36"),
-        ("**/libSDL2-2*", "**/SDL2.dll")),
+        in_pygame("libSDL2-2*", "SDL2.dll")),
     Dependency(
         "SDL2_image", "Zlib AND HPND", "https://github.com/libsdl-org/SDL_image",
         "The window apps. It holds QOI, below, and after its licence come "
         "the notices of nanosvg and of its GIF code, from XPaint.",
         (f"{SDL_IMAGE}/LICENSE.txt", f"{SDL_IMAGE}/src/nanosvg.h#L2-L25",
          f"{SDL_IMAGE}/src/IMG_gif.c#L30-L37"),
-        ("**/libSDL2_image*", "**/SDL2_image.dll")),
+        in_pygame("libSDL2_image*", "SDL2_image.dll")),
     Dependency(
         "QOI", "MIT", "https://github.com/phoboslab/qoi",
         "The window apps, built into SDL2_image. The text is the notice in "
@@ -270,13 +285,13 @@ DEPENDENCIES = [
         "domain or MIT-0) and stb_vorbis (public domain).",
         (f"{GH}/libsdl-org/SDL_mixer/release-2.8.2/LICENSE.txt",
          f"{GH}/libsdl-org/SDL_mixer/release-2.8.2/src/codecs/timidity/COPYING"),
-        ("**/libSDL2_mixer*", "**/SDL2_mixer.dll")),
+        in_pygame("libSDL2_mixer*", "SDL2_mixer.dll")),
     Dependency(
         "SDL2_ttf", "Zlib", "https://github.com/libsdl-org/SDL_ttf",
         "The window apps. On Windows it holds FreeType 2.13.2 and HarfBuzz "
         "8.1.1, below.",
         (f"{GH}/libsdl-org/SDL_ttf/release-2.24.0/LICENSE.txt",),
-        ("**/libSDL2_ttf*", "**/SDL2_ttf.dll")),
+        in_pygame("libSDL2_ttf*", "SDL2_ttf.dll")),
     Dependency(
         "FreeType", "FTL AND MIT AND MIT-open-group", "https://freetype.org/",
         "The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 "
@@ -292,7 +307,7 @@ DEPENDENCIES = [
               for name in ["LICENSE.TXT", "docs/FTL.TXT", f"src/bdf/README#{bdf}",
                            "src/pcf/README#L66-L88", "src/pcf/pcfutil.c#L3-L23",
                            "src/base/fthash.c#L10-L30"]),
-        ("**/libfreetype*", "**/freetype.dll")),
+        in_pygame("libfreetype*", "freetype.dll")),
     Dependency(
         "HarfBuzz", "MIT-Modern-Variant AND MIT AND ISC AND Unicode-3.0 AND "
         "Unicode-DFS-2016", "https://harfbuzz.github.io/",
@@ -311,12 +326,12 @@ DEPENDENCIES = [
          f"{GH}/unicode-org/icu/release-78.1/LICENSE#L1-L39",
          f"{GH}/unicode-org/icu/release-72-1/icu4c/LICENSE#L1-L46"),
         # Not libharfbuzz-subset, which holds another notice
-        ("**/libharfbuzz.*", "**/libharfbuzz-????????.so*")),
+        in_pygame("libharfbuzz.*", "libharfbuzz-????????.so*")),
     Dependency(
         "Brotli", "MIT", "https://github.com/google/brotli",
         "The Linux and macOS window apps, version 1.2.0.",
         (f"{GH}/google/brotli/v1.2.0/LICENSE",),
-        ("**/libbrotli*",)),
+        in_pygame("libbrotli*")),
     Dependency(
         "libjpeg-turbo", "IJG AND BSD-3-Clause AND Zlib",
         "https://libjpeg-turbo.org/",
@@ -324,7 +339,7 @@ DEPENDENCIES = [
         "the work of the Independent JPEG Group.",
         (f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/LICENSE.md",
          f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/README.ijg"),
-        ("**/libjpeg*",)),
+        in_pygame("libjpeg*")),
     Dependency(
         "MinGW-w64 winpthreads", "MIT AND BSD-3-Clause", "https://www.mingw-w64.org/",
         "The Windows window app, built into libjpeg-62.dll with MinGW-w64 v5, "
@@ -334,7 +349,7 @@ DEPENDENCIES = [
         "libpng", "libpng-2.0", "http://www.libpng.org/pub/png/libpng.html",
         "The window apps, version 1.6.58.",
         (f"{GH}/pnggroup/libpng/v1.6.58/LICENSE",),
-        ("**/libpng*",)),
+        in_pygame("libpng*")),
     Dependency(
         "LibTIFF", "libtiff AND MIT", "https://libtiff.gitlab.io/libtiff/",
         "The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. "
@@ -346,14 +361,14 @@ DEPENDENCIES = [
          *(f"https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/libtiff/{name}"
            for name in ["tif_luv.c#L2-L22", "tif_pixarlog.c#L2-L22",
                         "tif_ojpeg.c#L26-L37", "tif_hash_set.c#L8-L26"])),
-        ("**/libtiff*",)),
+        in_pygame("libtiff*")),
     Dependency(
         "libwebp", "BSD-3-Clause", "https://chromium.googlesource.com/webm/libwebp",
         "The window apps, with its libsharpyuv and libwebpdemux: 1.6.0 on "
         "Linux and macOS, and 1.0.3 on Windows.",
         (f"{GH}/webmproject/libwebp/v1.6.0/COPYING",
          f"{GH}/webmproject/libwebp/v1.0.3/COPYING"),
-        ("**/libwebp*", "**/libsharpyuv*")),
+        in_pygame("libwebp*", "libsharpyuv*")),
     Dependency(
         "Ogg and Vorbis", "BSD-3-Clause AND TU-Berlin-1.0", "https://xiph.org/",
         "The window apps: Ogg 1.3.6 and Vorbis 1.3.7 on Linux and macOS, "
@@ -361,7 +376,7 @@ DEPENDENCIES = [
         "notice that is the last text.",
         (f"{GH}/xiph/ogg/v1.3.6/COPYING", f"{GH}/xiph/vorbis/v1.3.7/COPYING",
          f"{GH}/xiph/ogg/v1.3.5/COPYING", f"{GH}/xiph/vorbis/v1.3.7/lib/lpc.c#L25-L41"),
-        ("**/libogg*", "**/libvorbis*")),
+        in_pygame("libogg*", "libvorbis*")),
     Dependency(
         "Opus and opusfile", "BSD-3-Clause", "https://opus-codec.org/",
         "The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, "
@@ -380,22 +395,22 @@ DEPENDENCIES = [
              "src/mapping_matrix.c#L1-L25", "silk/LPC_fit.c#L2-L25",
              "silk/NSQ.h#L2-L26", "silk/x86/NSQ_sse4_1.c#L1-L25",
              "celt/x86/pitch_sse.h#L1-L30", "src/opus.c#L1-L26"])),
-        ("**/libopus*",)),
+        in_pygame("libopus*")),
     Dependency(
         "FLAC", "BSD-3-Clause", "https://xiph.org/flac/",
         "The Linux and macOS window apps, version 1.5.0.",
         (f"{GH}/xiph/flac/1.5.0/COPYING.Xiph",),
-        ("**/libFLAC*",)),
+        in_pygame("libFLAC*")),
     Dependency(
         "mpg123", "LGPL-2.1-only", "https://www.mpg123.de/",
         "The Linux and macOS window apps, version 1.33.7.",
         (f"{SOURCES['mpg123 1.33.7']}#COPYING",),
-        ("**/libmpg123*",)),
+        in_pygame("libmpg123*")),
     Dependency(
         "FluidSynth", "LGPL-2.1-or-later", "https://www.fluidsynth.org/",
         "The Linux and macOS window apps, version 2.5.7.",
         (f"{GH}/FluidSynth/fluidsynth/v2.5.7/LICENSE",),
-        ("**/libfluidsynth*",)),
+        in_pygame("libfluidsynth*")),
     Dependency(
         "libsndfile", "LGPL-2.1-or-later AND TU-Berlin-1.0 AND Apache-2.0",
         "https://libsndfile.github.io/libsndfile/",
@@ -406,7 +421,7 @@ DEPENDENCIES = [
          f"{GH}/libsndfile/libsndfile/1.2.2/src/GSM610/COPYRIGHT",
          f"{GH}/libsndfile/libsndfile/1.2.2/src/ALAC/alac_decoder.c#L2-L19",
          f"{GH}/openssl/openssl/openssl-3.0.2/LICENSE.txt"),
-        ("**/libsndfile*",)),
+        in_pygame("libsndfile*")),
     Dependency(
         "WavPack", "BSD-3-Clause", "https://www.wavpack.com/",
         "The window apps: 5.9.0 on Linux and macOS, and 5.6.0 on Windows, "
@@ -414,7 +429,7 @@ DEPENDENCIES = [
         "is the last text.",
         (f"{GH}/dbry/WavPack/5.9.0/COPYING", f"{GH}/dbry/WavPack/5.6.0/COPYING",
          f"{GH}/dbry/WavPack/5.6.0/cli/win32_unicode_support.c#L1-L28"),
-        ("**/libwavpack*",)),
+        in_pygame("libwavpack*")),
     Dependency(
         "libxmp", "MIT AND ISC", "https://xmp.sourceforge.net/",
         "The window apps: 4.7.2 on Linux and macOS, and 4.6.3 on Windows. "
@@ -429,19 +444,19 @@ DEPENDENCIES = [
          *(f"{GH}/libxmp/libxmp/libxmp-4.6.3/{name}" for name in [
              "docs/COPYING", "src/miniz_tinfl.c#L3-L23", "src/loaders/lzw.c#L2-L20",
              "src/loaders/xmf_load.c#L2-L20", "src/loaders/abk_load.c#L3-L21"])),
-        ("**/libxmp*",)),
+        in_pygame("libxmp*")),
     Dependency(
         "PortMidi", "MIT", "https://github.com/PortMidi/portmidi",
         "The Windows window app, from a build before 2.0. The licence text "
         "has not changed since 2021.",
         (f"{GH}/PortMidi/portmidi/v2.0.7/license.txt",),
-        ("**/portmidi.dll",)),
+        in_pygame("portmidi.dll")),
     Dependency(
         "zlib-ng", "Zlib", "https://github.com/zlib-ng/zlib-ng",
         "The macOS window app (2.3.3), and built into python314.dll on "
         "Windows (2.2.4), whose texts are the same.",
         (f"{GH}/zlib-ng/zlib-ng/2.3.3/LICENSE.md",),
-        ("**/libz.*zlib-ng*",)),
+        in_pygame("libz.*zlib-ng*")),
     Dependency(
         "FreeSans font", "GPL", "https://savannah.gnu.org/projects/freefont/",
         "The window apps' text, as pygame/freesansbold.ttf. Copyright 2002 "
