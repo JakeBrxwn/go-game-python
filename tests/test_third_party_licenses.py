@@ -197,25 +197,25 @@ def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
     tarball = tmp_path / "project-1.0.tar.gz"
     with tarfile.open(tarball, "w:gz") as archive:
         for name, text in [("project-1.0/doc/COPYING", b"not this"),
-                           ("project-1.0/COPYING", b"this\n"),
+                           ("project-1.0/COPYING", b"this  \r\nand that\r\n"),
                            ("other/COPYING", b"nor this")]:
             info = tarfile.TarInfo(name)
             info.size = len(text)
             archive.addfile(info, io.BytesIO(text))
-    assert tpl.fetch(f"{tarball.as_uri()}#COPYING") == "this"
+    assert tpl.fetch(f"{tarball.as_uri()}#COPYING") == "this\nand that"
     with pytest.raises(KeyError):
         tpl.fetch(f"{tarball.as_uri()}#LICENSE")
 
 def test_lists_what_an_app_holds(tmp_path: Path) -> None:
     """Check bundled lists files, even one named like a standard-library
-    module, data, links, non-standard packages and PyInstaller's modules and
-    scripts, but not options or the standard library's or the app's own
-    modules and scripts"""
+    module, data, links, non-standard packages and single modules, and
+    PyInstaller's modules and scripts, but not options or the standard
+    library's or the app's own modules and scripts"""
     writers = pytest.importorskip("PyInstaller.archive.writers")
     source = tmp_path / "module.py"
     source.write_text("x = 1\n", encoding="utf-8")
     compiled = py_compile.compile(str(source), cfile=str(tmp_path / "module.pyc"))
-    modules = ["colorama", "colorama.ansi", "json", "go_python.cli"]
+    modules = ["colorama", "colorama.ansi", "six", "json", "go_python.cli"]
     pyz = tmp_path / "PYZ.pyz"
     writers.ZlibArchiveWriter(
         str(pyz), [(name, str(source), "PYMODULE") for name in modules],
@@ -225,7 +225,7 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
     writers.CArchiveWriter(str(app), [
         ("libx.so.1", str(source), False, "b"),
         ("sqlite3.dll", str(source), False, "b"),
-        ("data\\file.txt", str(source), False, "x"),
+        ("data\\sub\\file.txt", str(source), False, "x"),
         ("link.so", "libx.so.1", False, "n"),
         ("PYZ.pyz", str(pyz), False, "z"),
         ("pyi-python-flag X utf8", "", False, "o"),
@@ -236,8 +236,8 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("go-python-tui", str(source), False, "s"),
     ], "libpython3.14.so")
     assert tpl.bundled(str(app)) == ["libx.so.1", "sqlite3.dll",
-                                     "data/file.txt", "link.so", "colorama",
-                                     "pyimod01_archive", "pyi_rth_inspect"]
+                                     "data/sub/file.txt", "link.so", "colorama",
+                                     "six", "pyimod01_archive", "pyi_rth_inspect"]
 
 def test_covers_what_the_apps_hold() -> None:
     """Check every name from the release apps is covered"""
@@ -330,14 +330,17 @@ def test_check_fails_on_an_uncovered_file(
                        match=r"bad-app .*\['libnew.so.1', 'libnext.so.2'\]"):
         tpl.check(["bad-app"])
 
-@pytest.mark.parametrize("step", [1, -1])
+@pytest.mark.parametrize("change", ["newer", "older", "longer", "post"])
 @pytest.mark.parametrize("project", list(tpl.VERSIONS))
 def test_check_fails_on_another_version(
-        monkeypatch: pytest.MonkeyPatch, project: str, step: int) -> None:
+        monkeypatch: pytest.MonkeyPatch, project: str, change: str) -> None:
     """Check check refuses a build with a version the file is not for, even
-    one patch release newer or older"""
-    head, _, patch = tpl.VERSIONS[project].rpartition(".")
-    other = f"{head}.{int(patch) + step}"
+    one patch release newer or older, or one that starts with the file's"""
+    version = tpl.VERSIONS[project]
+    head, _, patch = version.rpartition(".")
+    other = {"newer": f"{head}.{int(patch) + 1}",
+             "older": f"{head}.{int(patch) - 1}",
+             "longer": f"{version}0", "post": f"{version}.post1"}[change]
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", lambda name: (
         other if name == project else tpl.VERSIONS[name]))

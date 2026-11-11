@@ -35,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "94e8c197aecde532ac85ba402e92c0e381832246de3969a58d621d0387fe89a5"
+DIGEST = "48f29914662b6d7dbff088f6c7f39e83b8262611dfcab836f6d67270cab0664e"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -194,17 +194,21 @@ DEPENDENCIES = [
         ("libuuid*",)),
     Dependency(
         "GCC runtime libraries", "GPL-3.0-or-later WITH GCC-exception-3.1 AND "
-        "LGPL-2.1-or-later AND MIT AND HPND-sell-variant", "https://gcc.gnu.org/",
+        "GPL-2.0-or-later WITH GCC-exception-2.0 AND LGPL-2.1-or-later AND MIT "
+        "AND HPND-sell-variant", "https://gcc.gnu.org/",
         "The Linux window app: libstdc++ and libgcc_s from GCC 12. The "
         "runtime library exception, first, adds to the GPL that follows it, "
         "and libgcc_s's soft-float code is under the LGPL after that. Then "
         "come the notices of code in libstdc++ by other holders: fast_float, "
-        "and Hewlett-Packard's and Silicon Graphics' STL.",
+        "and Hewlett-Packard's and Silicon Graphics' STL. Last is the notice "
+        "of its demangler, from GCC's libiberty: the GPL, version 2 or later, "
+        "with an exception of its own.",
         tuple(f"{GH}/gcc-mirror/gcc/releases/gcc-12.3.0/{name}" for name in [
             "COPYING.RUNTIME", "COPYING3", "COPYING.LIB",
             "libstdc++-v3/src/c++17/fast_float/fast_float.h#L15-L39",
             "libstdc++-v3/src/c++98/tree.cc#L27-L48",
-            "libstdc++-v3/src/c++98/strstream.cc#L26-L35"]),
+            "libstdc++-v3/src/c++98/strstream.cc#L26-L35",
+            "libiberty/cp-demangle.c#L2-L28"]),
         ("libgcc_s.so*", "libstdc++.so*")),
     Dependency(
         "Microsoft C runtime", "Microsoft distributable code",

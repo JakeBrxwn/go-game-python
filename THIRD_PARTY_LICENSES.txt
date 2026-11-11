@@ -2790,15 +2790,16 @@ DAMAGE.
 * DAMAGE.
 
 --------------------------------------------------------------------------------
-GCC runtime libraries | GPL-3.0-or-later WITH GCC-exception-3.1 AND LGPL-2.1-or-later AND MIT AND HPND-sell-variant
+GCC runtime libraries | GPL-3.0-or-later WITH GCC-exception-3.1 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND LGPL-2.1-or-later AND MIT AND HPND-sell-variant
 Website: https://gcc.gnu.org/
-In the apps: The Linux window app: libstdc++ and libgcc_s from GCC 12. The runtime library exception, first, adds to the GPL that follows it, and libgcc_s's soft-float code is under the LGPL after that. Then come the notices of code in libstdc++ by other holders: fast_float, and Hewlett-Packard's and Silicon Graphics' STL.
+In the apps: The Linux window app: libstdc++ and libgcc_s from GCC 12. The runtime library exception, first, adds to the GPL that follows it, and libgcc_s's soft-float code is under the LGPL after that. Then come the notices of code in libstdc++ by other holders: fast_float, and Hewlett-Packard's and Silicon Graphics' STL. Last is the notice of its demangler, from GCC's libiberty: the GPL, version 2 or later, with an exception of its own.
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.RUNTIME
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.LIB
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libstdc++-v3/src/c++17/fast_float/fast_float.h#L15-L39
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libstdc++-v3/src/c++98/tree.cc#L27-L48
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libstdc++-v3/src/c++98/strstream.cc#L26-L35
+Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/libiberty/cp-demangle.c#L2-L28
 --------------------------------------------------------------------------------
 
 GCC RUNTIME LIBRARY EXCEPTION
@@ -4125,6 +4126,34 @@ That's all there is to it!
 * in supporting documentation.  Silicon Graphics makes no
 * representations about the suitability of this software for any
 * purpose.  It is provided "as is" without express or implied warranty.
+
+Copyright (C) 2003-2022 Free Software Foundation, Inc.
+Written by Ian Lance Taylor <ian@wasabisystems.com>.
+
+This file is part of the libiberty library, which is part of GCC.
+
+This file is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+In addition to the permissions in the GNU General Public License, the
+Free Software Foundation gives you unlimited permission to link the
+compiled version of this file into combinations with other programs,
+and to distribute those combinations without any restriction coming
+from the use of this file.  (The General Public License restrictions
+do apply in other respects; for example, they cover modification of
+the file, and distribution when not linked into a combined
+executable.)
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
 
 --------------------------------------------------------------------------------
 Microsoft C runtime | Microsoft distributable code
