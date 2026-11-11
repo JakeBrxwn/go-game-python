@@ -35,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "48f29914662b6d7dbff088f6c7f39e83b8262611dfcab836f6d67270cab0664e"
+DIGEST = "7e6746a209416968ad9e9fc5e85981950af02faf0306562e1091361c2283c53f"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -366,7 +366,8 @@ DEPENDENCIES = [
         "Opus and opusfile", "BSD-3-Clause", "https://opus-codec.org/",
         "The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, "
         "and on Windows opusfile 0.13 and an Opus 14 commits past 1.4 "
-        "(1.4-14-ge6fd7f5), with 1.4's COPYING. The fourth text is the "
+        "(it reports 1.4-14-ge6fd7f5-dirty, so its build tree had changes), "
+        "with 1.4's COPYING. The fourth text is the "
         "one SDL2_mixer ships opusfile 0.13 with. The rest are the notices of "
         "Opus files whose holders its COPYING does not name: Google, Koen Vos "
         "and Vidyo on every OS, Cisco and John Ridges on Linux and Windows, "

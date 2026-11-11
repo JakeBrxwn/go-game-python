@@ -6,6 +6,7 @@ import dataclasses
 import importlib.metadata
 import io
 import py_compile
+import re
 import sys
 import tarfile
 from pathlib import Path
@@ -149,25 +150,27 @@ def test_fetch_gives_a_text(tmp_path: Path) -> None:
     """Check fetch reads UTF-8 and gives a text with \\n line ends and
     without the blank lines around it or the spaces that end its lines,
     whatever its line ends were. Its lines keep their indent, even one they
-    all share, as in a centred title"""
+    all share, as in a centred title, and the blank lines between them"""
     path = tmp_path / "COPYING"
-    path.write_bytes(b" \r\n\r\n     LICENCE\r\n"
+    path.write_bytes(b" \r\n\r\n     LICENCE\r\n\r\n"
                      b"  Copyright \xc2\xa9 2026  \r\n  you may\r\n \r\n")
     assert (tpl.fetch(path.as_uri())
-            == "     LICENCE\n  Copyright © 2026\n  you may")
+            == "     LICENCE\n\n  Copyright © 2026\n  you may")
 
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     """Check fetch gives lines a to b for #L<a>-L<b>, numbered at line ends
-    only, as GitHub does, without the indent they share but keeping each
-    line's own, and refuses a range backwards or past the file's end"""
+    only, as GitHub does, without the indent they share, which a blank line
+    does not cut, but keeping each line's own, its tabs and the blank lines
+    between them, and refuses a range backwards or past the file's end"""
     path = tmp_path / "source.xml"
-    path.write_bytes(b"<copyright>\x0c\n  Copyright \xc2\xa9 2007 Red Hat  \r\n"
-                     b"  1. You may use\n     it freely\n</copyright>\n")
-    assert (tpl.fetch(f"{path.as_uri()}#L2-L4")
-            == "Copyright © 2007 Red Hat\n1. You may use\n   it freely")
-    assert tpl.fetch(f"{path.as_uri()}#L5-L5") == "</copyright>"
+    path.write_bytes(b"<copyright>\x0c\n    Copyright \xc2\xa9 2007 Red Hat  \r\n\n"
+                     b"  1. You may use\tit\n     freely\n</copyright>\n")
+    assert (tpl.fetch(f"{path.as_uri()}#L2-L5")
+            == "  Copyright © 2007 Red Hat\n\n1. You may use\tit\n   freely")
+    assert tpl.fetch(f"{path.as_uri()}#L1-L1") == "<copyright>"
+    assert tpl.fetch(f"{path.as_uri()}#L6-L6") == "</copyright>"
     with pytest.raises(ValueError, match="fewer lines"):
-        tpl.fetch(f"{path.as_uri()}#L4-L6")
+        tpl.fetch(f"{path.as_uri()}#L5-L7")
     for backwards in ["#L4-L2", "#L3-L2", "#L0-L2"]:
         with pytest.raises(ValueError, match="not a range"):
             tpl.fetch(path.as_uri() + backwards)
@@ -193,16 +196,24 @@ def test_fetch_refuses_a_web_page(tmp_path: Path, page: str, lines: str) -> None
 def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
     """Check fetch takes #NAME from the tarball's top folder, the first
     member's, not a file of the same name further down or in a later
-    folder"""
+    folder, and reads it as UTF-8 like any other text. A name that is a
+    folder, or not there, fails"""
     tarball = tmp_path / "project-1.0.tar.gz"
     with tarfile.open(tarball, "w:gz") as archive:
-        for name, text in [("project-1.0/doc/COPYING", b"not this"),
-                           ("project-1.0/COPYING", b"this  \r\nand that\r\n"),
-                           ("other/COPYING", b"nor this")]:
+        for name, text in [("project-1.0/COPYING",
+                            b"this \xc2\xa9  \r\nand that\r\n"),
+                           ("other/COPYING", b"nor this"),
+                           ("project-1.0/doc/COPYING", b"not this")]:
             info = tarfile.TarInfo(name)
             info.size = len(text)
             archive.addfile(info, io.BytesIO(text))
-    assert tpl.fetch(f"{tarball.as_uri()}#COPYING") == "this\nand that"
+        folder = tarfile.TarInfo("project-1.0/LICENSES")
+        folder.type = tarfile.DIRTYPE
+        archive.addfile(folder)
+        archive.addfile(tarfile.TarInfo("other/LICENSES"))
+    assert tpl.fetch(f"{tarball.as_uri()}#COPYING") == "this ©\nand that"
+    with pytest.raises(ValueError, match="not a file"):
+        tpl.fetch(f"{tarball.as_uri()}#LICENSES")
     with pytest.raises(KeyError):
         tpl.fetch(f"{tarball.as_uri()}#LICENSE")
 
@@ -225,7 +236,7 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
     writers.CArchiveWriter(str(app), [
         ("libx.so.1", str(source), False, "b"),
         ("sqlite3.dll", str(source), False, "b"),
-        ("data\\sub\\file.txt", str(source), False, "x"),
+        ("Data\\sub\\File.txt", str(source), False, "x"),
         ("link.so", "libx.so.1", False, "n"),
         ("PYZ.pyz", str(pyz), False, "z"),
         ("pyi-python-flag X utf8", "", False, "o"),
@@ -236,7 +247,7 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("go-python-tui", str(source), False, "s"),
     ], "libpython3.14.so")
     assert tpl.bundled(str(app)) == ["libx.so.1", "sqlite3.dll",
-                                     "data/sub/file.txt", "link.so", "colorama",
+                                     "Data/sub/File.txt", "link.so", "colorama",
                                      "six", "pyimod01_archive", "pyi_rth_inspect"]
 
 def test_covers_what_the_apps_hold() -> None:
@@ -330,21 +341,23 @@ def test_check_fails_on_an_uncovered_file(
                        match=r"bad-app .*\['libnew.so.1', 'libnext.so.2'\]"):
         tpl.check(["bad-app"])
 
-@pytest.mark.parametrize("change", ["newer", "older", "longer", "post"])
+@pytest.mark.parametrize("change", ["newer", "older", "longer", "post", "local"])
 @pytest.mark.parametrize("project", list(tpl.VERSIONS))
 def test_check_fails_on_another_version(
         monkeypatch: pytest.MonkeyPatch, project: str, change: str) -> None:
     """Check check refuses a build with a version the file is not for, even
-    one patch release newer or older, or one that starts with the file's"""
+    one patch release newer or older, or one that starts with the file's, as
+    a local build's does"""
     version = tpl.VERSIONS[project]
     head, _, patch = version.rpartition(".")
     other = {"newer": f"{head}.{int(patch) + 1}",
              "older": f"{head}.{int(patch) - 1}",
-             "longer": f"{version}0", "post": f"{version}.post1"}[change]
+             "longer": f"{version}0", "post": f"{version}.post1",
+             "local": f"{version}+local"}[change]
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", lambda name: (
         other if name == project else tpl.VERSIONS[name]))
-    with pytest.raises(SystemExit, match=f"{project} is {other}"):
+    with pytest.raises(SystemExit, match=re.escape(f"{project} is {other}")):
         tpl.check(["app"])
 
 def test_check_fails_on_a_stale_file(monkeypatch: pytest.MonkeyPatch) -> None:
