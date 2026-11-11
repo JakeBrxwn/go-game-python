@@ -591,20 +591,19 @@ def write() -> str:
 def stale() -> bool:
     """
     Tells whether THIRD_PARTY_LICENSES.txt is out of date: its digest is not
-    DIGEST, or it lacks the header or an entry's head, in order.
+    DIGEST, or its header and entry heads are not exactly the script's, in
+    order.
 
     Returns: True if it is out of date
     """
     # Read as text, so a checkout with \r\n line ends hashes the same
     text = OUTPUT.read_text(encoding="utf-8")
-    if digest(text) != DIGEST or not text.startswith(HEADER):
-        return True
-    at = 0
-    for dependency in DEPENDENCIES:
-        at = text.find(f"\n{entry_head(dependency)}", at)
-        if at < 0:
-            return True
-    return False
+    # A head is a rule, "name | licence", its website and the lines up to
+    # the next rule; a text may hold a rule of its own
+    heads = re.findall(f"\n({RULE}\n.+ \\| .+\nWebsite: (?:.+\n)+?{RULE}\n)", text)
+    return (digest(text) != DIGEST
+            or not text.startswith(f"{HEADER}\n{RULE}\n")
+            or heads != [entry_head(dependency) for dependency in DEPENDENCIES])
 
 def bundled(app: str) -> list[str]:
     """

@@ -2,6 +2,7 @@
 Checks scripts/third_party_licenses.py: THIRD_PARTY_LICENSES.txt is up to
 date, and its check finds what the apps hold that no entry covers.
 """
+import dataclasses
 import importlib.metadata
 import io
 import py_compile
@@ -61,18 +62,34 @@ def test_finds_a_changed_text(
     monkeypatch.setattr(tpl, "OUTPUT", changed)
     assert tpl.stale()
 
-def test_finds_a_changed_entry(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check a changed entry makes the file out of date"""
-    first = tpl.DEPENDENCIES[0]
-    changed = tpl.Dependency(first.name, "MIT", first.website, first.where,
-                             first.texts, first.files)
-    monkeypatch.setattr(tpl, "DEPENDENCIES", [changed, *tpl.DEPENDENCIES[1:]])
+@pytest.mark.parametrize("at", [0, 20, -1])
+def test_finds_a_changed_entry(
+        monkeypatch: pytest.MonkeyPatch, at: int) -> None:
+    """Check an entry whose head changed, first, in the middle or last, makes
+    the file out of date"""
+    dependencies = list(tpl.DEPENDENCIES)
+    dependencies[at] = dataclasses.replace(dependencies[at], where="Elsewhere")
+    monkeypatch.setattr(tpl, "DEPENDENCIES", dependencies)
     assert tpl.stale()
 
-def test_finds_entries_out_of_order(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check swapped entries make the file out of date"""
-    first, second, *rest = tpl.DEPENDENCIES
-    monkeypatch.setattr(tpl, "DEPENDENCIES", [second, first, *rest])
+@pytest.mark.parametrize("at", [0, 20, len(tpl.DEPENDENCIES)])
+def test_finds_an_added_entry(
+        monkeypatch: pytest.MonkeyPatch, at: int) -> None:
+    """Check an entry the script added, first, in the middle or last, makes
+    the file out of date"""
+    dependencies = list(tpl.DEPENDENCIES)
+    dependencies.insert(at, dataclasses.replace(dependencies[0], name="New"))
+    monkeypatch.setattr(tpl, "DEPENDENCIES", dependencies)
+    assert tpl.stale()
+
+@pytest.mark.parametrize("at", [0, 20, len(tpl.DEPENDENCIES) - 2])
+def test_finds_entries_out_of_order(
+        monkeypatch: pytest.MonkeyPatch, at: int) -> None:
+    """Check two swapped entries, first, in the middle or last, make the
+    file out of date"""
+    dependencies = list(tpl.DEPENDENCIES)
+    dependencies[at], dependencies[at + 1] = dependencies[at + 1], dependencies[at]
+    monkeypatch.setattr(tpl, "DEPENDENCIES", dependencies)
     assert tpl.stale()
 
 def test_finds_a_changed_header(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -81,15 +98,40 @@ def test_finds_a_changed_header(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tpl, "HEADER", tpl.HEADER.replace(tpl.PYGAME_CE, "9.9.9"))
     assert tpl.stale()
 
+@pytest.mark.parametrize("header", [
+    tpl.HEADER.split("\n", 1)[1],
+    tpl.HEADER.removesuffix("\n").rsplit("\n", 1)[0] + "\n",
+    tpl.HEADER.removesuffix("\n").rsplit("\n\n", 1)[0] + "\n"])
+def test_finds_a_cut_header(
+        monkeypatch: pytest.MonkeyPatch, header: str) -> None:
+    """Check a header that lost its first line, last line or last paragraph
+    makes the file out of date"""
+    monkeypatch.setattr(tpl, "HEADER", header)
+    assert tpl.stale()
+
+@pytest.mark.parametrize("at", [0, 20, -1])
+def test_finds_a_removed_entry(
+        monkeypatch: pytest.MonkeyPatch, at: int) -> None:
+    """Check an entry the script dropped, first, in the middle or last,
+    makes the file out of date"""
+    dependencies = list(tpl.DEPENDENCIES)
+    del dependencies[at]
+    monkeypatch.setattr(tpl, "DEPENDENCIES", dependencies)
+    assert tpl.stale()
+
 def test_write_names_a_repeated_text(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Check write prints a text once, names the first entry that had it
-    where it comes again, and gives the digest that makes the file current"""
+    where it comes again, and gives the digest that makes the file current,
+    though a text holds lines shaped like an entry's head: a rule, a name
+    and licence, a line, and a rule"""
     monkeypatch.setattr(tpl, "OUTPUT", tmp_path / "licences.txt")
     monkeypatch.setattr(tpl, "DEPENDENCIES", [
         tpl.Dependency(name, "Zlib", "site", "here", (f"{name}/a", f"{name}/b"))
         for name in ["First", "Second", "Third"]])
-    monkeypatch.setattr(tpl, "fetch", lambda url: url if url == "First/a" else "zlib")
+    monkeypatch.setattr(tpl, "fetch", lambda url: (
+        f"{url}\n{tpl.RULE}\nA | B\nC\n{tpl.RULE}" if url == "First/a"
+        else "zlib"))
     monkeypatch.setattr(tpl, "DIGEST", tpl.write())
     text = tpl.OUTPUT.read_text(encoding="utf-8")
     for dependency in tpl.DEPENDENCIES:
@@ -102,12 +144,13 @@ def test_write_names_a_repeated_text(
 def test_fetch_gives_a_text(tmp_path: Path) -> None:
     """Check fetch reads UTF-8 and gives a text with \\n line ends and
     without the blank lines around it or the spaces that end its lines,
-    whatever its line ends were. A first line's indent, as in a centred
-    title, stays"""
+    whatever its line ends were. Its lines keep their indent, even one they
+    all share, as in a centred title"""
     path = tmp_path / "COPYING"
-    path.write_bytes(b" \r\n\r\n   LICENCE\r\n"
-                     b"Copyright \xc2\xa9 2026  \r\nyou may\r\n \r\n")
-    assert tpl.fetch(path.as_uri()) == "   LICENCE\nCopyright © 2026\nyou may"
+    path.write_bytes(b" \r\n\r\n     LICENCE\r\n"
+                     b"  Copyright \xc2\xa9 2026  \r\n  you may\r\n \r\n")
+    assert (tpl.fetch(path.as_uri())
+            == "     LICENCE\n  Copyright © 2026\n  you may")
 
 def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     """Check fetch gives lines a to b for #L<a>-L<b>, numbered at line ends
@@ -132,14 +175,16 @@ def test_fetch_refuses_a_text_not_in_utf8(tmp_path: Path) -> None:
     with pytest.raises(UnicodeDecodeError):
         tpl.fetch(path.as_uri())
 
+@pytest.mark.parametrize("lines", ["", "#L1-L1"])
 @pytest.mark.parametrize("page", ["  <!DOCTYPE html><html>Not found</html>",
                                   "<HTML><body>Not found</body></HTML>"])
-def test_fetch_refuses_a_web_page(tmp_path: Path, page: str) -> None:
-    """Check fetch refuses a page, as a moved file's URL can give"""
+def test_fetch_refuses_a_web_page(tmp_path: Path, page: str, lines: str) -> None:
+    """Check fetch refuses a page, as a moved file's URL can give, for the
+    whole file or a range of its lines"""
     path = tmp_path / "COPYING"
     path.write_text(page, encoding="utf-8")
     with pytest.raises(ValueError, match="web page"):
-        tpl.fetch(path.as_uri())
+        tpl.fetch(path.as_uri() + lines)
 
 def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
     """Check fetch takes #NAME from the tarball's top folder, the first
@@ -225,7 +270,9 @@ def test_covers_what_the_apps_hold() -> None:
     "pygame/libharfbuzz-subset-0.dll",
     "pygame/.dylibs/libharfbuzz-subset.0.dylib",
     "pygame/.dylibs/libspng.0.dylib", "libossp-uuid-16.dll",
-    "pygame/libout123-0.dll",
+    "pygame/libout123-0.dll", "libwebm-1a2b3c4d.so.1",
+    # A zip the app adds is not Python's base library
+    "data.zip",
     # A library the apps hold only at the top, from the build machine, is
     # left over in a package's folder, or in another platform's form
     "pygame_ce.libs/libbz2-1a2b3c4d.so.1.0.8",
