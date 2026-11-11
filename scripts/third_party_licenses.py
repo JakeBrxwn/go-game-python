@@ -72,10 +72,10 @@ SOURCES = {
     "libsndfile 1.2.2": "https://github.com/libsndfile/libsndfile/releases/"
                         "download/1.2.2/libsndfile-1.2.2.tar.xz",
 }
-# Where pygame-ce's libraries are: the top, where PyInstaller copies them,
-# and its folders on Linux, Windows and macOS. Another package's copy of one
-# is not pygame-ce's, so it is left over
-PYGAME_LIBS = ("", "pygame_ce.libs/", "pygame/", "pygame/.dylibs/")
+# pygame-ce's folders for its libraries on Linux, Windows and macOS. Another
+# package's copy of one, or the build machine's own, is not pygame-ce's, so
+# it is left over
+PYGAME_LIBS = ("pygame_ce.libs/", "pygame/", "pygame/.dylibs/")
 
 def in_pygame(*names: str) -> tuple[str, ...]:
     """
@@ -84,9 +84,13 @@ def in_pygame(*names: str) -> tuple[str, ...]:
     Args:
         names: The libraries' names, as patterns
 
-    Returns: Each name in each of PYGAME_LIBS
+    Returns: Each name in each of PYGAME_LIBS, and as a DLL at the top,
+        where the Windows apps also hold them. On Linux and macOS what is at
+        the top is a symlink, which bundled leaves out
     """
-    return tuple(folder + name for name in names for folder in PYGAME_LIBS)
+    return tuple(pattern for name in names for pattern in (
+        *(folder + name for folder in PYGAME_LIBS),
+        name if name.endswith(".dll") else f"{name}.dll"))
 
 @dataclass(frozen=True)
 class Dependency:
@@ -130,9 +134,7 @@ DEPENDENCIES = [
         ("base_library.zip", "libpython3*", "python3*.dll",
          # Only the standard library's: a package's own is not Python's
          *(f"{module}.*pyd" for module in sorted(sys.stdlib_module_names)),
-         "python3.*/lib-dynload/*", "Python", "Python.framework/Python",
-         "Python.framework/Resources", "Python.framework/Versions/Current",
-         "Python.framework/Versions/3.*/Python",
+         "python3.*/lib-dynload/*", "Python.framework/Versions/3.*/Python",
          "Python.framework/Versions/3.*/Resources/Info.plist", "_sysconfigdata_*")),
     Dependency(
         "HACL*", "MIT", "https://github.com/hacl-star/hacl-star",
@@ -628,9 +630,9 @@ def stale() -> bool:
 def bundled(app: str) -> list[str]:
     """
     Lists what a PyInstaller one-file app holds besides the standard library
-    and Go Python: its files and symlinks, with / between folders, its
-    modules and scripts, such as PyInstaller's loader and run-time hooks, and
-    the top-level packages of its Python modules.
+    and Go Python: its files, with / between folders, but not its symlinks,
+    its modules and scripts, such as PyInstaller's loader and run-time hooks,
+    and the top-level packages of its Python modules.
 
     Args:
         app: The app's path
@@ -645,6 +647,10 @@ def bundled(app: str) -> list[str]:
     names = []
     for name, entry in reader.toc.items():
         kind = entry[-1]
+        # A symlink holds nothing of its own: PyInstaller makes one only to a
+        # file it also holds
+        if kind == "n":
+            continue
         if kind == "z":
             modules = reader.open_embedded_archive(name).toc
             names += sorted({module.split(".")[0] for module in modules} - own)

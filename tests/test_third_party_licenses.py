@@ -7,6 +7,8 @@ import importlib.metadata
 import io
 import py_compile
 import re
+import shutil
+import subprocess
 import sys
 import tarfile
 from pathlib import Path
@@ -23,7 +25,8 @@ HELD = [
     "libffi.so.8", "python3.14/lib-dynload/_ssl.cpython-314-x86_64-linux-gnu.so",
     "_sysconfigdata__linux_x86_64-linux-gnu", "libstdc++.so.6",
     "pygame_ce.libs/libSDL2-2-50d19f93.0.so.0.3200.10",
-    "libFLAC-e7027ec5.so.14.0.0", "pygame/base.cpython-314-x86_64-linux-gnu.so",
+    "pygame_ce.libs/libFLAC-e7027ec5.so.14.0.0",
+    "pygame/base.cpython-314-x86_64-linux-gnu.so",
     "pygame/freesansbold.ttf", "click", "colorama", "pygame",
     "click-8.5.1.dist-info/licenses/LICENSE.txt",
     "pyiboot01_bootstrap", "pyimod01_archive", "pyimod04_pywin32",
@@ -32,7 +35,8 @@ HELD = [
     "libffi-8.dll", "ucrtbase.dll", "api-ms-win-crt-heap-l1-1-0.dll",
     "pygame/SDL2_ttf.dll", "pygame/_sdl2/video.cp314-win_amd64.pyd",
     "portmidi.dll", "libopusfile-0.dll",
-    "Python", "Python.framework/Versions/3.14/Resources/Info.plist",
+    "libjpeg-62.dll", "Python.framework/Versions/3.14/Python",
+    "Python.framework/Versions/3.14/Resources/Info.plist",
     "pygame/.dylibs/libz.1.3.1.zlib-ng.dylib", "libzstd.1.dylib",
     "pygame/_sdl2/audio.cpython-314-darwin.so",
     "pygame_ce.libs/libharfbuzz-672f7280.so.0.61430.0",
@@ -177,6 +181,9 @@ def test_fetch_gives_a_range_of_lines(tmp_path: Path) -> None:
     for backwards in ["#L4-L2", "#L3-L2", "#L0-L2"]:
         with pytest.raises(ValueError, match="not a range"):
             tpl.fetch(path.as_uri() + backwards)
+    numbered = tmp_path / "numbered.c"
+    numbered.write_bytes(b"".join(b"line %d\n" % n for n in range(1, 13)))
+    assert tpl.fetch(f"{numbered.as_uri()}#L10-L11") == "line 10\nline 11"
 
 def test_fetch_refuses_a_text_not_in_utf8(tmp_path: Path) -> None:
     """Check fetch fails on a text it cannot read, rather than drop bytes"""
@@ -222,14 +229,16 @@ def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
 
 def test_lists_what_an_app_holds(tmp_path: Path) -> None:
     """Check bundled lists files, even one named like a standard-library
-    module, data, links, non-standard packages and single modules, and
-    PyInstaller's modules and scripts, but not options or the standard
-    library's or the app's own modules and scripts"""
+    module, data, non-standard packages and single modules, and
+    PyInstaller's modules and scripts, but not symlinks, options, or the
+    standard library's or the app's own modules and scripts"""
     writers = pytest.importorskip("PyInstaller.archive.writers")
     source = tmp_path / "module.py"
     source.write_text("x = 1\n", encoding="utf-8")
     compiled = py_compile.compile(str(source), cfile=str(tmp_path / "module.pyc"))
-    modules = ["colorama", "colorama.ansi", "six", "json", "go_python.cli"]
+    # Enough packages that a set's order is almost never sorted
+    modules = ["zipp", "colorama", "colorama.ansi", "six", "json",
+               "go_python.cli", "wrapt", "attr"]
     pyz = tmp_path / "PYZ.pyz"
     writers.ZlibArchiveWriter(
         str(pyz), [(name, str(source), "PYMODULE") for name in modules],
@@ -250,8 +259,9 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("go-python-tui", str(source), False, "s"),
     ], "libpython3.14.so")
     assert tpl.bundled(str(app)) == ["libx.so.1", "sqlite3.dll",
-                                     "Data/sub/File.txt", "link.so", "colorama",
-                                     "six", "pyimod01_archive", "pyi_rth_inspect"]
+                                     "Data/sub/File.txt", "attr", "colorama",
+                                     "six", "wrapt", "zipp",
+                                     "pyimod01_archive", "pyi_rth_inspect"]
 
 def test_covers_what_the_apps_hold() -> None:
     """Check every name from the release apps is covered"""
@@ -281,6 +291,7 @@ def test_covers_what_the_apps_hold() -> None:
     "libgccjit.so.0", "libpython2.7.so.1.0", "MSVCP140.dll",
     # Projects whose names start like a covered one's
     "pygame_gui", "click_plugins-1.1.1.dist-info/METADATA", "SDL2_gfx.dll",
+    "pygame/SDL2_gfx.dll",
     "pythoncom314.dll", "pygame/SDL3_image.dll", "pygame/SDL3_mixer.dll",
     "pygame/SDL3_ttf.dll", "pygame_ce.libs/libSDL3_image-1a2b3c4d.so.0.2.4",
     "pygame_ce.libs/libSDL3_mixer-1a2b3c4d.so.0.1.0",
@@ -288,10 +299,14 @@ def test_covers_what_the_apps_hold() -> None:
     "pygame/libharfbuzz-subset-0.dll",
     "pygame/.dylibs/libharfbuzz-subset.0.dylib",
     "pygame/.dylibs/libspng.0.dylib", "libossp-uuid-16.dll",
-    "pygame/libout123-0.dll", "libwebm-1a2b3c4d.so.1",
+    "pygame/libout123-0.dll", "pygame_ce.libs/libwebm-1a2b3c4d.so.1",
     # Another package's copy of a library pygame-ce has, as Pillow ships
     "pillow.libs/libjpeg-1a2b3c4d.so.62.4.0", "PIL/.dylibs/libtiff.6.dylib",
     "PIL/.dylibs/libz.1.3.1.zlib-ng.dylib",
+    # The build machine's own copy of one, at the top, where the Linux and
+    # macOS apps hold pygame-ce's only as symlinks
+    "libfreetype.so.6", "libpng16.so.16", "libharfbuzz.so.0",
+    "libbrotlidec.1.dylib",
     # A zip the app adds is not Python's base library
     "data.zip",
     # A library the apps hold only at the top, from the build machine, is
@@ -355,6 +370,20 @@ def test_check_fails_on_an_uncovered_file(
     monkeypatch.setattr(tpl, "bundled", lambda app: [*HELD, *new])
     with pytest.raises(SystemExit, match=f"bad-app .*{re.escape(str(new))}"):
         tpl.check(["bad-app"])
+
+def test_check_runs_from_the_command_line(tmp_path: Path) -> None:
+    """Check `python scripts/third_party_licenses.py check`, as CI runs it,
+    fails on a file that is out of date"""
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name in ["third_party_licenses.py", "freeze.py"]:
+        shutil.copy(Path(tpl.__file__).parent / name, scripts)
+    (tmp_path / tpl.OUTPUT.name).write_text("out of date", encoding="utf-8")
+    run = subprocess.run(
+        [sys.executable, str(scripts / "third_party_licenses.py"), "check"],
+        capture_output=True, text=True, check=False)
+    assert run.returncode == 1
+    assert f"FAIL {tpl.OUTPUT.name} is out of date" in run.stderr
 
 @pytest.mark.parametrize("change", ["newer", "older", "longer", "post", "local"])
 @pytest.mark.parametrize("project", list(tpl.VERSIONS))
