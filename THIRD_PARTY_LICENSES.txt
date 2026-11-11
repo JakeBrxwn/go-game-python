@@ -29,10 +29,11 @@ pygame-ce's build scripts name the version of each library it ships with:
 https://github.com/pygame-community/pygame-ce/tree/2.5.8/buildconfig
 
 To run Go Python with a changed pygame-ce or LGPL library, build pygame-ce
-with your library, then either:
+with your library into a wheel, then either:
 
-- install Go Python from its wheel or sdist with pip, as README.md shows,
-  and install your pygame-ce into the same environment; or
+- install Go Python with pipx, as README.md shows, and swap in your wheel:
+  pipx runpip go-python install --force-reinstall --no-deps <your wheel>
+  (or, with pip, install your wheel into Go Python's environment); or
 - rebuild the apps: in Go Python's source at the release's tag, from
   https://github.com/JakeBrxwn/go-game-python, run pip install ".[release]",
   install your pygame-ce over the one it installed, and run

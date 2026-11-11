@@ -34,8 +34,13 @@ HELD = [
     "python314.dll", "_bz2.pyd", "_decimal.pyd", "libcrypto-3.dll",
     "libffi-8.dll", "ucrtbase.dll", "api-ms-win-crt-heap-l1-1-0.dll",
     "pygame/SDL2_ttf.dll", "pygame/_sdl2/video.cp314-win_amd64.pyd",
-    "portmidi.dll", "libopusfile-0.dll",
-    "libjpeg-62.dll", "Python.framework/Versions/3.14/Python",
+    # Every DLL in pygame-ce's Windows wheel, at the top, as the apps hold them
+    "SDL2.dll", "SDL2_image.dll", "SDL2_mixer.dll", "SDL2_ttf.dll",
+    "freetype.dll", "libjpeg-62.dll", "libogg-0.dll", "libopus-0.dll",
+    "libopusfile-0.dll", "libpng16-16.dll", "libtiff-5.dll",
+    "libwavpack-1.dll", "libwebp-7.dll", "libwebpdemux-2.dll", "libxmp.dll",
+    "portmidi.dll",
+    "Python.framework/Versions/3.14/Python",
     "Python.framework/Versions/3.14/Resources/Info.plist",
     "pygame/.dylibs/libz.1.3.1.zlib-ng.dylib", "libzstd.1.dylib",
     "pygame/_sdl2/audio.cpython-314-darwin.so",
@@ -307,6 +312,10 @@ def test_covers_what_the_apps_hold() -> None:
     # macOS apps hold pygame-ce's only as symlinks
     "libfreetype.so.6", "libpng16.so.16", "libharfbuzz.so.0",
     "libbrotlidec.1.dylib",
+    # Another package's DLL at the top, where the Windows apps hold every
+    # package's: only pygame-ce's own DLL names are pygame-ce's
+    "libjpeg-9.dll", "libpng16-17.dll", "libmpg123-0.dll", "libFLAC.dll",
+    "libsndfile-1.dll", "libfluidsynth-3.dll", "libharfbuzz-0.dll",
     # A zip the app adds is not Python's base library
     "data.zip",
     # A library the apps hold only at the top, from the build machine, is
@@ -330,6 +339,16 @@ def test_patterns_start_at_the_top() -> None:
         for pattern in dependency.files:
             name = pattern.replace("*", "0").replace("?", "0")
             assert tpl.uncovered([name, f"pkg/{name}"]) == [f"pkg/{name}"]
+
+def test_pygame_ce_names_its_dlls_in_full_at_the_top() -> None:
+    """Check pygame-ce's libraries are at the top only as DLLs named in full:
+    the Windows apps hold every package's DLLs there, so another version or
+    library is left over"""
+    tops = [pattern for dependency in tpl.DEPENDENCIES
+            if any(p.startswith("pygame_ce.libs/") for p in dependency.files)
+            for pattern in dependency.files if "/" not in pattern]
+    assert tops
+    assert [p for p in tops if not p.endswith(".dll") or set(p) & set("*?[")] == []
 
 def test_installed_reads_each_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check installed gives the running Python's version, not the one in

@@ -35,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "7e6746a209416968ad9e9fc5e85981950af02faf0306562e1091361c2283c53f"
+DIGEST = "ac76a3a7868cd0a84b453ceb4254d52d6b1dfbcf46821a0c3927325c55188c82"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -82,15 +82,16 @@ def in_pygame(*names: str) -> tuple[str, ...]:
     Gives patterns for libraries that come with pygame-ce.
 
     Args:
-        names: The libraries' names, as patterns
+        names: The libraries' names, as patterns. A name ending in .dll is
+            one of the DLLs in pygame-ce's Windows wheel, in full
 
-    Returns: Each name in each of PYGAME_LIBS, and as a DLL at the top,
-        where the Windows apps also hold them. On Linux and macOS what is at
-        the top is a symlink, which bundled leaves out
+    Returns: Each name in each of PYGAME_LIBS, and each DLL also at the top,
+        where the Windows apps hold every package's DLLs. On Linux and macOS
+        what is at the top is a symlink, which bundled leaves out
     """
     return tuple(pattern for name in names for pattern in (
         *(folder + name for folder in PYGAME_LIBS),
-        name if name.endswith(".dll") else f"{name}.dll"))
+        *([name] if name.endswith(".dll") else [])))
 
 @dataclass(frozen=True)
 class Dependency:
@@ -341,7 +342,7 @@ DEPENDENCIES = [
         "the work of the Independent JPEG Group.",
         (f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/LICENSE.md",
          f"{GH}/libjpeg-turbo/libjpeg-turbo/3.1.4.1/README.ijg"),
-        in_pygame("libjpeg*")),
+        in_pygame("libjpeg*", "libjpeg-62.dll")),
     Dependency(
         "MinGW-w64 winpthreads", "MIT AND BSD-3-Clause", "https://www.mingw-w64.org/",
         "The Windows window app, built into libjpeg-62.dll with MinGW-w64 v5, "
@@ -351,7 +352,7 @@ DEPENDENCIES = [
         "libpng", "libpng-2.0", "http://www.libpng.org/pub/png/libpng.html",
         "The window apps, version 1.6.58.",
         (f"{GH}/pnggroup/libpng/v1.6.58/LICENSE",),
-        in_pygame("libpng*")),
+        in_pygame("libpng*", "libpng16-16.dll")),
     Dependency(
         "LibTIFF", "libtiff AND MIT", "https://libtiff.gitlab.io/libtiff/",
         "The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. "
@@ -363,14 +364,15 @@ DEPENDENCIES = [
          *(f"https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/libtiff/{name}"
            for name in ["tif_luv.c#L2-L22", "tif_pixarlog.c#L2-L22",
                         "tif_ojpeg.c#L26-L37", "tif_hash_set.c#L8-L26"])),
-        in_pygame("libtiff*")),
+        in_pygame("libtiff*", "libtiff-5.dll")),
     Dependency(
         "libwebp", "BSD-3-Clause", "https://chromium.googlesource.com/webm/libwebp",
         "The window apps, with its libsharpyuv and libwebpdemux: 1.6.0 on "
         "Linux and macOS, and 1.0.3 on Windows.",
         (f"{GH}/webmproject/libwebp/v1.6.0/COPYING",
          f"{GH}/webmproject/libwebp/v1.0.3/COPYING"),
-        in_pygame("libwebp*", "libsharpyuv*")),
+        in_pygame("libwebp*", "libsharpyuv*", "libwebp-7.dll",
+                  "libwebpdemux-2.dll")),
     Dependency(
         "Ogg and Vorbis", "BSD-3-Clause AND TU-Berlin-1.0", "https://xiph.org/",
         "The window apps: Ogg 1.3.6 and Vorbis 1.3.7 on Linux and macOS, "
@@ -378,7 +380,7 @@ DEPENDENCIES = [
         "notice that is the last text.",
         (f"{GH}/xiph/ogg/v1.3.6/COPYING", f"{GH}/xiph/vorbis/v1.3.7/COPYING",
          f"{GH}/xiph/ogg/v1.3.5/COPYING", f"{GH}/xiph/vorbis/v1.3.7/lib/lpc.c#L25-L41"),
-        in_pygame("libogg*", "libvorbis*")),
+        in_pygame("libogg*", "libvorbis*", "libogg-0.dll")),
     Dependency(
         "Opus and opusfile", "BSD-3-Clause", "https://opus-codec.org/",
         "The window apps: Opus 1.6.1 and opusfile 0.12 on Linux and macOS, "
@@ -397,7 +399,7 @@ DEPENDENCIES = [
              "src/mapping_matrix.c#L1-L25", "silk/LPC_fit.c#L2-L25",
              "silk/NSQ.h#L2-L26", "silk/x86/NSQ_sse4_1.c#L1-L25",
              "celt/x86/pitch_sse.h#L1-L30", "src/opus.c#L1-L26"])),
-        in_pygame("libopus*")),
+        in_pygame("libopus*", "libopus-0.dll", "libopusfile-0.dll")),
     Dependency(
         "FLAC", "BSD-3-Clause", "https://xiph.org/flac/",
         "The Linux and macOS window apps, version 1.5.0.",
@@ -431,7 +433,7 @@ DEPENDENCIES = [
         "is the last text.",
         (f"{GH}/dbry/WavPack/5.9.0/COPYING", f"{GH}/dbry/WavPack/5.6.0/COPYING",
          f"{GH}/dbry/WavPack/5.6.0/cli/win32_unicode_support.c#L1-L28"),
-        in_pygame("libwavpack*")),
+        in_pygame("libwavpack*", "libwavpack-1.dll")),
     Dependency(
         "libxmp", "MIT AND ISC", "https://xmp.sourceforge.net/",
         "The window apps: 4.7.2 on Linux and macOS, and 4.6.3 on Windows. "
@@ -446,7 +448,7 @@ DEPENDENCIES = [
          *(f"{GH}/libxmp/libxmp/libxmp-4.6.3/{name}" for name in [
              "docs/COPYING", "src/miniz_tinfl.c#L3-L23", "src/loaders/lzw.c#L2-L20",
              "src/loaders/xmf_load.c#L2-L20", "src/loaders/abk_load.c#L3-L21"])),
-        in_pygame("libxmp*")),
+        in_pygame("libxmp*", "libxmp.dll")),
     Dependency(
         "PortMidi", "MIT", "https://github.com/PortMidi/portmidi",
         "The Windows window app, from a build before 2.0. The licence text "
@@ -510,10 +512,11 @@ pygame-ce's build scripts name the version of each library it ships with:
 https://github.com/pygame-community/pygame-ce/tree/{PYGAME_CE}/buildconfig
 
 To run Go Python with a changed pygame-ce or LGPL library, build pygame-ce
-with your library, then either:
+with your library into a wheel, then either:
 
-- install Go Python from its wheel or sdist with pip, as README.md shows,
-  and install your pygame-ce into the same environment; or
+- install Go Python with pipx, as README.md shows, and swap in your wheel:
+  pipx runpip go-python install --force-reinstall --no-deps <your wheel>
+  (or, with pip, install your wheel into Go Python's environment); or
 - rebuild the apps: in Go Python's source at the release's tag, from
   https://github.com/JakeBrxwn/go-game-python, run pip install ".[release]",
   install your pygame-ce over the one it installed, and run
