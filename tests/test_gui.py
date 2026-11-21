@@ -448,12 +448,13 @@ def test_run_with_a_config_starts_that_match(
     """Check run(config) skips the menu and starts the match"""
     windows: list[GoGUI] = []
 
-    def remember(window: GoGUI) -> None:
+    def remember(window: GoGUI, close_at_end: bool) -> None:
         """
         Keeps the window instead of running its loop.
 
         Args:
             window: The window run() made
+            close_at_end: Unused
         """
         windows.append(window)
 
@@ -462,6 +463,43 @@ def test_run_with_a_config_starts_that_match(
     gui.run(config)
     assert windows[0].screen is Screen.PLAYING
     assert windows[0].match.config == config
+
+def test_run_can_close_at_the_end_and_say_how_the_match_ended(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """Check run(config, close_at_end=True) plays the bots' match to its
+    end, then shuts pygame down and prints why it ended, for the package
+    smoke test"""
+    random.seed(1)
+    gui.run(GameConfig(6, False, ("random", "random")), close_at_end=True)
+    assert not pygame.display.get_init()
+    assert capsys.readouterr().out == "Game over: every player passed.\n"
+
+def test_close_at_end_stops_on_the_frame_that_draws_the_result() -> None:
+    """Check the loop stops once the result is on screen, leaving the
+    window open for run() to close"""
+    window = GoGUI(GameConfig(6, False, ("random", "random")))
+    window.loop(close_at_end=True)
+    assert window.screen is Screen.GAME_OVER
+    assert window.running
+
+def test_without_close_at_end_the_result_stays_until_the_window_closes(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the usual loop keeps showing the result, frame after frame,
+    until the window is closed"""
+    window = GoGUI(GameConfig(6, False, ("random", "random")))
+    screens: list[Screen] = []
+    frame = window.frame
+
+    def frame_and_close_later() -> None:
+        """Runs a frame, and closes the window on the third result frame"""
+        frame()
+        screens.append(window.screen)
+        if screens.count(Screen.GAME_OVER) == 3:
+            post(pygame.QUIT)
+
+    monkeypatch.setattr(window, "frame", frame_and_close_later)
+    window.loop()
+    assert screens.count(Screen.GAME_OVER) == 4
 
 #
 # Menu and setup

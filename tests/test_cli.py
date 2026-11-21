@@ -116,7 +116,9 @@ def remember_runs(monkeypatch: pytest.MonkeyPatch) \
     """
     runs: list[tuple[str, GameConfig | None]] = []
     monkeypatch.setattr(gui, "run",
-                        lambda config=None: runs.append(("gui", config)))
+                        lambda config=None, close_at_end=False:
+                        runs.append(("gui" + " closing" * close_at_end,
+                                     config)))
     monkeypatch.setattr(tui, "run",
                         lambda config=None: runs.append(("tui", config)))
     return runs
@@ -146,6 +148,16 @@ def test_match_commands_pass_their_settings(monkeypatch: pytest.MonkeyPatch,
                                        "--seats", "Human, random,smart"])
     assert result.exit_code == 0, result.output
     assert runs == [(app, GameConfig(9, True, ("human", "random", "smart")))]
+
+def test_gui_command_can_close_at_the_end(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check --close-at-end reaches the window, for the package smoke test"""
+    runs = remember_runs(monkeypatch)
+    result = CliRunner().invoke(main, ["gui", "-s", "6", "--seats",
+                                       "random,random", "--close-at-end"])
+    assert result.exit_code == 0, result.output
+    assert runs == [("gui closing", GameConfig(6, False, ("random",
+                                                          "random")))]
 
 @pytest.mark.parametrize("app", ["gui", "tui"])
 def test_match_commands_take_any_letter_case(monkeypatch: pytest.MonkeyPatch,

@@ -492,6 +492,18 @@ def test_regression_a_huge_board_size_gets_the_usual_message(
     assert "[19]: Size must be a whole number from 6 to 30.\n" in out
     assert "digits" not in out
 
+def test_regression_windows_consoles_show_the_colored_stones(
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """Check the TUI turns on colour codes before it prints, as a Windows
+    console without them shows Red's and Blue's stones as raw escape codes.
+    colorama does nothing on other systems, or where colour already works"""
+    calls: list[str] = []
+    monkeypatch.setattr(tui, "just_fix_windows_console",
+                        lambda: calls.append("fixed"))
+    session(monkeypatch, capsys, ["3"])
+    assert calls == ["fixed"]
+
 def test_regression_a_terminal_without_utf8_stops_with_one_line(
         monkeypatch: pytest.MonkeyPatch) -> None:
     """Check a terminal that cannot show the stones gets one line naming the

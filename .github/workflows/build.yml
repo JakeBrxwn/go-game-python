@@ -1,0 +1,74 @@
+name: Build
+
+# Builds and smoke-tests the apps on each OS. CI calls it on every change,
+# and Release publishes what it uploads.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest Ubuntu runner, so the Linux app needs the oldest glibc
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          # The apps bundle this Python, and THIRD_PARTY_LICENSES.txt names it
+          python-version: "3.14.10"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install ".[release]"
+      - run: python scripts/freeze.py
+      # Unbuffered, so the log times each check
+      - run: python -u scripts/smoke.py
+      # Every file in the apps must have its licence in THIRD_PARTY_LICENSES.txt
+      - run: python scripts/third_party_licenses.py check
+      # The file names the Ubuntu packages the Linux app's libstdc++ and
+      # libgcc_s come from, with their source, so it must name this runner's
+      - if: runner.os == 'Linux'
+        run: |
+          for package in libstdc++6 libgcc-s1; do
+            version=$(dpkg-query -W -f '${Version}' "$package")
+            grep -qF "$package $version" THIRD_PARTY_LICENSES.txt || {
+              echo "THIRD_PARTY_LICENSES.txt does not name $package $version"
+              exit 1
+            }
+          done
+      - if: runner.os == 'Linux'
+        run: |
+          python -m build
+          python scripts/screenshot.py dist/go-python-screenshot.png
+          cp THIRD_PARTY_LICENSES.txt dist/
+          python scripts/third_party_licenses.py sources dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+          # So re-running a failed job can upload again
+          overwrite: true
+      # The published wheel must work, and the sdist must hold everything its
+      # own tests need: install the wheel, run its two commands, then run the
+      # sdist's tests on it. After the upload, so what this installs cannot
+      # touch the release files.
+      - if: runner.os == 'Linux'
+        run: |
+          pip install --force-reinstall --no-deps dist/go_python-*.whl
+          go-python --version | grep -x "go-python, version .*"
+          go-python-tui --version | grep -x "go-python-tui, version .*"
+          pip install pytest pytest-timeout
+          mkdir "$RUNNER_TEMP/sdist"
+          tar -xzf dist/go_python-*.tar.gz -C "$RUNNER_TEMP/sdist"
+          cd "$RUNNER_TEMP"/sdist/go_python-*
+          python -m pytest -q -p no:cacheprovider
