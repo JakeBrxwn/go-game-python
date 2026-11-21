@@ -333,6 +333,9 @@ def test_covers_what_the_apps_hold() -> None:
     "libpython3.13.so.1.0", "python313.dll", "pyi_rth_cryptography_openssl",
     # A zip the app adds is not Python's base library
     "data.zip",
+    # Only Go Python's own licences file, at the top, is its own
+    "THIRD_PARTY_NOTICES.txt", "LICENSE.txt",
+    "pkg/THIRD_PARTY_LICENSES.txt",
     # A library the apps hold only at the top, from the build machine, is
     # left over in a package's folder, or in another platform's form
     "pygame_ce.libs/libbz2-1a2b3c4d.so.1.0.8",
@@ -458,14 +461,14 @@ def test_check_fails_on_an_app_without_the_file(
 
 def test_sources_saves_only_the_pinned_files(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Check sources saves each file in SOURCES under its name, and refuses
-    one that is not the file its SHA-512 pins"""
+    """Check sources saves each file in SOURCES under its name there, not
+    its URL's, and refuses one that is not the file its SHA-512 pins"""
     served = tmp_path / "served"
     served.mkdir()
     pinned = {}
     for name in ["a-1.tar.gz", "b-2.tar.xz"]:
-        (served / name).write_bytes(name.encode() * 3)
-        pinned[name] = ((served / name).as_uri(),
+        (served / f"v{name}").write_bytes(name.encode() * 3)
+        pinned[name] = ((served / f"v{name}").as_uri(),
                         hashlib.sha512(name.encode() * 3).hexdigest())
     monkeypatch.setattr(tpl, "SOURCES", pinned)
     out = tmp_path / "out"
@@ -473,7 +476,7 @@ def test_sources_saves_only_the_pinned_files(
     tpl.sources(str(out))
     assert {path.name: path.read_bytes() for path in out.iterdir()} == {
         name: name.encode() * 3 for name in pinned}
-    (served / "b-2.tar.xz").write_bytes(b"changed")
+    (served / "vb-2.tar.xz").write_bytes(b"changed")
     with pytest.raises(ValueError, match="is not the b-2.tar.xz SOURCES pins"):
         tpl.sources(str(tmp_path))
     assert not (tmp_path / "b-2.tar.xz").exists()
