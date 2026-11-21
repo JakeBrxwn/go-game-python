@@ -399,15 +399,15 @@ def test_check_fails_on_an_uncovered_file(
         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
         new: list[str]) -> None:
     """Check check passes covered apps and names the files in one that is
-    not, even a single file"""
+    not, even a single file, and even in the app after a covered one, as CI's
+    terminal app comes after its window app"""
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", tpl.VERSIONS.get)
-    monkeypatch.setattr(tpl, "bundled", lambda app: HELD)
-    tpl.check(["ok-app"])
-    assert "ok ok-app is covered" in capsys.readouterr().out
-    monkeypatch.setattr(tpl, "bundled", lambda app: [*HELD, *new])
+    monkeypatch.setattr(tpl, "bundled", lambda app: (
+        HELD if app == "ok-app" else [*HELD, *new]))
     with pytest.raises(SystemExit, match=f"bad-app .*{re.escape(str(new))}"):
-        tpl.check(["bad-app"])
+        tpl.check(["ok-app", "bad-app"])
+    assert "ok ok-app is covered" in capsys.readouterr().out
 
 def test_check_runs_from_the_command_line(tmp_path: Path) -> None:
     """Check `python scripts/third_party_licenses.py check`, as CI runs it,
@@ -450,14 +450,15 @@ def test_check_fails_on_a_stale_file(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_check_fails_on_an_app_without_the_file(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Check check refuses an app that does not hold THIRD_PARTY_LICENSES.txt"""
+    """Check check refuses an app that does not hold THIRD_PARTY_LICENSES.txt,
+    even after one that does"""
     monkeypatch.setattr(tpl, "stale", lambda: False)
     monkeypatch.setattr(tpl, "installed", tpl.VERSIONS.get)
-    monkeypatch.setattr(tpl, "bundled", lambda app: [
+    monkeypatch.setattr(tpl, "bundled", lambda app: HELD if app == "ok-app" else [
         name for name in HELD if name != tpl.OUTPUT.name])
     with pytest.raises(SystemExit,
                        match=f"bare-app does not hold {tpl.OUTPUT.name}"):
-        tpl.check(["bare-app"])
+        tpl.check(["ok-app", "bare-app"])
 
 def test_sources_saves_only_the_pinned_files(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
