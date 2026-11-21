@@ -40,6 +40,10 @@ HELD = [
     "libopusfile-0.dll", "libpng16-16.dll", "libtiff-5.dll",
     "libwavpack-1.dll", "libwebp-7.dll", "libwebpdemux-2.dll", "libxmp.dll",
     "portmidi.dll",
+    # Every other library at the top, from Python or the build machine
+    "libcrypto.so.3", "libssl-3.dll", "libssl.3.dylib", "libcrypto.3.dylib",
+    "libbz2.so.1.0", "liblzma.so.5", "libzstd.so.1", "libuuid.so.1",
+    "libgcc_s.so.1", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll",
     "Python.framework/Versions/3.14/Python",
     "Python.framework/Versions/3.14/Resources/Info.plist",
     "pygame/.dylibs/libz.1.3.1.zlib-ng.dylib", "libzstd.1.dylib",
@@ -233,8 +237,8 @@ def test_fetch_reads_a_file_in_a_tarball(tmp_path: Path) -> None:
         tpl.fetch(f"{tarball.as_uri()}#LICENSE")
 
 def test_lists_what_an_app_holds(tmp_path: Path) -> None:
-    """Check bundled lists files, even one named like a standard-library
-    module, data, non-standard packages and single modules, and
+    """Check bundled lists files and data, even ones named like a
+    standard-library module, non-standard packages and single modules, and
     PyInstaller's modules and scripts, but not symlinks, options, or the
     standard library's or the app's own modules and scripts"""
     writers = pytest.importorskip("PyInstaller.archive.writers")
@@ -254,6 +258,7 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("libx.so.1", str(source), False, "b"),
         ("sqlite3.dll", str(source), False, "b"),
         ("Data\\sub\\File.txt", str(source), False, "x"),
+        ("json.txt", str(source), False, "x"),
         ("link.so", "libx.so.1", False, "n"),
         ("PYZ.pyz", str(pyz), False, "z"),
         ("pyi-python-flag X utf8", "", False, "o"),
@@ -264,7 +269,8 @@ def test_lists_what_an_app_holds(tmp_path: Path) -> None:
         ("go-python-tui", str(source), False, "s"),
     ], "libpython3.14.so")
     assert tpl.bundled(str(app)) == ["libx.so.1", "sqlite3.dll",
-                                     "Data/sub/File.txt", "attr", "colorama",
+                                     "Data/sub/File.txt", "json.txt",
+                                     "attr", "colorama",
                                      "six", "wrapt", "zipp",
                                      "pyimod01_archive", "pyi_rth_inspect"]
 
@@ -316,6 +322,12 @@ def test_covers_what_the_apps_hold() -> None:
     # package's: only pygame-ce's own DLL names are pygame-ce's
     "libjpeg-9.dll", "libpng16-17.dll", "libmpg123-0.dll", "libFLAC.dll",
     "libsndfile-1.dll", "libfluidsynth-3.dll", "libharfbuzz-0.dll",
+    # Another library, or another version, at the top, where the apps name
+    # theirs in full: Crypto++, OpenSSL 1.1, and xz 5.6's 0BSD liblzma
+    "libcryptopp.so.8", "libcrypto-1_1-x64.dll", "libssl.so.1.1",
+    "liblzma-5.dll", "libffi-7.dll", "libbz2-1.dll", "libuuid-1.dll",
+    "libzstd.so.1.5.5", "libz.so.1.3.1", "libstdc++.so.6.0.30",
+    "libpython3.13.so.1.0", "python313.dll", "pyi_rth_cryptography_openssl",
     # A zip the app adds is not Python's base library
     "data.zip",
     # A library the apps hold only at the top, from the build machine, is
@@ -340,15 +352,16 @@ def test_patterns_start_at_the_top() -> None:
             name = pattern.replace("*", "0").replace("?", "0")
             assert tpl.uncovered([name, f"pkg/{name}"]) == [f"pkg/{name}"]
 
-def test_pygame_ce_names_its_dlls_in_full_at_the_top() -> None:
-    """Check pygame-ce's libraries are at the top only as DLLs named in full:
-    the Windows apps hold every package's DLLs there, so another version or
-    library is left over"""
+def test_names_at_the_top_are_in_full() -> None:
+    """Check each pattern at the top names a file in full, but for names only
+    Python, PyInstaller or Microsoft give out: the apps hold every package's
+    and the build machine's libraries there, so another library or version
+    is left over"""
+    templates = {*(f"{module}.*pyd" for module in sys.stdlib_module_names),
+                 "_sysconfigdata_*", "pyimod0*", "api-ms-win-*.dll"}
     tops = [pattern for dependency in tpl.DEPENDENCIES
-            if any(p.startswith("pygame_ce.libs/") for p in dependency.files)
             for pattern in dependency.files if "/" not in pattern]
-    assert tops
-    assert [p for p in tops if not p.endswith(".dll") or set(p) & set("*?[")] == []
+    assert [p for p in tops if set(p) & set("*?[") and p not in templates] == []
 
 def test_installed_reads_each_version(monkeypatch: pytest.MonkeyPatch) -> None:
     """Check installed gives the running Python's version, not the one in

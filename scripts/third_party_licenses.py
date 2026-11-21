@@ -35,7 +35,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "ac76a3a7868cd0a84b453ceb4254d52d6b1dfbcf46821a0c3927325c55188c82"
+DIGEST = "e949bd97654029382bc240aa3f06a62445d2b1478ab862e15a5ca41b1df73791"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -132,7 +132,7 @@ DEPENDENCIES = [
             "Lib/logging/__init__.py#L1-L15", "Lib/platform.py#L93-L109",
             "Objects/unicodeobject.c#L14-L36", "Python/getopt.c#L6-L20",
             "Modules/_localemodule.c#L2-L8", "Modules/_winapi.c#L7-L30"]),
-        ("base_library.zip", "libpython3*", "python3*.dll",
+        ("base_library.zip", "libpython3.14.so.1.0", "python314.dll",
          # Only the standard library's: a package's own is not Python's
          *(f"{module}.*pyd" for module in sorted(sys.stdlib_module_names)),
          "python3.*/lib-dynload/*", "Python.framework/Versions/3.*/Python",
@@ -147,7 +147,8 @@ DEPENDENCIES = [
         "All apps: 3.0.2 on Linux, and 3.5.9 on Windows and macOS.",
         (f"{GH}/openssl/openssl/openssl-3.0.2/LICENSE.txt",
          f"{GH}/openssl/openssl/openssl-3.5.9/LICENSE.txt"),
-        ("libssl*", "libcrypto*")),
+        ("libssl.so.3", "libcrypto.so.3", "libssl-3.dll", "libcrypto-3.dll",
+         "libssl.3.dylib", "libcrypto.3.dylib")),
     Dependency(
         "zlib", "Zlib", "https://zlib.net/",
         "The Linux apps (1.2.11). On Windows it is built into the apps' "
@@ -156,13 +157,13 @@ DEPENDENCIES = [
         "ends each README below.",
         tuple(f"{GH}/madler/zlib/v{version}/README"
               for version in ["1.2.11", "1.3.2", "1.3.1", "1.1.4", "1.3"]),
-        ("libz.so*",)),
+        ("libz.so.1",)),
     Dependency(
         "libffi", "MIT", "https://sourceware.org/libffi/",
         "The Linux apps (3.4.2) and the Windows apps (3.4.4).",
         (f"{GH}/libffi/libffi/v3.4.2/LICENSE",
          f"{GH}/libffi/libffi/v3.4.4/LICENSE"),
-        ("libffi*",)),
+        ("libffi.so.8", "libffi-8.dll")),
     Dependency(
         "mpdecimal", "BSD-2-Clause", "https://www.bytereef.org/mpdecimal/",
         "Built into Python's _decimal module: 4.0.0 on Windows and 4.0.1 on "
@@ -176,14 +177,14 @@ DEPENDENCIES = [
         "1.0.8 on both.",
         ("https://sourceware.org/git/?p=bzip2.git;a=blob_plain;f=LICENSE;"
          "hb=bzip2-1.0.8",),
-        ("libbz2*",)),
+        ("libbz2.so.1.0",)),
     Dependency(
         "XZ Utils (liblzma)", "public domain", "https://tukaani.org/xz/",
         "The Linux apps (5.2.5), and built into Python's _lzma module on "
         "Windows (5.2.5) and macOS (5.2.3).",
         (f"{GH}/tukaani-project/xz/v5.2.5/COPYING",
          f"{GH}/tukaani-project/xz/v5.2.3/COPYING"),
-        ("liblzma*",)),
+        ("liblzma.so.5",)),
     Dependency(
         "Zstandard", "BSD-3-Clause AND MIT AND BSD-2-Clause",
         "https://facebook.github.io/zstd/",
@@ -199,7 +200,7 @@ DEPENDENCIES = [
          f"{GH}/facebook/zstd/v1.5.7/lib/legacy/zstd_v05.c#L621-L646",
          f"{GH}/facebook/zstd/v1.4.8/lib/legacy/zstd_v05.c#L676-L701",
          f"{GH}/facebook/zstd/v1.5.7/lib/common/threading.c#L2-L3"),
-        ("libzstd*",)),
+        ("libzstd.so.1", "libzstd.1.dylib")),
     Dependency(
         "libuuid (util-linux)", "BSD-3-Clause",
         "https://github.com/util-linux/util-linux",
@@ -209,7 +210,7 @@ DEPENDENCIES = [
          f"{GH}/util-linux/util-linux/v2.37.2/Documentation/licenses"
          "/COPYING.BSD-3-Clause",
          f"{GH}/util-linux/util-linux/v2.37.2/libuuid/src/predefined.c#L4-L31"),
-        ("libuuid*",)),
+        ("libuuid.so.1",)),
     Dependency(
         "GCC runtime libraries", "GPL-3.0-or-later WITH GCC-exception-3.1 AND "
         "GPL-2.0-or-later WITH GCC-exception-2.0 AND LGPL-2.1-or-later AND MIT "
@@ -227,12 +228,13 @@ DEPENDENCIES = [
             "libstdc++-v3/src/c++98/tree.cc#L27-L48",
             "libstdc++-v3/src/c++98/strstream.cc#L26-L35",
             "libiberty/cp-demangle.c#L2-L28"]),
-        ("libgcc_s.so*", "libstdc++.so*")),
+        ("libgcc_s.so.1", "libstdc++.so.6")),
     Dependency(
         "Microsoft C runtime", "Microsoft distributable code",
         "https://visualstudio.microsoft.com/", "The Windows apps.",
         (f"{GH}/python/cpython/v{PYTHON}/PC/crtlicense.txt",),
-        ("VCRUNTIME140*.dll", "ucrtbase.dll", "api-ms-win-*.dll")),
+        ("VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "ucrtbase.dll",
+         "api-ms-win-*.dll")),
     Dependency(
         "PyInstaller", "GPL-2.0-or-later WITH Bootloader-exception AND Apache-2.0",
         "https://pyinstaller.org/",
@@ -240,7 +242,7 @@ DEPENDENCIES = [
         "bootloader exception lets the apps bundle, and its run-time hooks, "
         "which are under the Apache License 2.0 at the end of the text below.",
         (f"{GH}/pyinstaller/pyinstaller/v{VERSIONS['PyInstaller']}/COPYING.txt",),
-        ("pyiboot01_bootstrap", "pyimod0*", "pyi_rth_*")),
+        ("pyiboot01_bootstrap", "pyimod0*", "pyi_rth_inspect")),
     Dependency(
         "pygame-ce", "LGPL-2.1-or-later", "https://pyga.me/",
         f"The window apps, version {PYGAME_CE}. After the LGPL come the "
@@ -516,10 +518,11 @@ with your library into a wheel, then either:
 
 - install Go Python with pipx, as README.md shows, and swap in your wheel:
   pipx runpip go-python install --force-reinstall --no-deps <your wheel>
-  (or, with pip, install your wheel into Go Python's environment); or
+  (with pip, run pip install --force-reinstall --no-deps <your wheel> in
+  Go Python's environment); or
 - rebuild the apps: in Go Python's source at the release's tag, from
   https://github.com/JakeBrxwn/go-game-python, run pip install ".[release]",
-  install your pygame-ce over the one it installed, and run
+  then pip install --force-reinstall --no-deps <your wheel>, then
   python scripts/freeze.py. The apps it writes to dist/ use your version.
 """
 RULE = "-" * 80
