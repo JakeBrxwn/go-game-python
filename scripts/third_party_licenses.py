@@ -6,16 +6,21 @@ release apps bundle besides Go Python. Run it from the repo root:
         Fetches each licence text below, rewrites the file, and prints the
         digest to set DIGEST to.
     python scripts/third_party_licenses.py check [APP ...]
-        Fails if an app holds a file no entry below covers, if the file is
-        out of date with the entries or DIGEST, or if a project in VERSIONS
-        is installed at another version. With no apps, it checks the two that
-        scripts/freeze.py built. Needs PyInstaller: pip install ".[release]".
+        Fails if an app holds a file no entry below covers or does not hold
+        this file, if the file is out of date with the entries or DIGEST, or
+        if a project in VERSIONS is installed at another version. With no
+        apps, it checks the two that scripts/freeze.py built. Needs
+        PyInstaller: pip install ".[release]".
+    python scripts/third_party_licenses.py sources FOLDER
+        Downloads the source of the parts under the LGPL into FOLDER, each
+        checked against its SHA-512 in SOURCES, for a release to attach.
 
 To upgrade a project in VERSIONS, change it there and where it is pinned:
 the release extra in pyproject.toml, or python-version in
 .github/workflows/build.yml for Python. Then look up the versions of the
 libraries it bundles (pygame-ce's are in its buildconfig), update the entries
-below, run write, and set DIGEST. Check each library's source too: code it
+below and SOURCES, with the SHA-512s pygame-ce's build scripts check, run
+write, and set DIGEST. Check each library's source too: code it
 builds in from other holders often carries a notice of its own, which goes in
 as a #L<a>-L<b> text.
 """
@@ -35,7 +40,7 @@ from freeze import APPS, binary_name
 
 OUTPUT = Path(__file__).parent.parent / "THIRD_PARTY_LICENSES.txt"
 # The file's SHA-256, so a changed or cut text is found
-DIGEST = "e949bd97654029382bc240aa3f06a62445d2b1478ab862e15a5ca41b1df73791"
+DIGEST = "f70e28798a57425a875ea4ad3708bc0ed0aade61e8c0a9c44faa5dd485334aaa"
 # What the build installs, which sets what the apps bundle: Python and
 # pygame-ce also set the versions of the libraries that come with them
 VERSIONS = {"Python": "3.14.10", "pygame-ce": "2.5.8", "PyInstaller": "6.22.3",
@@ -61,17 +66,34 @@ WAYLAND = {
     "xdg-decoration-unstable-v1": "L4-L23", "xdg-output-unstable-v1": "L5-L24",
     "xdg-shell": "L5-L29", "xdg-toplevel-icon-v1": "L5-L25",
 }
-# The source of the parts under the LGPL, which HEADER gives
+# The source of the parts under the LGPL, which HEADER lists and each release
+# attaches: each file's name, URL and SHA-512. pygame-ce's sdist is PyPI's;
+# the libraries' tarballs are the ones pygame-ce's build scripts download and
+# check by these SHA-512s, at the same URLs
 SOURCES = {
-    f"pygame-ce {PYGAME_CE}": "https://files.pythonhosted.org/packages/source/p/"
-                              f"pygame_ce/pygame_ce-{PYGAME_CE}.tar.gz",
-    "mpg123 1.33.7": "https://downloads.sourceforge.net/sourceforge/mpg123/"
-                     "mpg123-1.33.7.tar.bz2",
-    "FluidSynth 2.5.7": "https://github.com/FluidSynth/fluidsynth/archive/refs/"
-                        "tags/v2.5.7.tar.gz",
-    "libsndfile 1.2.2": "https://github.com/libsndfile/libsndfile/releases/"
-                        "download/1.2.2/libsndfile-1.2.2.tar.xz",
+    f"pygame_ce-{PYGAME_CE}.tar.gz": (
+        "https://files.pythonhosted.org/packages/source/p/pygame_ce/"
+        f"pygame_ce-{PYGAME_CE}.tar.gz",
+        "de002d1671dfbf3b695cb08ad836f182190e4d4a7d33368bbfd7c90d0702bb49"
+        "2428cdf68b725ad81fecab61a72caed9b2d126e1009d4892c91fe34c9b247ccb"),
+    "mpg123-1.33.7.tar.bz2": (
+        "https://downloads.sourceforge.net/sourceforge/mpg123/"
+        "mpg123-1.33.7.tar.bz2",
+        "694743802bb7be0f4a39bf62e681ae0bfed769cb87dc6c5b6fb5f9245966631e"
+        "fb5c5b9bd58588f7af55ced5d020f97c8a54993e71b5295bc45ebd152473f40e"),
+    "fluidsynth-2.5.7.tar.gz": (
+        "https://github.com/FluidSynth/fluidsynth/archive/v2.5.7.tar.gz",
+        "673edd454c912e2fb2b0848c4ab8c47b068f06d611df7e2bcb73d66f14570780"
+        "24a474c1f45bac4ea2c63921131eea58ceb1efe3340e643895dc8979fb44da32"),
+    "libsndfile-1.2.2.tar.xz": (
+        "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/"
+        "libsndfile-1.2.2.tar.xz",
+        "a6e3ea3ac5d91befaa99f6a31a3fac44e7b7c11f1de4698167317a461d5a19a2"
+        "651d47486a920b34400f18367b4f6173bf0c1c9ba80eb682cece1b5beee352a0"),
 }
+# The Ubuntu 22.04 packages the Linux window app's libstdc++ and libgcc_s come
+# from, which CI checks on the build machine (.github/workflows/build.yml)
+GCC_UBUNTU = "12.3.0-1ubuntu1~22.04.3"
 # pygame-ce's folders for its libraries on Linux, Windows and macOS. Another
 # package's copy of one, or the build machine's own, is not pygame-ce's, so
 # it is left over
@@ -121,7 +143,8 @@ class Dependency:
 DEPENDENCIES = [
     Dependency(
         "Python", "PSF-2.0 AND MIT AND HPND", "https://www.python.org/",
-        f"All apps, version {PYTHON}. The licence page below also covers the "
+        f"All apps, version {PYTHON}, whose code Go Python does not change. "
+        "The licence page below also covers the "
         "code Python holds, such as libmpdec on Linux and mimalloc. Then come "
         "the licence of the expat 2.9.0 in the macOS apps, and the notices of "
         "Python's files by other holders: tarfile, logging, platform, the "
@@ -215,7 +238,12 @@ DEPENDENCIES = [
         "GCC runtime libraries", "GPL-3.0-or-later WITH GCC-exception-3.1 AND "
         "GPL-2.0-or-later WITH GCC-exception-2.0 AND LGPL-2.1-or-later AND MIT "
         "AND HPND-sell-variant", "https://gcc.gnu.org/",
-        "The Linux window app: libstdc++ and libgcc_s from GCC 12. The "
+        "The Linux window app: libstdc++ and libgcc_s from GCC 12, as Ubuntu "
+        f"22.04's packages libstdc++6 {GCC_UBUNTU} and libgcc-s1 {GCC_UBUNTU} "
+        "hold them. Their source is Ubuntu's gcc-12 source package at that "
+        "version: https://launchpad.net/ubuntu/+source/gcc-12/"
+        f"{GCC_UBUNTU}. If it is ever gone from there, ask for it at "
+        "https://github.com/JakeBrxwn/go-game-python/issues. The "
         "runtime library exception, first, adds to the GPL that follows it, "
         "and libgcc_s's soft-float code is under the LGPL after that. Then "
         "come the notices of code in libstdc++ by other holders: fast_float, "
@@ -286,8 +314,10 @@ DEPENDENCIES = [
     Dependency(
         "SDL2_mixer", "Zlib", "https://github.com/libsdl-org/SDL_mixer",
         "The window apps. It holds Timidity, whose licence is the second "
-        "text below, and on Windows also minimp3 (CC0), dr_flac (public "
-        "domain or MIT-0) and stb_vorbis (public domain).",
+        "text below and whose source is at https://github.com/libsdl-org/"
+        "SDL_mixer/tree/release-2.8.2/src/codecs/timidity, and on Windows "
+        "also minimp3 (CC0), dr_flac (public domain or MIT-0) and stb_vorbis "
+        "(public domain).",
         (f"{GH}/libsdl-org/SDL_mixer/release-2.8.2/LICENSE.txt",
          f"{GH}/libsdl-org/SDL_mixer/release-2.8.2/src/codecs/timidity/COPYING"),
         in_pygame("libSDL2_mixer*", "SDL2_mixer.dll")),
@@ -300,7 +330,8 @@ DEPENDENCIES = [
     Dependency(
         "FreeType", "FTL AND MIT AND MIT-open-group", "https://freetype.org/",
         "The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 "
-        "as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this "
+        "as freetype.dll and 2.13.2 in SDL2_ttf.dll. This software is based "
+        "in part on the work of the FreeType Team. Portions of this "
         "software are copyright © 2021, 2023 and 2026 The FreeType Project "
         "(www.freetype.org). All rights reserved. For each version, after "
         "the FTL come the licences of its BDF and PCF font drivers, then the "
@@ -358,9 +389,10 @@ DEPENDENCIES = [
     Dependency(
         "LibTIFF", "libtiff AND MIT", "https://libtiff.gitlab.io/libtiff/",
         "The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. "
-        "Then come the notices of its files by other holders: LogLuv, in "
-        "both versions, and PixarLog, old-style JPEG and the hash set, in "
-        "4.7.2.",
+        "Its LZW codec holds software developed by the University of "
+        "California, Berkeley. Then come the notices of its files by other "
+        "holders: LogLuv, in both versions, and PixarLog, old-style JPEG and "
+        "the hash set, in 4.7.2.",
         ("https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/LICENSE.md",
          "https://gitlab.com/libtiff/libtiff/-/raw/v4.2.0/COPYRIGHT",
          *(f"https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/libtiff/{name}"
@@ -410,7 +442,7 @@ DEPENDENCIES = [
     Dependency(
         "mpg123", "LGPL-2.1-only", "https://www.mpg123.de/",
         "The Linux and macOS window apps, version 1.33.7.",
-        (f"{SOURCES['mpg123 1.33.7']}#COPYING",),
+        (f"{SOURCES['mpg123-1.33.7.tar.bz2'][0]}#COPYING",),
         in_pygame("libmpg123*")),
     Dependency(
         "FluidSynth", "LGPL-2.1-or-later", "https://www.fluidsynth.org/",
@@ -467,11 +499,13 @@ DEPENDENCIES = [
         "FreeSans font", "GPL", "https://savannah.gnu.org/projects/freefont/",
         "The window apps' text, as pygame/freesansbold.ttf. Copyright 2002 "
         "Free Software Foundation. Its licence names the GNU General Public "
-        "License with no version, and version 3 follows. Its source is the "
-        "font file itself, also at src_py/freesansbold.ttf in pygame-ce's "
-        "source (see Source code, above), which a font editor such as "
-        "FontForge opens. GNU FreeFont's editable sources, from 2005 on, "
-        "are at https://download.savannah.gnu.org/releases/freefont/.",
+        "License with no version, and version 3 follows. It is the font "
+        "file pygame-ce ships, also at src_py/freesansbold.ttf in "
+        "pygame-ce's sdist (see Source code, above). Its source is GNU "
+        "FreeFont's FreeSansBold.sfd at the version the font names, "
+        "$Revision: 0.4 $, which is revision 141 of FreeFont's repository: "
+        "https://svn.savannah.gnu.org/svn/freefont/trunk/freefont/sfd/"
+        "FreeSansBold.sfd?p=141. A font editor such as FontForge opens it.",
         (f"{GH}/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3",),
         ("pygame/freesansbold.ttf",)),
     Dependency(
@@ -488,13 +522,15 @@ DEPENDENCIES = [
         ("colorama",)),
 ]
 
-LGPL_SOURCES = "\n".join(f"- {name}:\n  {url}" for name, url in SOURCES.items())
+LGPL_SOURCES = "\n".join(f"- {name}:\n  {url}"
+                         for name, (url, _) in SOURCES.items())
 HEADER = f"""\
 Third-party licences
 ====================
 
 The Go Python apps in each release are single files that bundle Python,
 pygame-ce, SDL and the other software below, each under its own licence.
+Each app holds a copy of this file, and each release has it beside the apps.
 Go Python's own code is under the MIT licence, in LICENSE. The wheel and the
 sdist bundle none of this software: pip installs what they need separately.
 
@@ -506,11 +542,14 @@ Source code
 
 Each project below publishes its source at its website. The window apps
 bundle these parts under the GNU LGPL (mpg123, FluidSynth and libsndfile on
-Linux and macOS only), and this is their source:
+Linux and macOS only). Each release attaches their source: pygame-ce's sdist,
+and the tarballs pygame-ce's build checks by SHA-512 and builds the three
+libraries from, without changes. They are also at:
 
 {LGPL_SOURCES}
 
-pygame-ce's build scripts name the version of each library it ships with:
+pygame-ce's build scripts name the version of each library it ships with,
+and how it builds it:
 https://github.com/pygame-community/pygame-ce/tree/{PYGAME_CE}/buildconfig
 
 To run Go Python with a changed pygame-ce or LGPL library, build pygame-ce
@@ -540,6 +579,24 @@ def entry_head(dependency: Dependency) -> str:
     return (f"{RULE}\n{dependency.name} | {dependency.licence}\n"
             f"Website: {dependency.website}\nIn the apps: {dependency.where}\n"
             f"{sources}{RULE}\n")
+
+def sources(folder: str) -> None:
+    """
+    Downloads the source of the parts under the LGPL, in SOURCES.
+
+    Args:
+        folder: Where to save each file, under its name in SOURCES
+
+    Raises:
+        ValueError: If a download is not the file SOURCES pins
+    """
+    for name, (url, sha512) in SOURCES.items():
+        request = urllib.request.Request(url, headers={"User-Agent": "go-python"})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data: bytes = response.read()
+        if hashlib.sha512(data).hexdigest() != sha512:
+            raise ValueError(f"{url} is not the {name} SOURCES pins")
+        Path(folder, name).write_bytes(data)
 
 def fetch(url: str) -> str:
     """
@@ -667,15 +724,16 @@ def bundled(app: str) -> list[str]:
 
 def uncovered(names: list[str]) -> list[str]:
     """
-    Finds the names no dependency covers.
+    Finds the names no dependency covers, besides this file, which is Go
+    Python's own.
 
     Args:
         names: What an app holds, from bundled
 
     Returns: The names left over
     """
-    patterns = [pattern for dependency in DEPENDENCIES
-                for pattern in dependency.files]
+    patterns = [OUTPUT.name, *(pattern for dependency in DEPENDENCIES
+                               for pattern in dependency.files)]
     return [name for name in names
             if not any(PurePosixPath(name).full_match(pattern)
                        for pattern in patterns)]
@@ -710,7 +768,12 @@ def check(apps: list[str]) -> None:
     suffix = ".exe" if sys.platform == "win32" else ""
     for app in apps or [str(Path("dist", binary_name(name) + suffix))
                         for name in APPS]:
-        left = uncovered(bundled(app))
+        names = bundled(app)
+        # For the licences that want their notices in every copy
+        if OUTPUT.name not in names:
+            sys.exit(f"FAIL {app} does not hold {OUTPUT.name}: see "
+                     "scripts/freeze.py")
+        left = uncovered(names)
         if left:
             sys.exit(f"FAIL {app} holds files {OUTPUT.name} does not "
                      f"cover; add them to DEPENDENCIES: {left}")
@@ -721,5 +784,7 @@ if __name__ == "__main__":
         print(f'Wrote {OUTPUT.name}: set DIGEST = "{write()}"')
     elif sys.argv[1:2] == ["check"]:
         check(sys.argv[2:])
+    elif sys.argv[1:2] == ["sources"] and len(sys.argv) == 3:
+        sources(sys.argv[2])
     else:
         sys.exit(__doc__)

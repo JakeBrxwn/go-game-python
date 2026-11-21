@@ -60,7 +60,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
           PRERELEASE: ${{ needs.check.outputs.prerelease }}
+          # Put before the generated notes
+          NOTES: >-
+            THIRD_PARTY_LICENSES.txt, below and inside each app, gives the
+            licences of the software the apps bundle. The source of its parts
+            under the LGPL is attached: pygame-ce, mpg123, FluidSynth and
+            libsndfile.
         run: |
           gh release create "$TAG" dist/* --verify-tag --generate-notes \
-            --target "$GITHUB_SHA" --title "Go Python $TAG" \
+            --notes "$NOTES" --target "$GITHUB_SHA" --title "Go Python $TAG" \
             --prerelease="$PRERELEASE"

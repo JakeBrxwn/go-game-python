@@ -3,6 +3,7 @@ Checks scripts/third_party_licenses.py: THIRD_PARTY_LICENSES.txt is up to
 date, and its check finds what the apps hold that no entry covers.
 """
 import dataclasses
+import hashlib
 import importlib.metadata
 import io
 import py_compile
@@ -50,6 +51,8 @@ HELD = [
     "pygame/_sdl2/audio.cpython-314-darwin.so",
     "pygame_ce.libs/libharfbuzz-672f7280.so.0.61430.0",
     "pygame/.dylibs/libharfbuzz.0.dylib",
+    # Go Python's own copy of the file
+    "THIRD_PARTY_LICENSES.txt",
 ]
 
 def test_file_is_up_to_date() -> None:
@@ -441,3 +444,36 @@ def test_check_fails_on_a_stale_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tpl, "stale", lambda: True)
     with pytest.raises(SystemExit, match="out of date"):
         tpl.check(["app"])
+
+def test_check_fails_on_an_app_without_the_file(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check check refuses an app that does not hold THIRD_PARTY_LICENSES.txt"""
+    monkeypatch.setattr(tpl, "stale", lambda: False)
+    monkeypatch.setattr(tpl, "installed", tpl.VERSIONS.get)
+    monkeypatch.setattr(tpl, "bundled", lambda app: [
+        name for name in HELD if name != tpl.OUTPUT.name])
+    with pytest.raises(SystemExit,
+                       match=f"bare-app does not hold {tpl.OUTPUT.name}"):
+        tpl.check(["bare-app"])
+
+def test_sources_saves_only_the_pinned_files(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Check sources saves each file in SOURCES under its name, and refuses
+    one that is not the file its SHA-512 pins"""
+    served = tmp_path / "served"
+    served.mkdir()
+    pinned = {}
+    for name in ["a-1.tar.gz", "b-2.tar.xz"]:
+        (served / name).write_bytes(name.encode() * 3)
+        pinned[name] = ((served / name).as_uri(),
+                        hashlib.sha512(name.encode() * 3).hexdigest())
+    monkeypatch.setattr(tpl, "SOURCES", pinned)
+    out = tmp_path / "out"
+    out.mkdir()
+    tpl.sources(str(out))
+    assert {path.name: path.read_bytes() for path in out.iterdir()} == {
+        name: name.encode() * 3 for name in pinned}
+    (served / "b-2.tar.xz").write_bytes(b"changed")
+    with pytest.raises(ValueError, match="is not the b-2.tar.xz SOURCES pins"):
+        tpl.sources(str(tmp_path))
+    assert not (tmp_path / "b-2.tar.xz").exists()

@@ -33,11 +33,23 @@ jobs:
       - run: python -u scripts/smoke.py
       # Every file in the apps must have its licence in THIRD_PARTY_LICENSES.txt
       - run: python scripts/third_party_licenses.py check
+      # The file names the Ubuntu packages the Linux app's libstdc++ and
+      # libgcc_s come from, with their source, so it must name this runner's
+      - if: runner.os == 'Linux'
+        run: |
+          for package in libstdc++6 libgcc-s1; do
+            version=$(dpkg-query -W -f '${Version}' "$package")
+            grep -qF "$package $version" THIRD_PARTY_LICENSES.txt || {
+              echo "THIRD_PARTY_LICENSES.txt does not name $package $version"
+              exit 1
+            }
+          done
       - if: runner.os == 'Linux'
         run: |
           python -m build
           python scripts/screenshot.py dist/go-python-screenshot.png
           cp THIRD_PARTY_LICENSES.txt dist/
+          python scripts/third_party_licenses.py sources dist
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-${{ matrix.os }}

@@ -307,7 +307,8 @@ both frontends play by the same rules, and bots work the same in each.
    the version in the code, and is on `main`. Then it runs the whole CI,
    which builds and smoke-tests both apps on each OS. Only then does it
    publish a GitHub Release with the six apps, the wheel, the sdist, the
-   screenshot above, `THIRD_PARTY_LICENSES.txt` and `SHA256SUMS`.
+   screenshot above, `THIRD_PARTY_LICENSES.txt`, the source of the LGPL
+   parts the window apps bundle, and `SHA256SUMS`.
 
 For a pre-release, set a version like `0.1.0rc1` and push the tag
 `v0.1.0rc1` from any branch. Its files carry that version, so pip never
@@ -333,5 +334,6 @@ and evals check the rules and the bots.
 
 Go Python is released under the [MIT licence](LICENSE). The downloaded apps
 also hold Python, pygame-ce, SDL and other software, each under its own
-licence: [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt), here and in
-each release, gives every licence and where to get the source.
+licence: [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt), here, in
+each release and inside each app, gives every licence and where to get the
+source.

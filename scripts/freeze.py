@@ -70,6 +70,9 @@ def main() -> None:
             "--name", binary_name(app), "--distpath", "dist",
             "--workpath", str(build / app), "--specpath", str(build),
             "--python-option", "X utf8", "--bootloader-ignore-signals",
+            # The licences of what each app bundles go in it too, as the MIT,
+            # BSD and LGPL texts want their notices with every copy
+            "--add-data", f"{Path('THIRD_PARTY_LICENSES.txt').resolve()}:.",
             *strip, *options])
 
 if __name__ == "__main__":

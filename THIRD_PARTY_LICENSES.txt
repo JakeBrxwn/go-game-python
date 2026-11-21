@@ -3,6 +3,7 @@ Third-party licences
 
 The Go Python apps in each release are single files that bundle Python,
 pygame-ce, SDL and the other software below, each under its own licence.
+Each app holds a copy of this file, and each release has it beside the apps.
 Go Python's own code is under the MIT licence, in LICENSE. The wheel and the
 sdist bundle none of this software: pip installs what they need separately.
 
@@ -14,18 +15,21 @@ Source code
 
 Each project below publishes its source at its website. The window apps
 bundle these parts under the GNU LGPL (mpg123, FluidSynth and libsndfile on
-Linux and macOS only), and this is their source:
+Linux and macOS only). Each release attaches their source: pygame-ce's sdist,
+and the tarballs pygame-ce's build checks by SHA-512 and builds the three
+libraries from, without changes. They are also at:
 
-- pygame-ce 2.5.8:
+- pygame_ce-2.5.8.tar.gz:
   https://files.pythonhosted.org/packages/source/p/pygame_ce/pygame_ce-2.5.8.tar.gz
-- mpg123 1.33.7:
+- mpg123-1.33.7.tar.bz2:
   https://downloads.sourceforge.net/sourceforge/mpg123/mpg123-1.33.7.tar.bz2
-- FluidSynth 2.5.7:
-  https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.5.7.tar.gz
-- libsndfile 1.2.2:
+- fluidsynth-2.5.7.tar.gz:
+  https://github.com/FluidSynth/fluidsynth/archive/v2.5.7.tar.gz
+- libsndfile-1.2.2.tar.xz:
   https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz
 
-pygame-ce's build scripts name the version of each library it ships with:
+pygame-ce's build scripts name the version of each library it ships with,
+and how it builds it:
 https://github.com/pygame-community/pygame-ce/tree/2.5.8/buildconfig
 
 To run Go Python with a changed pygame-ce or LGPL library, build pygame-ce
@@ -43,7 +47,7 @@ with your library into a wheel, then either:
 --------------------------------------------------------------------------------
 Python | PSF-2.0 AND MIT AND HPND
 Website: https://www.python.org/
-In the apps: All apps, version 3.14.10. The licence page below also covers the code Python holds, such as libmpdec on Linux and mimalloc. Then come the licence of the expat 2.9.0 in the macOS apps, and the notices of Python's files by other holders: tarfile, logging, platform, the Unicode object, getopt, the locale module and, on Windows, _winapi. The libraries it is built with have their own entries.
+In the apps: All apps, version 3.14.10, whose code Go Python does not change. The licence page below also covers the code Python holds, such as libmpdec on Linux and mimalloc. Then come the licence of the expat 2.9.0 in the macOS apps, and the notices of Python's files by other holders: tarfile, logging, platform, the Unicode object, getopt, the locale module and, on Windows, _winapi. The libraries it is built with have their own entries.
 Text from: https://raw.githubusercontent.com/python/cpython/v3.14.10/Doc/license.rst
 Text from: https://raw.githubusercontent.com/python/cpython/v3.14.10/Modules/expat/COPYING
 Text from: https://raw.githubusercontent.com/python/cpython/v3.14.10/Lib/tarfile.py#L4-L26
@@ -2794,7 +2798,7 @@ DAMAGE.
 --------------------------------------------------------------------------------
 GCC runtime libraries | GPL-3.0-or-later WITH GCC-exception-3.1 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND LGPL-2.1-or-later AND MIT AND HPND-sell-variant
 Website: https://gcc.gnu.org/
-In the apps: The Linux window app: libstdc++ and libgcc_s from GCC 12. The runtime library exception, first, adds to the GPL that follows it, and libgcc_s's soft-float code is under the LGPL after that. Then come the notices of code in libstdc++ by other holders: fast_float, and Hewlett-Packard's and Silicon Graphics' STL. Last is the notice of its demangler, from GCC's libiberty: the GPL, version 2 or later, with an exception of its own.
+In the apps: The Linux window app: libstdc++ and libgcc_s from GCC 12, as Ubuntu 22.04's packages libstdc++6 12.3.0-1ubuntu1~22.04.3 and libgcc-s1 12.3.0-1ubuntu1~22.04.3 hold them. Their source is Ubuntu's gcc-12 source package at that version: https://launchpad.net/ubuntu/+source/gcc-12/12.3.0-1ubuntu1~22.04.3. If it is ever gone from there, ask for it at https://github.com/JakeBrxwn/go-game-python/issues. The runtime library exception, first, adds to the GPL that follows it, and libgcc_s's soft-float code is under the LGPL after that. Then come the notices of code in libstdc++ by other holders: fast_float, and Hewlett-Packard's and Silicon Graphics' STL. Last is the notice of its demangler, from GCC's libiberty: the GPL, version 2 or later, with an exception of its own.
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.RUNTIME
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING.LIB
@@ -6025,7 +6029,7 @@ SOFTWARE.
 --------------------------------------------------------------------------------
 SDL2_mixer | Zlib
 Website: https://github.com/libsdl-org/SDL_mixer
-In the apps: The window apps. It holds Timidity, whose licence is the second text below, and on Windows also minimp3 (CC0), dr_flac (public domain or MIT-0) and stb_vorbis (public domain).
+In the apps: The window apps. It holds Timidity, whose licence is the second text below and whose source is at https://github.com/libsdl-org/SDL_mixer/tree/release-2.8.2/src/codecs/timidity, and on Windows also minimp3 (CC0), dr_flac (public domain or MIT-0) and stb_vorbis (public domain).
 Text from: https://raw.githubusercontent.com/libsdl-org/SDL_mixer/release-2.8.2/LICENSE.txt
 Text from: https://raw.githubusercontent.com/libsdl-org/SDL_mixer/release-2.8.2/src/codecs/timidity/COPYING
 --------------------------------------------------------------------------------
@@ -6172,7 +6176,7 @@ Text from: https://raw.githubusercontent.com/libsdl-org/SDL_ttf/release-2.24.0/L
 --------------------------------------------------------------------------------
 FreeType | FTL AND MIT AND MIT-open-group
 Website: https://freetype.org/
-In the apps: The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 as freetype.dll and 2.13.2 in SDL2_ttf.dll. Portions of this software are copyright © 2021, 2023 and 2026 The FreeType Project (www.freetype.org). All rights reserved. For each version, after the FTL come the licences of its BDF and PCF font drivers, then the notices of its pcfutil.c and fthash.c.
+In the apps: The window apps: 2.14.3 on Linux and macOS, and on Windows 2.11.1 as freetype.dll and 2.13.2 in SDL2_ttf.dll. This software is based in part on the work of the FreeType Team. Portions of this software are copyright © 2021, 2023 and 2026 The FreeType Project (www.freetype.org). All rights reserved. For each version, after the FTL come the licences of its BDF and PCF font drivers, then the notices of its pcfutil.c and fthash.c.
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/LICENSE.TXT
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/docs/FTL.TXT
 Text from: https://gitlab.freedesktop.org/freetype/freetype/-/raw/VER-2-14-3/src/bdf/README#L99-L144
@@ -7680,7 +7684,7 @@ be appreciated.
 --------------------------------------------------------------------------------
 LibTIFF | libtiff AND MIT
 Website: https://libtiff.gitlab.io/libtiff/
-In the apps: The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. Then come the notices of its files by other holders: LogLuv, in both versions, and PixarLog, old-style JPEG and the hash set, in 4.7.2.
+In the apps: The window apps: 4.7.2 on Linux and macOS, and 4.2.0 on Windows. Its LZW codec holds software developed by the University of California, Berkeley. Then come the notices of its files by other holders: LogLuv, in both versions, and PixarLog, old-style JPEG and the hash set, in 4.7.2.
 Text from: https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/LICENSE.md
 Text from: https://gitlab.com/libtiff/libtiff/-/raw/v4.2.0/COPYRIGHT
 Text from: https://gitlab.com/libtiff/libtiff/-/raw/v4.7.2/libtiff/tif_luv.c#L2-L22
@@ -10560,7 +10564,7 @@ freely, subject to the following restrictions:
 --------------------------------------------------------------------------------
 FreeSans font | GPL
 Website: https://savannah.gnu.org/projects/freefont/
-In the apps: The window apps' text, as pygame/freesansbold.ttf. Copyright 2002 Free Software Foundation. Its licence names the GNU General Public License with no version, and version 3 follows. Its source is the font file itself, also at src_py/freesansbold.ttf in pygame-ce's source (see Source code, above), which a font editor such as FontForge opens. GNU FreeFont's editable sources, from 2005 on, are at https://download.savannah.gnu.org/releases/freefont/.
+In the apps: The window apps' text, as pygame/freesansbold.ttf. Copyright 2002 Free Software Foundation. Its licence names the GNU General Public License with no version, and version 3 follows. It is the font file pygame-ce ships, also at src_py/freesansbold.ttf in pygame-ce's sdist (see Source code, above). Its source is GNU FreeFont's FreeSansBold.sfd at the version the font names, $Revision: 0.4 $, which is revision 141 of FreeFont's repository: https://svn.savannah.gnu.org/svn/freefont/trunk/freefont/sfd/FreeSansBold.sfd?p=141. A font editor such as FontForge opens it.
 Text from: https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-12.3.0/COPYING3
 --------------------------------------------------------------------------------
 
