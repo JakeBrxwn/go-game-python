@@ -1383,3 +1383,49 @@ def test_long_group_lives_on_its_one_far_liberty() -> None:
     go.pass_turn()
     go.apply_move((0, 8))
     assert [go.piece_at((0, c)) for c in range(8)] == [None] * 8
+
+
+@pytest.mark.parametrize("players, rows, expected, scores", [
+    (2, ["...", "...", "..."], {}, {1: 0, 2: 0}),
+    (2, ["12", "21"], {}, {1: 2, 2: 2}),
+    (2, ["..122", "..122", "11122", "112.2", "11222"],
+     {(0, 0): 1, (0, 1): 1, (1, 0): 1, (1, 1): 1, (3, 3): 2},
+     {1: 13, 2: 12}),
+    (2, [".1.", "111", ".1."],
+     {(0, 0): 1, (0, 2): 1, (2, 0): 1, (2, 2): 1}, {1: 9, 2: 0}),
+    (3, ["1.2", "1.2", "333"], {}, {1: 2, 2: 2, 3: 3}),
+    (3, [".122.", "11122", "33322", "3.322", "33322"],
+     {(0, 0): 1, (0, 4): 2, (3, 1): 3}, {1: 5, 2: 11, 3: 9}),
+    (4, ["111.222", "1.1.2.2", "111.222", ".......", "333.444",
+         "3.3.4.4", "333.444"],
+     {(1, 1): 1, (1, 5): 2, (5, 1): 3, (5, 5): 4},
+     {1: 9, 2: 9, 3: 9, 4: 9}),
+])
+def test_owned_empty_points_on_loaded_boards(
+        players: int, rows: list[str], expected: dict[tuple[int, int], int],
+        scores: dict[int, int]) -> None:
+    """Check exact regions, edges, disconnected eyes, shared points and stones."""
+    go = Go(len(rows), players)
+    go.load_game(1, parse_board(rows))
+    assert go.owners() == expected
+    assert go.scores() == scores
+    for _ in range(players):
+        go.pass_turn()
+    assert go.owners() == expected and go.scores() == scores
+
+
+@pytest.mark.parametrize("players", [1, 2, 3, 4, 8])
+def test_ownership_is_fresh_and_leaves_game_state_alone(players: int) -> None:
+    """Reading or editing returned ownership never changes the game or history."""
+    go = Go(3, players, True)
+    go.load_game(players, parse_board(["...", "..1", "..."]))
+    go.pass_turn()
+    before = game_state(go)
+    expected = {(r, c): 1 for r in range(3) for c in range(3) if (r, c) != (1, 2)}
+    result = go.owners()
+    assert result == expected
+    result.clear()
+    assert go.owners() == expected
+    assert game_state(go) == before
+    go.load_game(1, parse_board(["...", "...", "..."]))
+    assert go.owners() == {}

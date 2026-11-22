@@ -1870,3 +1870,59 @@ def test_audio_device_is_optional_at_the_board(
         assert pygame.mixer.get_busy()
     else:
         assert pygame.mixer.get_init() is None
+
+
+@pytest.mark.parametrize("size", range(6, 31))
+def test_game_over_marks_only_owned_points_with_solid_squares(size: int) -> None:
+    """All four compact squares are filled, centered and absent during play."""
+    window = GoGUI(GameConfig(size, False, ("human",) * 4))
+    grid: list[list[int | None]] = [[None] * size for _ in range(size)]
+    owned = {(1, 1): 1, (1, size - 2): 2,
+             (size - 2, 1): 3, (size - 2, size - 2): 4}
+    for (row, col), owner in owned.items():
+        for r in range(row - 1, row + 2):
+            for c in range(col - 1, col + 2):
+                if (r, c) != (row, col):
+                    grid[r][c] = owner
+    window.match.game.load_game(1, grid)
+    assert window.match.game.owners() == owned
+    window.draw()
+    playing = screen().copy()
+    for _ in range(4):
+        press(window, "Pass")
+    assert window.screen is Screen.GAME_OVER
+    assert draw_changes_nothing(window)
+    finished = screen().copy()
+    expected_board = playing.subsurface(BOARD).copy()
+    spacing = BOARD.width / size
+    for point, owner in owned.items():
+        x, y = (round(v) for v in spot(window, point))
+        reach = round(spacing * 0.3)
+        changed = [(px, py)
+                   for px in range(x - reach, x + reach + 1)
+                   for py in range(y - reach, y + reach + 1)
+                   if playing.get_at((px, py)) != finished.get_at((px, py))]
+        assert changed
+        left = min(px for px, _ in changed)
+        right = max(px for px, _ in changed)
+        top = min(py for _, py in changed)
+        bottom = max(py for _, py in changed)
+        square = pygame.Rect(left, top, right - left + 1, bottom - top + 1)
+        assert square.width == square.height
+        assert spacing * 0.15 <= square.width <= spacing * 0.3
+        assert square.center == (x, y)
+        color = gui.STONES[owner - 1]
+        assert all(tuple(finished.get_at((px, py)))[:3] == color
+                   for px in range(square.left, square.right)
+                   for py in range(square.top, square.bottom))
+        pygame.draw.rect(expected_board, color, square.move(-BOARD.x, -BOARD.y))
+    # Every pixel outside the squares, including neutral points and stones, stays.
+    assert pygame.image.tobytes(finished.subsurface(BOARD), "RGB") == \
+        pygame.image.tobytes(expected_board, "RGB")
+    press(window, "Play again")
+    assert window.screen is Screen.PLAYING
+    assert window.match.game.owners() == {}
+    window.match.game.load_game(1, grid)
+    window.draw()
+    assert pygame.image.tobytes(screen().subsurface(BOARD), "RGB") == \
+        pygame.image.tobytes(playing.subsurface(BOARD), "RGB")

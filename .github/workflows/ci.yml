@@ -50,7 +50,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m pytest --cov=go_python --cov-branch
       - run: coverage report --include="*/go_python/board.py" --fail-under=100
-      - run: coverage report --include="*/go_python/go.py" --fail-under=98
+      - run: coverage report --include="*/go_python/go.py" --fail-under=100
       - run: coverage report --include="*/go_python/match.py" --fail-under=95
       - run: coverage report --include="*/go_python/bot.py" --fail-under=95
       - run: coverage report --include="*/go_python/cli.py" --fail-under=90

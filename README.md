@@ -153,9 +153,10 @@ Run `go-python`, or open the downloaded game window.
   Let go of the mouse button to place it. **Pass** passes your turn.
   **Leave match (Esc)** asks once to make sure, then press Esc or click it
   again to leave. If a click does nothing, a note on the right says why.
-- **Game over:** the side panel shows the winner and the score. **Play
-  again** starts a new match with the same board and players, and **Menu**
-  goes back.
+- **Game over:** small squares mark owned empty points in each player's
+  colour; shared empty points stay unmarked. The side panel shows the winner
+  and the score. **Play again** starts a new match with the same board and
+  players, and **Menu** goes back.
 
 ### In the terminal
 
