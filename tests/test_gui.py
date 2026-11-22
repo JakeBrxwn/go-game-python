@@ -14,7 +14,7 @@ import pytest
 from go_python import __version__, gui
 from go_python.gui import (BOARD, GoGUI, Screen, center, point_at, points,
                            star_points, summary)
-from go_python.match import EndReason, GameConfig, MatchResult, MatchState
+from go_python.match import EndReason, GameConfig, Match, MatchResult, MatchState
 
 Color = tuple[int, int, int]
 # The shipped timings, read before the fixture below sets them to 0
@@ -1759,3 +1759,114 @@ def test_no_click_or_key_crashes_any_screen(
         window.frame()
         seen.add(window.screen)
     assert seen == set(Screen)
+
+
+@pytest.fixture
+def heard(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    cues: list[str] = []
+    monkeypatch.setattr(gui.SoundBank, "play", lambda self, cue: cues.append(cue))
+    return cues
+
+
+@pytest.mark.parametrize(("seats", "capture", "result"), [
+    (("human", "random"), "capture", "win"),
+    (("random", "human"), "loss", "defeat"),
+    (("random", "random"), "capture", "win"),
+    (("human", "human"), "capture", "win"),
+])
+def test_corner_capture_and_result_sounds(
+        seats: tuple[str, str], capture: str, result: str, heard: list[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Black captures White's corner stone, then both pass. Each accepted
+    action gets the cue heard from these seats, even after another frame."""
+    moves = [(0, 1), (0, 0), (1, 0), None, None]
+    for_bot = iter(move for i, move in enumerate(moves)
+                   if seats[i % 2] == "random")
+    monkeypatch.setattr("go_python.bot.Random.move",
+                        lambda self, game: next(for_bot))
+    window = GoGUI(GameConfig(6, False, seats))
+    for i, point in enumerate(moves):
+        if seats[i % 2] == "random":
+            monkeypatch.setattr(gui, "BOT_DELAY_MS", 0)
+            window.frame()
+        else:
+            monkeypatch.setattr(gui, "BOT_DELAY_MS", 10 ** 6)
+            if point is None:
+                press(window, "Pass")
+            else:
+                click(window, spot(window, point))
+    window.frame()
+    assert window.screen is Screen.GAME_OVER
+    assert heard == ["place", "place", capture, result]
+
+
+def test_bot_capturing_another_bot_is_not_a_human_loss(
+        heard: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    bots = iter([(0, 1), (0, 0), (1, 0)])
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: next(bots))
+    window = GoGUI(GameConfig(6, False, ("random", "random", "human")))
+    window.frame()
+    window.frame()
+    press(window, "Pass")  # Black's reply captures White. Red has no stones.
+    assert heard == ["place", "place", "capture"]
+
+
+@pytest.mark.parametrize(("human_point", "winners", "ending"), [
+    (None, (1, 2), ["defeat"]),
+    ((2, 3), (1, 2, 3), ["place"]),
+])
+def test_human_below_or_in_a_shared_first_place(
+        human_point: tuple[int, int] | None, winners: tuple[int, ...],
+        ending: list[str], heard: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    bots = iter([(0, 0), (5, 5), None, None])
+    monkeypatch.setattr("go_python.bot.Random.move", lambda self, game: next(bots))
+    window = GoGUI(GameConfig(6, False, ("random", "random", "human")))
+    window.frame()
+    window.frame()
+    if human_point is None:
+        press(window, "Pass")
+    else:
+        click(window, spot(window, human_point))
+    window.frame()
+    if human_point is not None:
+        press(window, "Pass")
+    assert window.match.result and window.match.result.winners == winners
+    assert heard == ["place", "place", *ending]
+
+
+def test_tie_abort_and_repeated_click_sounds(heard: list[str]) -> None:
+    window = GoGUI(GameConfig(6, False, ("human", "human")))
+    press(window, "Pass")
+    press(window, "Pass")
+    assert window.screen is Screen.GAME_OVER and not heard
+    press(window, "Play again")
+    point = spot(window, (2, 3))
+    click(window, point)
+    click(window, point)
+    leave(window)
+    assert window.screen is Screen.GAME_OVER and heard == ["place"]
+
+
+def test_winning_stone_plays_only_the_result(
+        heard: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Match, "move_limit", property(lambda self: 1))
+    window = GoGUI(GameConfig(6, False, ("human", "human")))
+    click(window, spot(window, (2, 2)))
+    assert window.screen is Screen.GAME_OVER and heard == ["win"]
+
+
+@pytest.mark.parametrize("driver", ["dummy", "no-such-driver"])
+def test_audio_device_is_optional_at_the_board(
+        driver: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    pygame.mixer.quit()
+    monkeypatch.setenv("SDL_AUDIODRIVER", driver)
+    window = GoGUI(GameConfig(6, False, ("human", "human")))
+    click(window, spot(window, (3, 2)))
+    assert window.match.game.piece_at((3, 2)) == 1
+    if driver == "dummy":
+        press(window, "Pass")
+        press(window, "Pass")
+        assert window.screen is Screen.GAME_OVER
+        assert pygame.mixer.get_busy()
+    else:
+        assert pygame.mixer.get_init() is None
