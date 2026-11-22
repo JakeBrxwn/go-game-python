@@ -13,6 +13,11 @@ desktop app.
 
 - A game window with a menu, a setup screen, and each player's score as
   the game goes.
+- Original synthesized sound in the window. A wooden tap marks a stone,
+  a high bell marks a capture, and a lower descending bell marks the loss
+  of your stones. A horn phrase celebrates a win and soft drums mark defeat.
+  With several humans or while watching bots, everyone hears the capture
+  and winner cues. The window also works without an audio device.
 - A terminal game, where you type moves like `D4`. It is a separate,
   lighter app that never loads the window code.
 - 2 to 4 players, each one a person, a random bot or a smart bot.
