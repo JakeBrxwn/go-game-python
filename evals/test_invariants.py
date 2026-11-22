@@ -78,7 +78,8 @@ def groups_have_liberties(grid: GridType) -> bool:
             seen |= group
     return True
 
-def area_scores(grid: GridType, players: int) -> dict[int, int]:
+def area_scores_and_owners(grid: GridType, players: int) \
+        -> tuple[dict[int, int], dict[tuple[int, int], int]]:
     """
     Scores a board by area: each player's stones, plus every empty region
     that only that player's stones border.
@@ -87,9 +88,10 @@ def area_scores(grid: GridType, players: int) -> dict[int, int]:
         grid: The board as a list of lists
         players: The number of players
 
-    Returns: Each player's score
+    Returns: Each player's score and the owners of empty points
     """
     scores = dict.fromkeys(range(1, players + 1), 0)
+    owners: dict[tuple[int, int], int] = {}
     seen: set[tuple[int, int]] = set()
     for row in range(len(grid)):
         for col in range(len(grid)):
@@ -100,8 +102,11 @@ def area_scores(grid: GridType, players: int) -> dict[int, int]:
                 region, border = group_of(grid, row, col)
                 seen |= region
                 if len(border) == 1:
-                    scores[border.pop()] += len(region)  # type: ignore[index]
-    return scores
+                    owner = border.pop()
+                    assert owner is not None
+                    scores[owner] += len(region)
+                    owners.update(dict.fromkeys(region, owner))
+    return scores, owners
 
 def board_after(grid: GridType, row: int, col: int,
                 player: int) -> GridType | None:
@@ -174,12 +179,15 @@ def test_invariants_hold_every_move(players: int, superko: bool) -> None:
             assert grid == board_after(before, *move, turn), seed
             assert go.turn == turn % players + 1
             assert groups_have_liberties(grid), seed
-            assert go.scores() == area_scores(grid, players), seed
+            scores, owners = area_scores_and_owners(grid, players)
+            assert go.scores() == scores, seed
+            assert go.owners() == owners, seed
 
         for _ in range(players):
             go.pass_turn()
 
-        scores = area_scores(go.grid, players)
+        scores, owners = area_scores_and_owners(go.grid, players)
+        assert go.owners() == owners
         assert go.done
         assert go.available_moves == []
         assert go.scores() == scores
@@ -248,3 +256,22 @@ def test_repeats_are_refused(players: int, superko: bool) -> None:
 
     print(f"\nrepeats, {players} players, superko={superko}: {bans} bans")
     assert bans >= MIN_BANS
+
+
+@pytest.mark.parametrize("players", [1, 2, 3, 4, 8])
+def test_loaded_board_ownership_agrees_with_oracle(players: int) -> None:
+    """Check independent dense, sparse, empty and full board scenarios."""
+    checked = 0
+    for seed in range(100):
+        rng = random.Random(5000 + seed)
+        size = rng.choice((1, 3, 6, 9, 19, 30))
+        density = rng.choice((0, 0.1, 0.5, 0.9, 1))
+        grid = [[rng.randint(1, players) if rng.random() < density else None
+                 for _ in range(size)] for _ in range(size)]
+        go = Go(size, players)
+        go.load_game(1, grid)
+        scores, owners = area_scores_and_owners(grid, players)
+        assert go.owners() == owners, (players, seed)
+        assert go.scores() == scores, (players, seed)
+        checked += size * size
+    print(f"\nownership oracle, {players} players: {checked} points, 0 disagreements")

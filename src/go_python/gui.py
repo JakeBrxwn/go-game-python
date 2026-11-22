@@ -890,6 +890,13 @@ class GoGUI:
                 if player is not None:
                     self._draw_stone(center(BOARD, config.size, (r, c)),
                                      radius, player)
+        if self.screen is Screen.GAME_OVER:
+            side = max(4, round(radius * 0.5))
+            square = pygame.Rect(0, 0, side, side)
+            for point, owner in game.owners().items():
+                square.center = tuple(round(v) for v in center(BOARD, config.size,
+                                                             point))
+                pygame.draw.rect(self._surface, STONES[owner - 1], square)
         if self._last is not None:
             # A dark ring on White's stone, a light ring on the others
             mark = GRID if game.piece_at(self._last) == 2 else CARD

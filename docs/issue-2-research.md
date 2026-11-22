@@ -1,0 +1,30 @@
+# Issue 2: final-board territory markers
+
+Reference: [issue #2](https://github.com/JakeBrxwn/go-game-python/issues/2), baseline `7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d`; user selected compact solid squares. This rubric was frozen before implementation. This is deterministic board analysis and pixel rendering; no new library or model evaluation is needed.
+
+## Confirmed gaps and existing seams
+
+- No `Go.owners()` exists. `scores()` already discovers each connected empty region with `_find_contiguous`, awards it only when its border contains one player, then discards its coordinates. Extract that ownership result once and count it from `scores()`; preserve stone scoring. Sources: [region traversal](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/src/go_python/go.py#L200-L240), [scoring](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/src/go_python/go.py#L392-L415).
+- `_draw_match()` draws the board and stones for both active and finished matches, but never territory. Add final-screen markers there using existing `center()`, `BOARD` and `STONES`; no new drawing layer is necessary. Sources: [coordinates](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/src/go_python/gui.py#L137-L153), [match renderer](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/src/go_python/gui.py#L857-L889).
+- Tests already have drawn-board loading, shared territory with three players, territory for player four, dummy SDL windows and actual pixel reads. Extend those conventions. Sources: [loaded boards](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/tests/test_go.py#L838-L850), [multiplayer scores](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/tests/test_go.py#L902-L912), [SDL fixture](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/tests/test_gui.py#L24-L40), [pixel helpers](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/tests/test_gui.py#L152-L204).
+- Independent deterministic evaluation already recomputes area from board contents. Extend it to check ownership on independent scenarios instead of creating another framework. Source: [invariant oracle](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/evals/test_invariants.py#L88-L112).
+- CI currently permits `go.py` coverage of 98%, weaker than this issue's 100% requirement. Raise this one gate to 100% and retain branch coverage. Source: [coverage gates](https://github.com/JakeBrxwn/go-game-python/blob/7d9d3117dc1ecd7148bdd7586178ffbe3ef97f8d/.github/workflows/ci.yml#L51-L59).
+
+## Named analog
+
+Sabaki's territory rendering is the reference for showing ownership on the board separately from stones: its scoring/estimator modes feed `areaMap` into `paintMap`, which is passed to the board renderer independently of stone and marker maps. Verified by fetching pinned primary source over HTTPS: [MainView.js](https://github.com/SabakiHQ/Sabaki/blob/d451324de9353cbb96ccee0cd3b6e6137a48dfaa/src/components/MainView.js#L113-L153), [Goban.js](https://github.com/SabakiHQ/Sabaki/blob/d451324de9353cbb96ccee0cd3b6e6137a48dfaa/src/components/Goban.js#L487-L500). This informs the separation of ownership from stones; the requested solid-square appearance comes from the user's choice, not a claim of visual parity with Sabaki.
+
+## Frozen acceptance rubric
+
+1. `owners()` returns a fresh `dict[tuple[int, int], int]` containing exactly owned empty points. Each orthogonally connected empty region belongs to the sole distinct player bordering it. Regions with zero or multiple bordering players are absent; stones are always absent. Board edges do not count as players. Reads leave game state unchanged, both before and after game over.
+2. `scores()` uses `owners()` as its only territory source and returns each player's stone count plus that player's owned-point count, including zero-score players. Existing scoring behavior and all existing callers continue to work.
+3. On `Screen.GAME_OVER`, every owned empty point has one compact, filled square centered on its intersection in `STONES[owner - 1]`. Its dimensions scale with board spacing and remain visibly smaller than a stone. Neutral points and occupied points get no square. Screens during play and after restarting have no territory markers.
+4. Loaded-board tests assert exact ownership maps and scores for empty/full boards, one-owner edge regions, connected multi-point regions, disconnected regions, shared/dame regions, and three/four players, including colours three and four. Independent evaluation covers ownership beyond the unit-test fixtures.
+5. Real-surface pixel tests check all four colours, square interior and a corner away from grid lines, wood outside the compact square, untouched neutral/occupied points, absence during play/restart, and unchanged game state after drawing. Compare all supported board sizes for proportional fit.
+6. Full repository tests, existing deterministic evals, lint and types pass. `go.py` retains 100% statement and branch coverage, and CI enforces 100%. A separate cold critic checks the final diff against this rubric and the baseline.
+
+## Scope and risks
+
+Reach: `go.py`, `gui.py`, their existing tests, existing invariant evals, and the `go.py` CI gate. Scoring feeds results and bots, so preserving exact totals matters; drawing must not mutate or finish a game. No persistence or destructive operation is involved. Keep existing layout, palette and screen lifecycle; omit live estimates, dead-stone adjudication, new controls, dependencies and new abstractions.
+
+Evidence: findings above come from baseline source reads and the linked primary sources. This research note does not claim implementation checks have passed; the shipping run must record their results separately.

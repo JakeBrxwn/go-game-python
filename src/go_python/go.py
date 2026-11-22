@@ -389,29 +389,36 @@ class Go:
 
         self._increment_turn()
 
-    def scores(self) -> dict[int, int]:
+    def owners(self) -> dict[tuple[int, int], int]:
         """
-        Computes the current score for each player
-        (the number of intersections in their area)
-
-        Returns: Dictionary mapping player numbers to scores
+        Maps each empty point bordered by exactly one player to that player.
+        Shared and unbordered regions have no owner. Returns a fresh mapping.
         """
-
-        scores = {i: 0 for i in range(1, self._players + 1)}
+        owners: dict[tuple[int, int], int] = {}
         visited_empty: set[tuple[int, int]] = set()
-
         for r in range(self._side):
             for c in range(self._side):
-                value = self._grid.get(r, c)
-                if value is None and (r, c) not in visited_empty:
+                if self._grid.get(r, c) is None and (r, c) not in visited_empty:
                     empty_group, border_values = self._find_contiguous(r, c)
                     visited_empty |= empty_group
                     if len(border_values) == 1:
                         owner = cast(int, border_values.pop())
-                        scores[owner] += len(empty_group)
-                elif value is not None:
-                    scores[value] += 1
+                        owners.update(dict.fromkeys(empty_group, owner))
+        return owners
 
+    def scores(self) -> dict[int, int]:
+        """
+        Computes each player's area: stones plus their owned empty points.
+
+        Returns: Dictionary mapping player numbers to scores
+        """
+        scores = {i: 0 for i in range(1, self._players + 1)}
+        for row in self._grid.grid:
+            for value in row:
+                if value is not None:
+                    scores[value] += 1
+        for owner in self.owners().values():
+            scores[owner] += 1
         return scores
 
     def load_game(self, turn: int,
