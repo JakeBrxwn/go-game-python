@@ -18,6 +18,8 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame  # noqa: E402
 import pygame.freetype  # noqa: E402
 
+from go_python.audio import SoundBank  # noqa: E402
+
 #
 # Layout, colours and timing
 #
@@ -236,9 +238,7 @@ class GoGUI:
 
     def __init__(self, config: GameConfig | None = None) -> None:
         """
-        Constructor. Opens the window without sound, so a missing audio
-        device never matters, and with the font bundled with pygame, so it
-        looks the same on every machine.
+        Opens the window with optional audio and the font bundled with pygame.
 
         Args:
             config: The match to start at once, or None to open the menu
@@ -248,6 +248,7 @@ class GoGUI:
         pygame.display.set_caption("Go Python")
         self._surface = pygame.display.set_mode((WIDTH, HEIGHT))
         self._clock = pygame.time.Clock()
+        self._sounds = SoundBank()
         # Kerning stays off: freetype's kerning spaces this font unevenly
         self._fonts = {}
         for size in (15, 18, 21, 25, 38, 66):
@@ -497,6 +498,10 @@ class GoGUI:
         """
         self.config = config
         self.match = Match(config)
+        self._sounds.stop()
+        self._board_before = self.match.game.frozengrid[2]
+        self._listener = (config.seats.index("human") + 1
+                          if config.seats.count("human") == 1 else None)
         if "human" in config.seats:
             self._last_game = config
         self._last = None
@@ -540,14 +545,30 @@ class GoGUI:
             player: Who moved
             pos: Where they played, or None for a pass
         """
+        cue = None
         if pos is None:
             self._passed |= {player}
         else:
             self._passed = frozenset()
             self._last = pos
+            board = self.match.game.frozengrid[2]
+            removed = {old for old, new in zip(self._board_before, board, strict=True)
+                       if old is not None and new is None}
+            self._board_before = board
+            cue = "place"
+            if removed:
+                cue = "loss" if self._listener in removed else "capture"
         self._last_ms = pygame.time.get_ticks()
-        if self.match.state is MatchState.FINISHED:
+        result = self.match.result
+        if result is not None:
             self._go(Screen.GAME_OVER)
+            if (result.winners and self._listener is not None
+                    and self._listener not in result.winners):
+                cue = "defeat"
+            elif len(result.winners) == 1:
+                cue = "win"
+        if cue is not None:
+            self._sounds.play(cue)
 
     def _leave(self) -> None:
         """
