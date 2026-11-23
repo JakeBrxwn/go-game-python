@@ -1,9 +1,15 @@
 # Go Python
 
-Play the board game Go in a window or in a terminal: against a friend,
-against a bot, or watch bots play each other.
+Place stones on the intersections of the board. Capture a group by filling
+its last adjacent empty point. When everyone passes, whoever controls the
+most area wins.
 
-![The game window mid-match: a 13 x 13 board, with each player's area beside it](https://github.com/JakeBrxwn/go-game-python/releases/latest/download/go-python-screenshot.png)
+Play in a window or a terminal with 2 to 4 players. Share a board with
+friends, take on the smart bot, or watch the bots play each other.
+
+![Black to play against the smart bot on a 13×13 board. Black has 6 points of area and White has 8.](docs/mid-game-gui.png)
+
+[Download and run](#download-and-run) · [How to play](#how-to-play)
 
 Go Python started as a college project from when I first began my journey
 as an engineer over six years ago, and this fork gives it new life as a
@@ -142,9 +148,11 @@ pipx install --python python3.14 go_python-0.1.0-py3-none-any.whl
 
 ### In the window
 
-Run `go-python`, or open the downloaded game window.
+Run `go-python`, or open the downloaded game window. Choose **Play** to set
+up a match or **Watch bots** to spectate.
 
-- **Menu:** Play, Watch bots or Quit.
+![Go Python main menu with Play, Watch bots and Quit beside a four-colour board.](docs/main-menu.png)
+
 - **Setup:** pick the board size (− and +, or 9 x 9, 13 x 13 and 19 x 19),
   the ko rule, the number of players, and who sits in each seat: Human,
   Random bot or Smart bot. Then click **Start game**, or **Start watching**
@@ -162,6 +170,8 @@ Run `go-python`, or open the downloaded game window.
 
 Run `go-python-tui`, or open the downloaded terminal game. It asks
 questions, and Enter keeps the answer in brackets.
+
+![Terminal board after Black plays D4 and White replies at B13. The prompt asks for Black’s next move.](docs/tui-mid-game.png)
 
 - **Menu:** type `1` to play, `2` to watch bots, or `3` to quit.
 - **Setup:** the board size, the ko rule (`simple` or `superko`), then a
@@ -312,8 +322,8 @@ both frontends play by the same rules, and bots work the same in each.
 3. `.github/workflows/release.yml` checks that the tag is `v` followed by
    the version in the code, and is on `main`. Then it runs the whole CI,
    which builds and smoke-tests both apps on each OS. Only then does it
-   publish a GitHub Release with the six apps, the wheel, the sdist, the
-   screenshot above, `THIRD_PARTY_LICENSES.txt`, the source of the LGPL
+   publish a GitHub Release with the six apps, the wheel, the sdist, a
+   generated game screenshot, `THIRD_PARTY_LICENSES.txt`, the source of the LGPL
    parts the window apps bundle, and `SHA256SUMS`.
 
 For a pre-release, set a version like `0.1.0rc1` and push the tag
